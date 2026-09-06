@@ -6,7 +6,7 @@ OpenSearch 2.12), 2026-08-25. `composer.json` now requires PHP >=8.4 <8.6 and ta
 combination yet; treat it as historical evidence for the 2.4.7/PHP 8.2 pass, not a current
 verification. Re-running it against 2.4.8 or 2.4.9 is tracked in ROADMAP.md.
 
-## 0. Prerequisites (as last run)
+## 0. Prerequisites
 
 - [x] PHP 8.2, Composer 2.x, MySQL 8.0, OpenSearch 2.12
 - [x] Magento Open Source 2.4.7 installed

@@ -7,610 +7,245 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- **Campaign calendar view.** New read-only admin page (Dashboard → "Campaign Calendar" nav card,
-  `admin/ordo/campaign/calendar`) listing every campaign with its trigger(s) and its action
-  chain's timing in one place — the "offset" shown per action step is a cumulative running sum
-  of `delay_minutes`, not each step's raw value, since `CampaignDispatcher::runActionsFrom()`
-  treats each action's own `delay_minutes` as the wait after the PREVIOUS action, not from the
-  trigger firing. Pure UI on top of `ordo_campaign`/`ordo_campaign_trigger`/`ordo_campaign_action`
-  data already modeled — no new entities, same server-rendered ViewModel pattern as the
-  dashboard itself (`Block/Adminhtml/Campaign/Calendar/CampaignCalendarViewModel.php`).
-- **Dedicated admin fields for the 6 RFM-based campaign conditions.** `recency_days_at_most`,
-  `order_frequency_at_least`, `monetary_total_at_least`, and the 3 percentile variants
-  previously had no field-mapping rule in the campaign edit form's conditions switcher — the
-  raw "Params (JSON)" textarea was the only way to configure them, unlike every other condition
-  type, which has had a labeled input since the Drawflow canvas shipped (see this file's
-  "Editable Drawflow scenario canvas" entry). Added `days`/`count`/`percentile` fields plus a
-  switcher rule per type (`monetary_total_at_least` reuses the existing `amount` field, same
-  param key and "minimum total" shape as `order_total_gte`; the 3 percentile conditions share
-  one `percentile` field, same reuse pattern as `tag`/`visitor_tag`).
+- Campaign calendar view (`admin/ordo/campaign/calendar`) — every campaign's trigger(s) and action-chain
+  timing (cumulative offset, not raw per-step `delay_minutes`) in one place.
+- Dedicated admin fields for the 6 RFM-based campaign conditions (`days`/`count`/`percentile`), replacing the
+  raw "Params (JSON)" fallback.
+- MFTF coverage for the reminder/alert crons (`lifecycle` group): `TagInactiveCustomers`/`SendWinBackEmails`,
+  `SendCreditLimitAlerts`, `SendSalesRepDigest`.
+- `Test/Integration/CampaignDispatchLoadTest.php` — load/soak test for campaign dispatch (200 campaigns/trigger,
+  600-row scheduled-action backlog).
+- Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) over `ordo_message_log`.
+- E.164 validation for `ordo_sms_phone` before a `send_sms` action spends a Twilio API call.
 
 ### Fixed
 
-- **`SendSalesRepDigest`'s email always rendered an empty customer list.** The subject line
-  (`{{var customer_count}}`) always showed the right number, but the `<ul>` body
-  (`{{for name in customer_names}}<li>{{var name}}</li>{{/for}}`) was always empty in every real
-  digest ever sent. Root cause: Magento's own `{{for}}` email template directive
-  (`Magento\Framework\Filter\DirectiveProcessor\ForDirective::getLoopReplacementText()`) silently
-  `continue`s past any loop item that isn't already an array or `DataObject` — `customer_names`
-  was a plain `string[]`, so every item was skipped. Caught by running
-  `AdminSendSalesRepDigestTest` (new, see "Added" below) against a real install and a real
-  MailHog inbox; no unit test mocking `TransportBuilder`/`EmailSender` could have caught this,
-  since the bug is in what the *real* template engine does with the data shape, not in this
-  class's own logic. Fixed by changing `groupInactiveCustomersByRep()` to build
-  `array{name: string}[]` (`{{var name.name}}` in the template) instead of a plain `string[]`.
-- **`setup:install`/`setup:upgrade` crashed on this module's data patches.** The
-  `AbstractCustomerAttributePatch` base class (see "Changed" below) lived in `Setup/Patch/Data/`
-  alongside its concrete subclasses — harmless for unit tests, but Magento's `Setup\Patch\PatchReader`
-  globs every `*.php` file directly under that folder and treats each one as a real patch class,
-  with no check for `abstract`. A real install therefore failed with `call_user_func(): Argument #1
-  ($callback) must be a valid callback, cannot call abstract method
-  AbstractCustomerAttributePatch::getDependencies()`. Caught by actually running
-  `Test/Integration/CampaignDispatchLoadTest.php` (new, see "Added") against a real Magento install
-  — no unit test exercises `PatchReader`, so this had been silently broken since the dedup change
-  below. Fixed by moving the base class to `Setup/Patch/AbstractCustomerAttributePatch.php`, one
-  directory above where patch discovery looks; the four concrete patches (`AddSalesRepAttributes`,
-  `AddCustomerSpendLimitAttributes`, `AddCustomerSmsPhoneAttribute`, `AddCustomerCreditLimitAttribute`)
-  are otherwise unchanged.
-
-### Added
-
-- **MFTF coverage for the reminder/alert crons.** New `lifecycle` MFTF group:
-  `AdminTagInactiveCustomersAndWinBackEmailTest` (covers `Cron\TagInactiveCustomers` and
-  `Cron\SendWinBackEmails` together, since the latter depends on the tag the former writes),
-  `AdminSendCreditLimitAlertTest`, `AdminSendSalesRepDigestTest`. All four crons only fire once a
-  day (or, for the sales rep digest, once a week) at a fixed time — no CI run can wait that out —
-  so `Test/Mftf/Helper/CronScheduleHelper.php` inserts a `cron_schedule` row directly
-  (`status='pending'`, `scheduled_at`=now) to force the next `cron:run` to execute a specific job
-  regardless of its own `etc/crontab.xml` schedule; confirmed for real against a live Magento
-  install that the forced row reaches `status=success`, the same technique
-  `AdminCampaignDelayedActionTest` already used against this module's own scheduled-action table.
-- **Load/soak test for the campaign dispatch engine.** `Test/Integration/CampaignDispatchLoadTest.php`
-  puts a concrete number on Phase 7's dispatch performance work (ROADMAP.md): 200 campaigns matched
-  to one trigger dispatch in ~1.05s (~191 campaigns/sec, proving the batched condition/action
-  loading, not one query per campaign, still holds at scale), and a 600-row
-  `ordo_campaign_scheduled_action` backlog (deliberately over `RunScheduledCampaignActions`'s
-  500-row batch size) is fully claimed and resumed in ~1.36s (~440 rows/sec) across two batches
-  within one cron tick.
+- `SendSalesRepDigest`'s email always rendered an empty customer list — Magento's `{{for}}` directive silently
+  skips non-array loop items; `customer_names` was a plain `string[]`. Fixed by using `array{name: string}[]`.
+- `setup:install`/`setup:upgrade` crashed on this module's data patches — `AbstractCustomerAttributePatch`
+  lived alongside its concrete subclasses in `Setup/Patch/Data/`, and Magento's `PatchReader` globs every file
+  there as a patch class with no abstract check. Moved to `Setup/Patch/AbstractCustomerAttributePatch.php`.
+- Campaigns grid still showed the deprecated single `trigger_event` column (empty since the multi-trigger
+  migration) — now joins `ordo_campaign_trigger` and shows every trigger, comma-separated.
 
 ### Changed
 
-- **Deduplicated the `*PercentileAtLeast` campaign conditions and the customer-attribute Setup
-  patches**, per SonarCloud's duplication report. New shared base classes
-  `Model/Campaign/Condition/AbstractPercentileAtLeast.php` and
-  `Setup/Patch/AbstractCustomerAttributePatch.php` — no behavior change, existing tests pass
-  unmodified.
-- **Extracted `Model/Cron/CronRunLogger.php`** for the `Ordo_Automation: failed to ...: %s` /
-  `Ordo_Automation: ... .` log-line shape duplicated across the reminder/alert crons
-  (`SendWinBackEmails`, `SendOfferExpiryReminders`, `SendReorderReminders`, `SendCreditLimitAlerts`,
-  `SendSalesRepDigest`) — the same duplication SonarCloud had flagged on the
-  `buildCustomerMap()`/email-send shape those crons already share via `CustomerMapBuilder` and
-  `ReminderEmailSender`.
-- **Adopted `CronRunLogger` in the remaining 10 crons** that still had the same log-line shape
-  inline (`RecomputeRfmScores`, `RefreshRssContentBlocks`, `CalculateReorderCycle`,
-  `RunScheduledCampaignActions`, `SendAbandonedCartReminders`, `EscalateStalePendingApprovals`,
-  `TagInactiveCustomers`, `PruneVisitorEvents`, `PrunePendingPopups`, `ExpireOverdueOffers`) —
-  no behavior change beyond the log text itself becoming consistent with the reminder/alert
-  family's wording (`RunScheduledCampaignActions` keeps its own `LoggerInterface` alongside
-  `CronRunLogger` for its batch-cap warning, a distinct log shape `CronRunLogger` doesn't cover).
-
-### Added
-
-- **Message Log admin grid.** Read-only grid at Marketing → Ordo Automation → Message Log
-  (`Controller/Adminhtml/MessageLog/Index.php`, `ordo_messagelog_listing.xml`) over
-  `ordo_message_log` — previously the only way to check whether a `send_sms` campaign action
-  actually delivered was to query the database directly. Reuses the `Ordo_Automation::campaigns`
-  ACL resource rather than adding a new permission, same reasoning as the RFM report.
-- **E.164 validation for `ordo_sms_phone`.** `SendSms::execute()` now rejects a malformed phone
-  number before spending a Twilio API call (logged and recorded as `failed`, same as any other
-  send failure) instead of only finding out from a Twilio error 21211 at send time.
-
-- **Multi-trigger campaigns.** A campaign's trigger event moved from a single
-  `ordo_campaign.trigger_event` column to its own child entity,
-  `ordo_campaign_trigger` (`CampaignTriggerInterface`), matching the existing
-  `CampaignCondition`/`CampaignAction` pattern — a campaign can now fire on more than one trigger event (e.g. both
-  `customer_registered` and
-  `tag_added` running the same conditions/actions chain). New REST resource:
-  `/V1/ordo/campaign-triggers` (full CRUD, see `API.md`). The old column is kept, nullable and unread by any code path,
-  purely so
-  `Setup\Patch\Data\MigrateCampaignTriggerToChildTable` has something to migrate from on upgrade — declarative schema
-  applies the whole
-  `db_schema.xml` diff before any data patch runs, so dropping the column in the same release would have destroyed the
-  data the patch needs to read.
-- **Editable Drawflow scenario canvas** on the campaign edit page (`ordo/campaign/edit`) — a visual, drag-and-drop view
-  of a campaign's trigger (s) → conditions → actions chain, built on
-  [Drawflow](https://github.com/jerosoler/Drawflow) (MIT, vendored). Every condition/action type with a dedicated field
-  mapping renders labeled inputs instead of a raw JSON textarea — someone who doesn't know what JSON is should never
-  have to see one to configure a condition/action that has a known shape. "Apply flow to form & Save" validates the
-  graph (every node reachable from a trigger, at least one action, no dead-end condition nodes) before writing back into
-  the same `triggers`/`conditions`/`actions`
-  provider data `Save.php` already accepts and calling the form's own native save — the canvas never talks to the
-  backend directly.
-- **Real palette drag-and-drop on the Flow canvas**, replacing the earlier
-  "+ Trigger / + Condition / + Action" click buttons. A sidebar lists every registered trigger/condition/action type as
-  a draggable chip; dropping one onto the canvas creates a node of that exact type at the drop point
-  (`toCanvasPosition()` accounts for Drawflow's own zoom/pan so the node actually lands under the cursor, not wherever
-  the canvas happens to be scrolled to), pre-selected in its type dropdown rather than defaulting to whichever option
-  sorts first.
-- **Product recommendations.** `add_product_recommendations` campaign action (`Model/Recommendation/ProductRecommender`
-  + `ProductRecommendationRenderer`) computes "customers who bought X also bought Y" co-purchase affinity via raw SQL
-  against `sales_order`/`sales_order_item`, falling back to store-wide best-sellers when the signal is thin, and
-  renders an inline-styled HTML block a `send_email` action later in the same campaign can embed via
-  `{{var recommended_products_html|raw}}` — wired into the shipped `ordo_campaign_generic` template.
-- **Lead scoring.** Demographic-attribute scoring rules (`ordo_score_rule`, admin CRUD, `ScoreRuleEvaluator` matching
-  against core or EAV customer attributes), applied on `customer_save_after` as a delta against the customer's tracked
-  demographic contribution. A `score_threshold_crossed` campaign trigger fires the instant a crossing happens, instead
-  of only being read opportunistically by whatever other trigger already ran. The `attribute_code` field is a
-  searchable dropdown (`Magento_Ui/js/form/element/ui-select`, `filterOptions: true`) sourced from
-  `Model/Config/Source/CustomerAttribute` (every visible `customer`-entity EAV attribute, core columns included, since
-  Magento's customer entity is itself fully EAV-backed) — not a free-text field an admin has to already know the exact
-  attribute code for.
-- **Popup targeting.** Frequency capping and finer-grained triggers: `element_clicked` is a tracked event type (theme
-  calls `window.ordoTrack('element_clicked', 'key')` from its own click handler, same integration pattern as
-  `product_view`/`category_view`), aggregated with its own 1-click-by-default threshold
-  (`Config::getTrackingClickThreshold()`) instead of the 3-view default, flowing through the same visitor-tag →
-  campaign-trigger pipeline every other tracked signal already uses.
-- **Dynamic content blocks.** `ordo_content_block` admin CRUD (`Model/ContentBlock` + `ContentBlockRepository`)
-  authors reusable snippet/RSS/product-feed blocks, resolved by a new `add_dynamic_content` campaign action
-  (`Model/Campaign/Action/AddDynamicContent`) via `Model/ContentBlock/ProducerPool` (`snippet` → raw admin HTML via a
-  WYSIWYG editor — `Magento_Ui`'s own `Wysiwyg` form element, no `Magento_Cms` dependency needed; `rss` → cache-only
-  read of `ordo_content_block_rss_cache`; `product_feed` → `CategoryProductLister`/`RuleProductLister` feeding the
-  existing `ProductRecommendationRenderer`), embedded into `ordo_campaign_generic` via
-  `{{var dynamic_content_html|raw}}` alongside `send_email`. RSS feeds are never fetched at dispatch time — a
-  30-minute `Cron\RefreshRssContentBlocks` job (plus an admin "Refresh now" AJAX action) pulls feeds through
-  `RssFetcher` (bounded HTTP GET, SSRF-hardened against private/reserved addresses, capped response size, capped item
-  count, per-block failure isolation) and only the cache table is read on the request path.
-- **Segments.** Bulk actions on a segment's current members (add tag / add points, resolved via
-  `SegmentMemberResolver` and applied async), a standalone RFM report across the whole customer base
-  (`ordo/rfm/index`, a SQL-paged grid with per-metric quintiles and an "RFM Score" column, e.g. "555" = best on all
-  three), percentile-based RFM conditions (`recency_percentile_at_least` / `order_frequency_percentile_at_least` /
-  `monetary_percentile_at_least`, alongside the original absolute thresholds), and `Cron\RecomputeRfmScores`
-  precomputing percentiles/quintiles nightly into `ordo_customer_rfm_score` so campaign dispatch reads one table
-  instead of ranking the whole customer base live.
-- **Full i18n coverage.** `i18n/en_US.csv`/`pl_PL.csv` previously covered only 29 `system.xml` config strings; rebuilt
-  to the module's full 323-phrase surface (campaign builder, content blocks, score rules, RFM report, admin
-  grids/messages) via `bin/magento i18n:collect-phrases`, and 10 new locale dictionaries added
-  (`de_DE`/`fr_FR`/`es_ES`/`it_IT`/`pt_BR`/`zh_Hans_CN`/`ja_JP`/`ru_RU`/`uk_UA`/`nl_NL`). Machine-translated first
-  pass, not yet human-reviewed per locale.
-- **Multichannel recovery: SMS campaign action (Twilio).** New `send_sms` campaign action
-  (`Model/Campaign/Action/SendSms` + `Model/Sms/TwilioSmsSender`, built on the official `twilio/sdk` package) —
-  usable on any campaign, including `cart_abandoned`/win-back, alongside or instead of `send_email`. Phone number
-  resolves via a dedicated `ordo_sms_phone` customer attribute rather than the unreliable core address `telephone`
-  field. Delivery is tracked end to end in a new, deliberately channel-generic `ordo_message_log` table, updated by
-  a signature-verified webhook (`Controller/Sms/StatusCallback.php`, `Twilio\Security\RequestValidator`) that
-  Twilio POSTs status updates to — an invalid/forged `X-Twilio-Signature` is rejected before the request ever
-  touches the database. Recipients who've opted out (Twilio error 21610) are recorded as `status=opted_out`,
-  distinct from a generic delivery failure, and the Flow canvas's SMS message field carries a TCPA/opt-out-notice
-  reminder. `SmsSenderInterface` is the only contract the campaign action depends on, so a non-Twilio provider can
-  be swapped in later without touching `SendSms`.
-
-### Fixed
-
-- **Campaigns grid still showed the deprecated single `trigger_event`
-  column**, which is empty for any campaign saved after the multi-trigger migration.
-  `Model\ResourceModel\Campaign\Grid\Collection` now joins
-  `ordo_campaign_trigger` with a `GROUP_CONCAT` and the grid's "Triggers"
-  column shows every trigger a campaign actually has, comma-separated.
+- Deduplicated the `*PercentileAtLeast` campaign conditions and the customer-attribute Setup patches into shared
+  base classes (`AbstractPercentileAtLeast`, `AbstractCustomerAttributePatch`) — no behavior change.
+- Extracted `Model/Cron/CronRunLogger.php` for the shared per-item-failure/run-summary log shape, adopted across
+  all 15 crons that had it duplicated inline.
 
 ## [1.0.0]
 
-**Every checklist item in `VERIFICATION.md` sections 1–7 now passes against a real, live Magento Open Source 2.4.7
-instance** — including, for the first time, a real order placed through full storefront checkout (login, add to cart,
-real shipping/payment, `QuoteManagement::submit()`), held for approval, approved via the real token link, and released.
+First full pass verified end to end against a real Magento Open Source 2.4.7 instance, including a real order
+placed through storefront checkout, held for approval, approved via the token link, and released.
+
+### Added
+
+- Multi-trigger campaigns — trigger event moved from a single `ordo_campaign.trigger_event` column to its own
+  child entity, `ordo_campaign_trigger` (`CampaignTriggerInterface`); REST: `/V1/ordo/campaign-triggers`.
+- Editable Drawflow scenario canvas on the campaign edit page — visual trigger(s) → conditions → actions graph,
+  drag-and-drop palette, dedicated fields per condition/action type instead of a raw JSON textarea.
+- Product recommendations (`add_product_recommendations` campaign action) — co-purchase affinity via SQL against
+  order history, falling back to store-wide best-sellers.
+- Lead scoring — demographic-attribute scoring rules (`ordo_score_rule`), applied on `customer_save_after`, with
+  a `score_threshold_crossed` campaign trigger.
+- Popup targeting — frequency capping and an `element_clicked` tracked event type.
+- Dynamic content blocks (`ordo_content_block`: snippet/RSS/product-feed), resolved by a new
+  `add_dynamic_content` campaign action.
+- Segments — bulk actions on current members (add tag/points), a standalone RFM report, percentile-based RFM
+  conditions, and `Cron\RecomputeRfmScores` precomputing quintiles nightly.
+- Full i18n coverage — `en_US`/`pl_PL` rebuilt to the module's full string surface; 10 machine-translated locales
+  added (`de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL`).
+- SMS campaign action (Twilio) — `send_sms`, delivery tracked via `ordo_message_log` and a signature-verified
+  status webhook; opted-out recipients recorded distinctly from a generic failure.
 
 ### Fixed
 
-- **`HoldOrderForApproval` recorded `order_id = 0` on every real
-  `ordo_order_approval` row.** Read `$order->getEntityId()` before calling
-  `$this->orderResource->save($order)`, but the entity id is reliably still null at the point this observer runs
-  (mid-way through the order's own save, during `sales_order_place_after`) — the `NOT NULL` column silently coerced it
-  to `0`. The order itself was still held correctly (status changed), so this was invisible without checking the
-  approval table directly — only found once a real order could be placed through full checkout. Fixed by saving the
-  order status first (which is what actually assigns the id in this flow), then building the approval row.
-
-### Verified against real data this pass (see `VERIFICATION.md` for detail)
-
-- A real order placed through full checkout — the two earlier blockers (`AllowedCountryValidationRule` rejecting the
-  address, "No Payment Methods" in the storefront) both turned out to be test-script mistakes (`addData()` needs
-  `country_id`, not `countryId`; `Quote\Payment` needs its
-  `quote` back-reference set explicitly outside a real HTTP request), not Magento or module bugs.
-- `generate_coupon` → `send_email` action chaining, with a real
-  `salesrule_coupon` row minted and the coupon code carried into the email context.
-- The `tag_added` campaign trigger, fired via a real
-  `CustomerTagManager::addTag()` call and the real `ordo_customer_tag_added`
-  event.
-- The approve-link flow: order status flips from `ordo_pending_approval` to the real default `pending`, and the approval
-  row flips to `approved` with a `decided_at` timestamp.
-- `tracker.js` in an actual browser: cookie issuance, automatic `page_view`
-  on load, and manual `window.ordoTrack()` calls all confirmed with real rows in `ordo_visitor_event`.
+- `HoldOrderForApproval` recorded `order_id = 0` on every `ordo_order_approval` row — read
+  `$order->getEntityId()` before the order's own save assigned it. Fixed by reordering the two saves.
 
 ## [0.9.4]
 
 ### Fixed
 
-- **Audited and fixed all 12 instances of the `?: $default` config-getter bug**
-  in `Helper/Config.php` (the same pattern found in `getTrackingRetentionDays()`
-  in 0.9.3, now closed everywhere it appeared): reorder min orders/lead days, abandoned cart delay/max reminders, offer
-  lead days/max self-extensions/ self-extension days, credit limit warning threshold/cooldown days, win-back inactive
-  days, order approval escalation days, tracking view threshold. Extracted a single `intConfig()` helper instead of
-  duplicating the fix 12 times. Verified against the real database: defaults still apply when unset, and explicit low
-  values (including `0`) are honored instead of silently overridden.
+- Audited and fixed all 12 instances of a `?: $default` config-getter bug in `Helper/Config.php` that treated an
+  explicit `0` as unset. Extracted a single `intConfig()` helper.
 
 ## [0.9.3]
 
-Phase 5 (on-site tracking) verified for real — two more real bugs found. VERIFICATION.md now has every phase checked off
-against real data except a full checkout order placement (blocked on unrelated Magento-core issues)
-and the tracker.js snippet in an actual browser.
-
 ### Fixed
 
-- **`VisitorEventLogger::attributeVisitorToCustomer()` never actually re-ran aggregation after backfilling a visitor's
-  events on login** — contradicting its own docblock and the README's claim. A customer whose anonymous browsing crossed
-  a tag threshold before they logged in never got tagged until the next scheduled aggregation, if any. One-line fix.
-- **`Config::getTrackingRetentionDays()` treated a deliberate `0` ("don't keep raw events at all") as unset and silently
-  fell back to the 7-day default**, via the same `?: 7` pattern several other getters in this class use. Fixed with an
-  explicit null/empty-string check. Flagged the other `?:`-based getters in `Helper/Config.php` as worth auditing for
-  the same issue — not done yet.
+- `VisitorEventLogger::attributeVisitorToCustomer()` never re-ran aggregation after backfilling a visitor's
+  events on login — a threshold crossed pre-login stayed untagged until the next scheduled run.
+- `Config::getTrackingRetentionDays()` treated `0` ("prune everything") as unset, falling back to the 7-day
+  default.
 
 ## [0.9.2]
 
-Phase 3 (Promotion Builder) verified for real — two real bugs found and fixed along the way, neither catchable by the
-existing mocked unit test.
-
 ### Fixed
 
-- **`etc/di.xml` wired `CheapestItemFree` against the wrong extension point.**
-  `Magento\SalesRule\Model\Validator`'s `calculators` argument doesn't exist in Magento 2.4.x — the real one is
-  `CalculatorFactory`'s `discountRules`
-  argument. Found by actually running a rule with this `simple_action`
-  against a real quote (`ordo_cheapest_item_free is unknown type`).
-- **`QualifyingSetTracker` gave every item in the cart 100% off, not just the cheapest one.**
-  `Quote\Address\Item::getItemId()` — the object real discount collection actually calls `calculate()` with — is
-  reliably `null`; casting that to `(int)` silently produced `0` for every item, making them all match each other. The
-  `quote_item_id` fallback didn't help either (also null at this point in the request). Switched item identity from item
-  id to SKU. Verified against a real 3-item/3-price quote: only the cheapest item discounted, grand total correct;
-  re-verified with items reordered and qty=2 each — still only one unit of the cheapest item discounted.
-- Updated `QualifyingSetTrackerTest` to mock `getSku()` instead of
-  `getItemId()` — the old mock would have hidden this exact bug, since it never modeled the real `Quote\Address\Item` id
-  quirk.
+- `etc/di.xml` wired `CheapestItemFree` against the wrong extension point (`Validator::calculators` doesn't
+  exist in Magento 2.4.x; the real one is `CalculatorFactory::discountRules`).
+- `QualifyingSetTracker` gave every item in the cart 100% off, not just the cheapest — `Quote\Address\Item::
+  getItemId()` is null during real discount collection, and the null cast to `0` made every item match. Switched
+  identity from item id to SKU.
 
 ## [0.9.1]
 
 ### Fixed
 
-- **Real bug, root-caused: every custom customer attribute this module defines (`ordo_credit_limit`,
-  `ordo_order_spend_limit`, `ordo_approval_admin_email`, the three `ordo_sales_rep_*` fields) silently failed to
-  persist.**
-  `Magento\Eav\Setup\EavSetup::addAttribute()` only auto-attaches a new attribute to the entity's attribute set when you
-  pass a `'group'` key (or when `user_defined` is falsy) — every one of this module's setup patches set
-  `'user_defined' => true` without ever passing `'group'`, so the attribute was created but never attached to any
-  attribute set. `AbstractEntity::_collectSaveData()`
-  silently drops any value for an attribute not in the entity's set — no exception, `save()` just no-ops on that field.
-  Fixed by adding
-  `'group' => 'General'` to all 6 attribute definitions across
-  `AddCustomerCreditLimitAttribute.php`, `AddCustomerSpendLimitAttributes.php`,
-  `AddSalesRepAttributes.php`. Verified against the real database: all 6 now round-trip through both the legacy
-  `Customer::save()`/`load()` path and
-  `CustomerRepositoryInterface::getCustomAttribute()`.
-
-### Verified against real data (see `VERIFICATION.md`)
-
-- **Credit limit alert:** real customer at 80% utilization (computed from a real `sales_order.total_due` row) —
-  `SendCreditLimitAlerts` correctly found it and attempted to send; delivery only failed on this sandbox's missing SMTP,
-  handled gracefully.
-- **Order approval:** `HoldOrderForApproval` correctly created a real
-  `ordo_order_approval` row (token + admin email) for an over-limit order.
-- Two attempts at placing a real order through full checkout (both programmatic via `QuoteManagement` and through the
-  real storefront UI) hit pure Magento-core checkout-stack issues unrelated to this module — documented in
-  `VERIFICATION.md` with a recommendation for next time (a fuller devbox, or keep testing trigger logic directly against
-  hand-built objects).
+- Every custom customer attribute this module defines (`ordo_credit_limit`, `ordo_order_spend_limit`,
+  `ordo_approval_admin_email`, the 3 `ordo_sales_rep_*` fields) silently failed to persist — the setup patches
+  set `user_defined => true` without `group`, so `EavSetup::addAttribute()` never attached them to an attribute
+  set, and `AbstractEntity::_collectSaveData()` silently drops values for attributes outside the entity's set.
+  Fixed by adding `'group' => 'General'` to all 6 attribute definitions.
 
 ## [0.9.0]
 
-Per-type condition/action fields, done and verified end-to-end this time — two prior attempts were reverted (see
-0.8.4/0.8.5 entries) because either the backend wiring was missing or the front-end switcher silently did nothing.
-Root-caused both.
-
 ### Added
 
-- Dedicated fields per condition/action type (`tag`, `amount`, `rule_id`,
-  `prefix`, `template`, `message`) in `ordo_campaign_form.xml`, shown/hidden via `<switcherConfig>` on the row's `type`
-  select. `params_json` remains as the fallback for a type without a dedicated field yet.
-- `Save.php::normalizeRowParams()` merges whichever dedicated fields are filled in into the row's `params` before saving
-  (dedicated fields win over a stale/pasted JSON blob on key conflicts).
-- `DataProvider::loadChildRows()` spreads saved `params` back into the row's dedicated fields on edit, not just
-  `params_json`.
+- Dedicated fields per condition/action type (`tag`, `amount`, `rule_id`, `prefix`, `template`, `message`) in
+  `ordo_campaign_form.xml`, shown/hidden via `<switcherConfig>`. `params_json` remains as fallback.
 
 ### Fixed
 
-- **Root cause of the previous session's failed switcherConfig attempt:**
-  `<switcherConfig>` was placed on the *target* fields (`tag`, `amount`)
-  instead of the *controlling* `type` select — a switcher only reacts to its own component's value, so it needs to live
-  on the field whose change should drive the others' visibility, not on the fields being toggled.
-- **`ordo_campaign_form.xml` `<dataSource>` was missing `<submitUrl
-  path="ordo/campaign/save"/>`.** Without it, the Save button posted to the current page's own URL — visibly broken in
-  this session (`.../new/key/
-  ...undefined`), logged only as a DEBUG-level "cannot be accessed with POST method" line. Existed before this session;
-  never triggered because the New/Edit Campaign page could never even render until 0.8.4.
-- **`Save.php` read `$data['conditions']`/`$data['actions']` directly, but the dynamicRows' actual posted structure is
-  double-nested —
-  `conditions[conditions][0][...]`, not `conditions[0][...]`** (the
-  `dynamicRows` component's own `name` matches its `dataScope`). This meant every condition/action row silently failed
-  to save — confirmed via the raw POST body and an empty `ordo_campaign_condition` table after a
-  "successful" save. Fixed by reading `$data['conditions']['conditions']`
-  / `$data['actions']['actions']`. **This bug predates this session** — conditions/actions have likely never actually
-  persisted through the admin form before now.
-- Verified end-to-end against the real database: creating a campaign with a `tag` condition through its dedicated field
-  produces the row
-  `type=tag, params={"tag":"..."}` in `ordo_campaign_condition`, confirming the whole chain (switcher → POST → merge →
-  save) actually works, not just "looks right in the browser."
+- `<switcherConfig>` was on the target fields instead of the controlling `type` select.
+- `ordo_campaign_form.xml`'s `<dataSource>` was missing `<submitUrl path="ordo/campaign/save"/>`.
+- `Save.php` read `$data['conditions']`/`$data['actions']` directly, but the dynamicRows posted structure is
+  double-nested (`conditions[conditions][0][...]`) — conditions/actions never actually persisted before this fix.
 
 ## [0.8.5]
 
 ### Added
 
-- Custom admin dashboard (`ordo/dashboard/index`) — own controller/block/template/CSS, not a UI Component. Shows
-  campaign stats, nav cards to Campaigns/Reorder Cycles/Configuration, and the campaign list. Server-rendered from the
-  same collections the grids already use.
+- Custom admin dashboard (`ordo/dashboard/index`) — server-rendered, not a UI Component.
 
 ### Changed
 
-- `Ordo Automation` admin menu is now a single flat entry pointing straight at the dashboard, instead of a dropdown with
-  separate Campaigns/Reorder Cycles/Configuration items — those are still real, unchanged controllers, just linked as
-  cards from the dashboard now.
-- An initial attempt at this used a fully standalone static dashboard (`dashboard/` — vanilla JS calling the REST API
-  with its own admin-token login) before being replaced with the in-admin version above, which needs no separate
-  auth/CORS handling. Not shipped in this release.
-
-### Roadmap
-
-- Drafted a full visual identity direction (logo/mark, color palette, typography, admin menu icon, GitHub banner) —
-  documented in README, not implemented. Decision pending on scope.
+- Admin menu is now a single flat entry pointing at the dashboard, with Campaigns/Reorder Cycles/Configuration
+  linked as cards from it.
 
 ## [0.8.4]
 
-Closes the "New/Edit Campaign form fields don't render" issue left open at the end of 0.8.3.
-
 ### Fixed
 
-- `Controller/Adminhtml/Campaign/{Index,NewAction,Edit,Delete}.php`,
-  `Controller/Adminhtml/ReorderCycle/Index.php` — none implemented
-  `HttpGetActionInterface`; `Save.php` didn't implement `HttpPostActionInterface`. Magento 2.4's `BackendValidator`
-  silently rejects admin controller actions missing the matching HTTP-method interface — requests never reached
-  `execute()`, logged only as a DEBUG-level "Invalid request received" line easy to miss.
-- `view/adminhtml/ui_component/ordo_campaign_form.xml` — the form's knockout template resolved to
-  `templates/form/default.xhtml`, which binds its content to a `{{name}}.areas` scope. Nothing in this component tree
-  ever creates an
-  `areas` sub-component (that only happens for `<layout>`-declared area structures, which this form doesn't use), so the
-  scope binding waited on a registry key that would never resolve — permanent spinner, no error, no console output,
-  since `registry.get(name, callback)` just never calls back. Fixed by explicitly setting
-  `<item name="template">templates/form/collapsible</item>`, whose template binds to `{{name}}.{{name}}` instead — which
-  matches this form's actual (unremarkable, single-root) component tree shape.
+- Several admin controllers didn't implement `HttpGetActionInterface`/`HttpPostActionInterface` — Magento's
+  `BackendValidator` silently rejected the requests before `execute()` ran.
+- `ordo_campaign_form.xml`'s knockout template resolved to `templates/form/default.xhtml`, which binds to an
+  `areas` scope nothing in this form ever creates — permanent silent hang. Fixed via
+  `templates/form/collapsible`.
 
 ## [0.8.3]
 
-First real run against a live Magento Open Source 2.4.7 instance (Docker, Magento cloned from GitHub — no Adobe
-Marketplace keys needed for `composer install`). Twelve real bugs found and fixed; full detail and current status in
-`VERIFICATION.md`.
+First run against a live Magento Open Source 2.4.7 instance. 12 bugs found and fixed.
 
 ### Fixed
 
-- `Api/CampaignRepositoryInterface.php`, `Api/OfferRepositoryInterface.php` — missing/incomplete `@return` docblocks
+- `Api/CampaignRepositoryInterface.php`, `Api/OfferRepositoryInterface.php` — incomplete `@return` docblocks
   broke the WebAPI reflection generator.
-- `Model/Campaign.php`, `Model/Offer.php` — `setEntityId(int $entityId): self` was parameter-incompatible with
-  `AbstractModel::setEntityId($entityId)` — PHP fatal at class-load time.
-- `Model/CampaignRepository.php`, `Model/OfferRepository.php` — `getList()` was missing the `SearchResultsInterface`
-  return type the interface declares.
-- Three `Block/Adminhtml/Campaign/Edit/*Button.php` classes implemented a nonexistent Magento interface
-  (`Toolbar\ButtonInterface` typo) instead of
-  `ButtonProviderInterface`.
-- `etc/acl.xml` — missing `Magento_Backend::stores_settings` ancestor level created a conflicting duplicate ACL
-  resource; admin login failed outright.
-- `Model/ResourceModel/Campaign/Grid/Collection.php`,
-  `Model/ResourceModel/ReorderCycle/Grid/Collection.php` — `SearchResult`-based grid collections need `mainTable`/
-  `resourceModel` via `di.xml`, not `_init()`.
-- `view/adminhtml/ui_component/ordo_campaign_form.xml` — `save` button referenced a nonexistent core class; added
-  `Block/Adminhtml/Campaign/Edit/SaveButton.php`.
-- `Model/Campaign/DataProvider.php` — undeclared `$loadedData` property, PHP 8.2 dynamic-property deprecation notice on
-  every campaign form load.
-- `Model/Rule/Action/Discount/QualifyingSetTracker.php` — called
-  `$rule->getRuleId()`, which doesn't exist on `Magento\SalesRule\Model\Rule`
-  (only `getId()`). Found by the unit test refusing to mock a nonexistent method.
-- `Model/SalesRepEmailContext.php` — called `->getFrontendName()` on a
-  `StoreInterface`-typed value; that method only exists on the concrete `Store`
-  model. Switched to `getName()`, which is on the interface.
-- `phpstan.neon` — missing `includes:` for the bitexpert extension and wrong parameter key meant PHPStan never actually
-  ran before this pass; it now runs and reports 183 real (mostly iterable-typing) findings, not fixed in this pass.
-- `view/adminhtml/ui_component/ordo_campaign_form.xml` (dynamicRows) — switched to the canonical `<dynamicRows>` XSD
-  element and moved `isTemplate`/`is_collection`
-  into the correct config node; resolved a JS `TypeError` in the console, but the New/Edit Campaign form fields still
-  don't visibly render — **still open**, see
-  `VERIFICATION.md` section 3.
-
-### Added
-
-- `Test/Unit/Model/EntityModelSignatureCompatibilityTest.php`,
-  `Test/Unit/Model/RepositorySignatureCompatibilityTest.php` — reflection-based regression guards for the
-  `AbstractModel`/repository signature-compatibility bugs above (mocked unit tests can't catch these; they never load
-  the real class).
+- `Model/Campaign.php`, `Model/Offer.php` — `setEntityId()` was parameter-incompatible with `AbstractModel`.
+- `Model/CampaignRepository.php`, `Model/OfferRepository.php` — `getList()` missing its declared return type.
+- Three toolbar button blocks implemented a nonexistent Magento interface.
+- `etc/acl.xml` — missing `Magento_Backend::stores_settings` ancestor created a conflicting ACL resource.
+- Grid collections needed `mainTable`/`resourceModel` via `di.xml`, not `_init()`.
+- `ordo_campaign_form.xml`'s `save` button referenced a nonexistent core class.
+- `Model/Campaign/DataProvider.php` — undeclared dynamic property.
+- `QualifyingSetTracker.php` called `$rule->getRuleId()`, which doesn't exist (only `getId()`).
+- `Model/SalesRepEmailContext.php` called `->getFrontendName()` on a `StoreInterface`-typed value (only on the
+  concrete `Store` model) — switched to `getName()`.
+- `phpstan.neon` was missing `includes:`/using the wrong parameter key — PHPStan never actually ran.
 
 ## [0.8.2]
 
 ### Added
 
-- `VERIFICATION.md` — a step-by-step checklist for actually installing and exercising this module on a fresh Magento
-  Open Source instance: prerequisites, install via a local path repository, running PHPStan/PHPUnit for real, and a
-  manual walkthrough of every feature (B2B triggers, campaign engine, Promotion Builder, on-site tracking) with concrete
-  pass/fail criteria per step. Linked from README's "Trying this for real" section.
+- `VERIFICATION.md` — install/test checklist for a fresh Magento Open Source instance.
 
 ## [0.8.1]
 
 ### Added
 
-- Two more unit tests: `HasTagTest`, `AddTagTest` (campaign condition/action, both run and passing locally — 14/14
-  across all four mockable test classes together).
-- First MFTF test, `AdminCreateCampaignTest.xml` — admin creates a campaign via the Phase 4 form, confirms it saves and
-  appears in the grid. Written and XML-validated, not run (no MFTF runtime in this dev environment).
-
-### Changed
-
-- README Phase 6 rewritten to state exact current test coverage (6 unit test files, 1 MFTF test, 0 API functional tests,
-  PHPStan configured but never run, no coverage percentage) instead of a generic "still needs work" — and to spell out
-  concretely how to actually try the module on a fresh Magento Open Source instance before trusting any unverified claim
-  in this README.
+- `HasTagTest`, `AddTagTest` unit tests.
+- First MFTF test, `AdminCreateCampaignTest.xml`.
 
 ## [0.8.0]
 
 ### Added
 
-- On-site behavior tracking core: dependency-free `tracker.js` snippet (visitor cookie + `page_view`/`product_view`/
-  `category_view` events), a public CSRF-exempt `POST /ordo/track/event` endpoint, `customer_login`-triggered identity
-  stitching, and `VisitorAggregator` turning threshold-crossing raw events into ordinary `ordo_customer_tag` rows —
-  which the campaign engine's existing `tag_added` trigger already fires on, with no new code.
-- `ordo_visitor_event` table, deliberately separate from `ordo_campaign`/`ordo_customer_tag`, with a new
-  `PruneVisitorEvents` cron enforcing a configurable retention window (default 7 days) — the concrete implementation of
-  the scale caution flagged in the previous README version, not a deferred promise anymore.
-- New `tracking` config group: enabled toggle, view threshold, retention days.
-
-### Known limitations (documented, not hidden)
-
-- No automatic page-type detection; `product_view`/`category_view` require an explicit `window.ordoTrack()` call from
-  the theme.
-- `tracker.js` loads sitewide independent of the enabled toggle (the endpoint just no-ops) — a wasted request, not a
-  data leak, but not ideal; needs a config-aware Block to fix properly.
-- Tag-per-event-key is an explicit cardinality tradeoff (precision vs. bounded tag count), left as an operating
-  decision, not resolved here.
+- On-site behavior tracking core — `tracker.js` (visitor cookie, `page_view`/`product_view`/`category_view`),
+  `POST /ordo/track/event`, `customer_login` identity stitching, `VisitorAggregator`.
+- `ordo_visitor_event` table with `PruneVisitorEvents` retention cron (default 7 days).
 
 ## [0.7.0]
 
 ### Added
 
-- New "Ordo Automation" admin menu with a full campaign builder: grid (`ordo/campaign/index`) and edit form
-  (`ordo/campaign/edit`) with `dynamicRows` sections for conditions and actions, both dropdowns generated live from
-  `ConditionPool`/`ActionPool` so the UI can't drift out of sync with the dispatcher.
-- Read-only "Reorder Cycles" admin grid (`ordo/reordercycle/index`) for inspecting what `CalculateReorderCycle` has
-  computed, without querying the database directly.
-- Standard Magento admin-grid plumbing added: `Grid\Collection` classes (`SearchResult`-based) for both campaigns and
-  reorder cycles, registered via the `UiComponent\DataProvider\CollectionFactory` di.xml mapping; `CampaignActions`
-  row-action column; toolbar button blocks for the campaign form (Back, Delete, Save & Continue).
-
-### Known limitation (documented, not hidden)
-
-- Condition/action rows in the campaign form use one `type` dropdown + a raw JSON textarea for params, not dedicated
-  per-type fields (e.g. a tag autocomplete for `HasTag`). Deliberate MVP scope — tracked in README → Roadmap → Phase 4.
+- Campaign builder admin UI — grid and edit form with dynamicRows conditions/actions.
+- Read-only "Reorder Cycles" admin grid.
 
 ## [0.6.0]
 
 ### Added
 
-- `cart_abandoned` campaign event, dispatched from `SendAbandonedCartReminders` for quotes tied to a registered customer
-  (guests still only get the fixed reminder email) — closes the "migrate abandoned cart onto the campaign engine" Phase
-  3 item.
-- Custom `SalesRule` discount calculator, `Model\Rule\Action\Discount\CheapestItemFree` (+ `QualifyingSetTracker`),
-  giving 100% off the cheapest item in a rule's own qualifying set. Wired via the same
-  `Magento\SalesRule\Model\Validator` calculator extension point Magento's native "Buy X Get Y" uses, as a new
-  `simple_action` value (`ordo_cheapest_item_free`).
-- Unit tests for `QualifyingSetTracker` (cheapest-item selection, non-matching items, per-request caching) —
-  syntax/logic-checked, not yet executed against a real Magento install (no `magento/framework` available in this dev
-  environment; see README verification note).
-
-### Known limitations (documented, not hidden)
-
-- `CheapestItemFree` is not selectable through the native admin "Apply" dropdown — that list is hardcoded in a core
-  admin block. Usable today only via direct rule data or the REST API.
-- `CheapestItemFree` has not been integration-tested against a real checkout. Tracked as the first MFTF scenario to
-  write in Phase 6.
-- "Free gift above a cart threshold" remains unbuilt — flagged in README as architecturally different work (adding a new
-  line item, not discounting an existing one), not just "the same pattern as CheapestItemFree, once more."
+- `cart_abandoned` campaign event, dispatched from `SendAbandonedCartReminders`.
+- `CheapestItemFree` custom SalesRule discount calculator (+ `QualifyingSetTracker`).
 
 ## [0.5.0]
 
 ### Added
 
-- Configurable campaign engine ("when X happens and Y is true, do Z"): new `ordo_campaign` / `ordo_campaign_condition` /
-  `ordo_campaign_action` tables, `CampaignDispatcher`, and a plug-in registry (`Model\Campaign\ConditionPool` /
-  `ActionPool`) driven entirely by `di.xml` — no hardcoded switch statement to extend. Ships with two conditions (`tag`,
-  `order_total_gte`) and three actions (`add_tag`, `send_email`, `generate_coupon`).
-- Three new trigger events wired into the dispatcher: `order_placed`, `customer_registered`, and `tag_added` (the last
-  fired as a Magento event, `ordo_customer_tag_added`, from `CustomerTagManager` — going through the event bus instead
-  of a direct call avoids a DI cycle with the `tag` condition, which itself depends on `CustomerTagManager`).
-- `CouponGenerator` service — mints single-use `SalesRule` coupon codes, used by the `generate_coupon` campaign action.
-  Reframes what was previously planned as two bespoke features ("coupon after checkout", "coupon for cart recovery") as
-  ordinary two-action campaigns instead of new code per idea.
-- Full service contract for campaigns (`CampaignRepositoryInterface`, `Api\Data\CampaignInterface`) with REST endpoints
-  under `/V1/ordo/campaigns`.
-- Seed unit tests for the new plug-in architecture (`ConditionPoolTest`, `OrderTotalAtLeastTest`).
-
-### Changed
-
-- Reframed Phase 3 (Promotion Builder) roadmap: "coupon after checkout" / "coupon for cart recovery" moved from planned
-  to done via the campaign engine; "cheapest item in a bundle free" and "free gift above cart threshold" remain open,
-  now documented with the exact Magento extension points required (`SalesRule` custom discount calculator via
-  `Magento\SalesRule\Model\Validator`) and a known limitation (the native "Apply" admin dropdown needs a core block
-  plugin to show a friendly label for a new discount type).
+- Campaign engine (`ordo_campaign`/`_condition`/`_action`, `CampaignDispatcher`, `ConditionPool`/`ActionPool`
+  plug-in registry). Ships with `tag`/`order_total_gte` conditions and `add_tag`/`send_email`/`generate_coupon`
+  actions. Triggers: `order_placed`, `customer_registered`, `tag_added`.
+- `CouponGenerator` — mints single-use SalesRule coupon codes.
+- REST service contract for campaigns (`/V1/ordo/campaigns`).
 
 ## [0.4.0]
 
 ### Added
 
-- Sales-rep signature on every automated customer email (reorder, offer expiry, credit limit) via a new shared
-  `SalesRepEmailContext` service, falling back to the store name when no rep is assigned to the customer. Closes Phase 2
-  of the B2B roadmap.
-- Weekly sales-rep digest email, grouping customers tagged `inactive` by their assigned rep so each rep gets one summary
-  instead of per-signal spam.
-- Formal quality standards adopted for the project going forward: PHPStan at `level: max` (`phpstan.neon`), a unit test
-  per non-trivial class (seed: `SalesRepEmailContextTest`), planned MFTF and API test coverage, and a 100% code coverage
-  target — tracked as Phase 6.
-- Localization scaffold: `i18n/en_US.csv` (source) and `i18n/pl_PL.csv`, covering every admin-facing label added so far.
+- Sales-rep signature on automated emails, falling back to the store name when unassigned.
+- Weekly sales-rep digest email grouping inactive customers by rep.
+- Quality standards adopted: PHPStan `level: max`, unit tests per non-trivial class, planned MFTF/API coverage.
+- Localization scaffold — `i18n/en_US.csv`, `i18n/pl_PL.csv`.
 
 ### Fixed
 
-- Two email templates (`credit_limit_warning.html`, and an earlier draft of the signature block) used an invalid
-  `{{depend}}{{else}}` construct that doesn't exist in Magento's email directive syntax — replaced with independent
-  `{{depend}}` blocks on distinct boolean variables.
+- Two email templates used an invalid `{{depend}}{{else}}` construct — replaced with independent `{{depend}}`
+  blocks.
 
 ## [0.3.0]
 
 ### Added
 
-- Order approval workflow: optional per-customer spend limit + approval-admin email. Orders above the limit are held
-  under a new `Pending Approval` order status (registered within the native "new" state, so inventory reservation is
-  untouched) and the admin receives a token-based approve/reject email link — no login required.
-- Escalation cron for stale pending approvals: resends the approval request (capped at 3 times) if nobody acts within a
-  configurable number of days.
+- Order approval workflow — per-customer spend limit, `Pending Approval` order status, token-based
+  approve/reject email.
+- Escalation cron for stale pending approvals (capped at 3 resends).
 
 ## [0.2.0]
 
 ### Added
 
-- B2C lifecycle automation: welcome email on customer registration, nightly inactivity tagging, and a one-time win-back
-  email that self-clears once the customer orders again.
-- `CustomerTagManager` — a generic add/remove/check/list-by-tag service, the shared segmentation primitive every trigger
-  (B2B and B2C) reads or writes.
-- Repositioned the module's scope from "B2B add-on" to a full B2B + B2C marketing automation platform, aimed at
-  replacing a general-purpose external MA subscription.
+- B2C lifecycle automation — welcome email, nightly inactivity tagging, self-clearing win-back email.
+- `CustomerTagManager` — shared add/remove/check/list-by-tag service.
 
 ## [0.1.1]
 
 ### Added
 
-- Proactive credit limit alerts: a customer credit-limit attribute plus a cron warning at a configurable threshold
-  (default 80%) before the account is blocked — most systems only react once the account is already over the limit.
+- Proactive credit limit alerts — cron warning at a configurable threshold (default 80%).
 
 ## [0.1.0]
 
 ### Added
 
-- First-party B2B offer/quote entity (`ordo_offer`) with a proactive "expires in N days" reminder. Every established B2B
-  platform checked (Adobe Commerce B2B, OroCommerce) only notifies reactively, after a status change.
+- First-party B2B offer/quote entity (`ordo_offer`) with a proactive expiry reminder.
 
 ## [0.0.1] — initial release
 
 ### Added
 
-- Reorder reminders: detects a recurring purchase pattern per customer/SKU from order history and emails a reminder
-  before the predicted next order date.
-- Abandoned cart recovery: finds inactive carts above a configurable subtotal threshold and sends a recovery email,
-  capped per cart.
-- Module skeleton: `composer.json`, `registration.php`, `etc/module.xml`, store configuration under Stores →
-  Configuration → Ordo Automation.
+- Reorder reminders — recurring purchase pattern detection per customer/SKU.
+- Abandoned cart recovery — inactive carts above a configurable subtotal, capped per cart.
+- Module skeleton.
