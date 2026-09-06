@@ -7,6 +7,18 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **`SendSalesRepDigest`'s email always rendered an empty customer list.** The subject line
+  (`{{var customer_count}}`) always showed the right number, but the `<ul>` body
+  (`{{for name in customer_names}}<li>{{var name}}</li>{{/for}}`) was always empty in every real
+  digest ever sent. Root cause: Magento's own `{{for}}` email template directive
+  (`Magento\Framework\Filter\DirectiveProcessor\ForDirective::getLoopReplacementText()`) silently
+  `continue`s past any loop item that isn't already an array or `DataObject` — `customer_names`
+  was a plain `string[]`, so every item was skipped. Caught by running
+  `AdminSendSalesRepDigestTest` (new, see "Added" below) against a real install and a real
+  MailHog inbox; no unit test mocking `TransportBuilder`/`EmailSender` could have caught this,
+  since the bug is in what the *real* template engine does with the data shape, not in this
+  class's own logic. Fixed by changing `groupInactiveCustomersByRep()` to build
+  `array{name: string}[]` (`{{var name.name}}` in the template) instead of a plain `string[]`.
 - **`setup:install`/`setup:upgrade` crashed on this module's data patches.** The
   `AbstractCustomerAttributePatch` base class (see "Changed" below) lived in `Setup/Patch/Data/`
   alongside its concrete subclasses — harmless for unit tests, but Magento's `Setup\Patch\PatchReader`

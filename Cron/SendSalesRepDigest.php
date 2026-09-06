@@ -53,7 +53,17 @@ class SendSalesRepDigest
     }
 
     /**
-     * @return array<string, string[]> rep email => list of "Customer Name (customer_id)"
+     * Each entry is `['name' => 'Customer Name (customer_id)']`, not a plain string — Magento's
+     * own `{{for}}` email template directive (`Magento\Framework\Filter\DirectiveProcessor\
+     * ForDirective::getLoopReplacementText()`) silently `continue`s past any loop item that
+     * isn't already an array or `DataObject`, so a plain `string[]` here renders as an empty
+     * list every time (the `customer_count` in the subject would still be right — only the
+     * `{{for name in customer_names}}` body silently produces nothing). Confirmed by
+     * exercising the real cron end to end (see docs/CHANGELOG.md) — no unit test mocking
+     * `EmailSender` catches this, since the bug is in what the *real* template engine does
+     * with the shape of the data, not in this class's own logic.
+     *
+     * @return array<string, array{name: string}[]> rep email => list of {name: "Customer Name (customer_id)"}
      */
     private function groupInactiveCustomersByRep(): array
     {
@@ -77,15 +87,17 @@ class SendSalesRepDigest
                 continue;
             }
 
-            $grouped[$repEmail][] = trim($customer->getFirstname() . ' ' . $customer->getLastname())
-                . " (#{$customerId})";
+            $grouped[$repEmail][] = [
+                'name' => trim($customer->getFirstname() . ' ' . $customer->getLastname())
+                    . " (#{$customerId})",
+            ];
         }
 
         return $grouped;
     }
 
     /**
-     * @param string[] $customerNames
+     * @param array{name: string}[] $customerNames
      */
     private function sendDigest(string $repEmail, array $customerNames): void
     {

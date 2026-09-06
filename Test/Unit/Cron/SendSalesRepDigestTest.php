@@ -131,7 +131,18 @@ class SendSalesRepDigestTest extends TestCase
         $transportBuilder = $this->createMock(TransportBuilder::class);
         $transportBuilder->method('setTemplateIdentifier')->willReturnSelf();
         $transportBuilder->method('setTemplateOptions')->willReturnSelf();
-        $transportBuilder->method('setTemplateVars')->willReturnSelf();
+        // Each entry must be ['name' => ...], not a plain string - Magento's own {{for}} email
+        // template directive silently skips loop items that aren't an array/DataObject
+        // (ForDirective::getLoopReplacementText()), so a plain string[] here would render as an
+        // empty <ul> in production despite customer_count being correct. See the class doc on
+        // groupInactiveCustomersByRep().
+        $transportBuilder->expects(self::once())->method('setTemplateVars')
+            ->with(self::callback(function (array $vars): bool {
+                self::assertSame(1, $vars['customer_count']);
+                self::assertSame([['name' => 'Jan Kowalski (#5)']], $vars['customer_names']);
+                return true;
+            }))
+            ->willReturnSelf();
         $transportBuilder->method('setFromByScope')->willReturnSelf();
         $transportBuilder->expects(self::once())->method('addTo')->with('rep@example.com', '')->willReturnSelf();
 
