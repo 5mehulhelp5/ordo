@@ -56,8 +56,12 @@
             <argument name="expectedText">OFR-EXPIRING-TEST</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
+        <!-- "expires soon" only exists in offer_expiring_soon.html's @subject comment, never in
+             the actual message body (the body says "expires on {date}") - a real mail transport
+             can RFC2047-encode the Subject header, so its literal text may not appear anywhere
+             in the raw MIME source MailHogHelper searches. Assert body copy instead. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInAnyRecentEmail" stepKey="seeExpiresSoonCopyInEmail">
-            <argument name="expectedText">expires soon</argument>
+            <argument name="expectedText">Need more time to decide</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
 

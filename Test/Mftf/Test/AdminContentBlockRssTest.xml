@@ -30,7 +30,7 @@
         <selectOption selector="[name='type']" userInput="rss" stepKey="selectRssType"/>
         <waitForElementVisible selector="[name='feed_url']" stepKey="waitForFeedUrlField"/>
         <fillField selector="[name='feed_url']" userInput="https://raw.githubusercontent.com/michalper/ordo/main/Test/Mftf/Fixture/rss_test_feed.xml" stepKey="fillFeedUrl"/>
-        <fillField selector="[name='rss_item_count']" userInput="5" stepKey="fillItemCount"/>
+        <fillField selector="[name='item_count']" userInput="5" stepKey="fillItemCount"/>
 
         <click selector="#save" stepKey="clickSave"/>
         <waitForPageLoad stepKey="waitForSave"/>

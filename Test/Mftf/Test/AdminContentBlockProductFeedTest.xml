@@ -41,7 +41,7 @@
         <selectOption selector="[name='source']" userInput="rule" stepKey="selectRuleSource"/>
         <waitForElementVisible selector="[name='rule_id']" stepKey="waitForRuleIdField"/>
         <fillField selector="[name='rule_id']" userInput="$createRule.rule_id$" stepKey="fillRuleId"/>
-        <fillField selector="[name='product_feed_item_count']" userInput="4" stepKey="fillItemCount"/>
+        <fillField selector="[name='item_count']" userInput="4" stepKey="fillItemCount"/>
 
         <click selector="#save" stepKey="clickSaveContentBlock"/>
         <waitForPageLoad stepKey="waitForContentBlockSave"/>
