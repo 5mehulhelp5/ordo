@@ -66,12 +66,6 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-## Lokalizacja
-
-Pliki CSV w `i18n/`, kluczowane względem `en_US.csv`. Dostępne: `en_US`, `pl_PL` (zweryfikowane przez native
-speakera), `de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL`
-(przetłumaczone maszynowo, czekają na przegląd native speakera).
-
 ## Dokumentacja
 
 - [ROADMAP.md](ROADMAP.md) — co jest jeszcze otwarte.
@@ -80,6 +74,9 @@ speakera), `de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `
 - [VERIFICATION.md](VERIFICATION.md) — checklista instalacji/testów na żywej instancji Magento.
 - [API.md](API.md) — referencja kontraktu usług REST.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — wymagania jakości/testów dla zmian.
+- Lokalizacja: pliki CSV w `i18n/`, kluczowane względem `en_US.csv`. Dostępne: `en_US`, `pl_PL` (zweryfikowane przez
+  native speakera), `de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL`
+  (przetłumaczone maszynowo, czekają na przegląd native speakera).
 
 ## Licencja
 

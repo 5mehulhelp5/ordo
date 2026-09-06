@@ -63,11 +63,6 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-## Localization
-
-`i18n/` CSVs, keyed off `en_US.csv`. Shipped: `en_US`, `pl_PL` (native-reviewed), `de_DE`, `fr_FR`, `es_ES`, `it_IT`,
-`pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL` (machine-translated, pending native review).
-
 ## Documentation
 
 - [ROADMAP.md](ROADMAP.md) — what's still open.
@@ -76,6 +71,9 @@ bin/magento cache:flush
 - [VERIFICATION.md](VERIFICATION.md) — install/test checklist run against a real Magento instance.
 - [API.md](API.md) — REST service contract reference.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — quality/testing requirements for changes.
+- Localization: `i18n/` CSVs, keyed off `en_US.csv`. Shipped: `en_US`, `pl_PL` (native-reviewed), `de_DE`, `fr_FR`,
+  `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL` (machine-translated, pending native
+  review).
 
 ## License
 
