@@ -54,8 +54,10 @@ widzi większość zewnętrznych narzędzi MA.
   plug-inami rejestrowanymi w `di.xml` i pełnym kontraktem REST.
 - **Śledzenie zachowań na stronie** — bezzależnościowy snippet JS zamienia odsłony stron/produktów/kategorii w tagi
   silnika kampanii.
-- **Panel administracyjny** — dashboard, kreator kampanii (z podglądem tylko do odczytu trigger → warunki → akcje na
-  bazie [Drawflow](https://github.com/jerosoler/Drawflow)), kreator ofert gratisów i diagnostyczny grid cykli reorder.
+- **Panel administracyjny** — dashboard, kreator kampanii (z edytowalnym diagramem trigger(y) → warunki → akcje na
+  bazie [Drawflow](https://github.com/jerosoler/Drawflow) — kampania może mieć więcej niż jeden trigger), widok
+  kalendarza kampanii (trigger(y) i harmonogram akcji każdej kampanii w jednym miejscu), kreator ofert gratisów oraz
+  diagnostyczny grid cykli reorder.
 
 Wszystko konfigurowalne pod **Stores → Configuration → Ordo Automation** (albo, dla kampanii i gratisów, przez ich REST
 API), każda funkcja z własnym przełącznikiem włącz/wyłącz i zadaniem cron. Szczegóły implementacji i uzasadnienie
@@ -124,11 +126,10 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-## Standardy jakości i testowania (reguła projektu, nie aspiracja)
+## Standardy jakości i testowania
 
-To są wiążące reguły tego repozytorium na przyszłość, nie lista życzeń "kiedyś" — każda nowa klasa dodana od tego
-momentu powinna je spełniać, a istniejący kod jest sukcesywnie doprowadzany do tego samego poziomu (śledzone w
-`ROADMAP.md`, Faza 6):
+To są wiążące reguły tego repozytorium, nie cele aspiracyjne. Każda nowa klasa ma je spełniać, a istniejący kod jest
+sukcesywnie doprowadzany do tego samego poziomu (śledzone w `ROADMAP.md`, Faza 6):
 
 - **Analiza statyczna: PHPStan na poziomie `level: max`**, skonfigurowany w `phpstan.neon` z
   rozszerzeniem [bitexpert/phpstan-magento](https://github.com/bitexpert/phpstan-magento), żeby magia Magento (fabryki,
@@ -148,36 +149,35 @@ momentu powinna je spełniać, a istniejący kod jest sukcesywnie doprowadzany d
 ## Lokalizacja
 
 Etykiety widoczne w adminie (`system.xml`, etykiety atrybutów klienta) są tłumaczalne przez standardowe pliki CSV i18n
-Magento w `i18n/`, kluczowane względem `en_US.csv` jako źródła. Aktualnie dostępne: `en_US`, `pl_PL`. Zgłoszenia/prośby
-o kolejne lokalizacje śledzone są w `ROADMAP.md`, Faza 6 — celem jest pokrycie każdego języka realnie istotnego dla bazy
-klientów sklepu, nie tylko symboliczny drugi język.
+Magento w `i18n/`, kluczowane względem `en_US.csv` jako źródła. Aktualnie dostępne: `en_US` i `pl_PL` (obie
+zweryfikowane przez native speakera), plus 10 lokalizacji przetłumaczonych maszynowo (`de_DE`, `fr_FR`, `es_ES`,
+`it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL`) czekających na przegląd native speakera — zobacz
+`ROADMAP.md`.
 
 ## Roadmapa
 
 Historia wdrożonych funkcji i wszystko, co wciąż otwarte (fazy w toku, znane luki, elementy "jeszcze niezbudowane") żyje
 w **[ROADMAP.md](ROADMAP.md)** (po angielsku), nie tutaj — to README opisuje tylko stabilny, aktualny stan modułu.
 
-## Wypróbowanie na żywo
+## Weryfikacja
 
-**Zweryfikowane end-to-end na Magento Open Source 2.4.7, 2026-08-26**
-(Docker, Magento sklonowane z GitHub — bez kluczy Adobe Marketplace). Każdy punkt checklisty w `VERIFICATION.md`, sekcje
-1–7, przeszedł pozytywnie na prawdziwej, żywej instancji: instalacja, analiza statyczna, pełny panel administracyjny
-(dashboard, kreator kampanii z dedykowanymi polami per typ, gridy), każdy cron triggera B2B, silnik kampanii (łącznie z
-łańcuchem
-`generate_coupon` → `send_email` i triggerem `tag_added`), kalkulator promocji
-`CheapestItemFree`, śledzenie na stronie w prawdziwej przeglądarce, i — najtrudniejsze — prawdziwe zamówienie złożone
-przez pełny checkout sklepowy, wstrzymane do akceptacji, zaakceptowane przez prawdziwy link i odblokowane.
+Zweryfikowane end-to-end na prawdziwej instancji Magento Open Source 2.4.7 (Docker, sklonowane z GitHub — bez kluczy
+Adobe Marketplace) w dniu 2026-08-26. Każdy punkt checklisty w `VERIFICATION.md` (sekcje 1–7) przeszedł pozytywnie na
+tej żywej instancji: instalacja, analiza statyczna, pełny panel administracyjny, każdy cron triggera B2B, silnik
+kampanii (łącznie z łańcuchem akcji `generate_coupon` → `send_email` i triggerem `tag_added`), kalkulator promocji
+`CheapestItemFree`, śledzenie na stronie w prawdziwej przeglądarce oraz kompletny przepływ akceptacji zamówienia —
+zamówienie złożone powyżej limitu wydatków przez pełny checkout sklepowy, wstrzymane, zaakceptowane przez prawdziwy
+link e-mail i zwolnione.
 
-**Po drodze znaleziono i naprawiono 20 prawdziwych błędów** — złe punkty rozszerzeń DI, ciche gubienie wartości
-atrybutów EAV, pułapkę domyślnej konfiguracji obecną w 12 miejscach i więcej. Pełna lista, z dokładnym opisem jak każdy
-został znaleziony i zweryfikowany, w `VERIFICATION.md`.
+Podczas tego przejścia znaleziono i naprawiono 20 rzeczywistych defektów (błędne punkty rozszerzeń DI, ciche gubienie
+wartości atrybutów EAV, powtarzający się błąd konfiguracji domyślnej obecny w 12 miejscach i inne) — pełna lista wraz
+z opisem, jak każdy został znaleziony, jest w `VERIFICATION.md`.
 
-**Co wciąż jest faktycznie otwarte:** zobacz [ROADMAP.md](ROADMAP.md) — nie porażki, nie próbowane, albo świadomie
-odłożone.
+Pozostałe prace są śledzone w [ROADMAP.md](ROADMAP.md); nic tam nie odzwierciedla nieudanej lub porzuconej próby —
+tylko zakres jeszcze niezbudowany.
 
-**Pełna checklista krok po kroku:** [VERIFICATION.md](VERIFICATION.md) — obejmuje instalację, analizę statyczną i ręczny
-przegląd każdej funkcji z tego README, zorganizowana tak, żeby porażka na dowolnym kroku wskazywała dokładnie, co
-naprawić dalej.
+Pełna, krok-po-kroku checklista — instalacja, analiza statyczna i ręczny przegląd każdej funkcji z tego README — jest
+w [VERIFICATION.md](VERIFICATION.md).
 
 ## Changelog
 

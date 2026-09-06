@@ -56,8 +56,9 @@ tools structurally can't see.
 - **On-site behavior tracking** — a dependency-free JS snippet turns page/product/category views into campaign-engine
   tags.
 - **Admin UI** — dashboard, campaign builder (with an editable [Drawflow](https://github.com/jerosoler/Drawflow) trigger
-  (s) → conditions → actions canvas — a campaign can have more than one trigger), free gift offer builder, and
-  reorder-cycles diagnostic grid.
+  (s) → conditions → actions canvas — a campaign can have more than one trigger), a campaign calendar view (every
+  campaign's trigger(s) and action-chain timing in one place), free gift offer builder, and a reorder-cycles
+  diagnostic grid.
 
 Everything is configurable under **Stores → Configuration → Ordo Automation** (or, for campaigns and free gifts, via
 their REST API), each with its own on/off switch and cron job. Implementation detail and the "why" behind each design
@@ -130,10 +131,10 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-## Quality & testing standards (project rule, not aspirational)
+## Quality & Testing Standards
 
-These are binding rules for this repo going forward, not a someday-wishlist — every new class added after this point
-should meet them, and existing code is being brought up to the same bar incrementally (tracked in `ROADMAP.md` Phase 6):
+These are binding rules for this repository, not aspirational targets. Every new class is expected to meet them, and
+existing code is being brought up to the same bar incrementally (tracked in `ROADMAP.md` Phase 6):
 
 - **Static analysis: PHPStan at `level: max`**, configured in `phpstan.neon` with
   the [bitexpert/phpstan-magento](https://github.com/bitexpert/phpstan-magento) extension so Magento's magic (factories,
@@ -162,25 +163,24 @@ machine-translated locales (`de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Han
 Shipped-feature history and everything still open (in-progress phases, known gaps, "not yet built" items) lives in
 **[ROADMAP.md](ROADMAP.md)**, not here — this README only describes the stable, current state of the module.
 
-## Trying this for real
+## Verification
 
-**Verified end to end against Magento Open Source 2.4.7 on 2026-08-26**
-(Docker, Magento cloned from GitHub — no Adobe Marketplace keys needed). Every checklist item in `VERIFICATION.md`
-sections 1–7 has passed against a real, live instance: install, static analysis, the full admin UI (dashboard, campaign
-builder with dedicated per-type fields, grids), every B2B trigger cron, the campaign engine (including
-`generate_coupon` → `send_email`
-chaining and the `tag_added` trigger), the `CheapestItemFree` promotion calculator, on-site tracking in a real browser,
-and — the hardest one — a real order placed through full storefront checkout, held for approval, approved via the real
-link, and un-held.
+Verified end to end against a real Magento Open Source 2.4.7 instance (Docker, cloned from GitHub — no Adobe
+Marketplace credentials required) on 2026-08-26. Every checklist item in `VERIFICATION.md` (sections 1–7) passed
+against that live instance, covering installation, static analysis, the full admin UI, every B2B trigger cron, the
+campaign engine (including the `generate_coupon` → `send_email` action chain and the `tag_added` trigger), the
+`CheapestItemFree` promotion calculator, on-site tracking in a real browser, and a complete order-approval flow — an
+order placed over the spend limit through storefront checkout, held, approved via the real email link, and released.
 
-**20 real bugs were found and fixed along the way** — wrong DI extension points, silently-dropped EAV attribute values,
-a config-default footgun present in 12 places, and more. Full list, with exactly how each was found and verified, in
-`VERIFICATION.md`.
+That pass surfaced and fixed 20 real defects (incorrect DI extension points, silently dropped EAV attribute values, a
+recurring config-default mistake present in 12 places, and others) — see `VERIFICATION.md` for the full list and how
+each one was found.
 
-**What's genuinely still open:** see [ROADMAP.md](ROADMAP.md) — not failures, not attempted, or explicitly deferred.
+Outstanding work is tracked in [ROADMAP.md](ROADMAP.md); nothing there reflects a failed or abandoned attempt, only
+scope not yet built.
 
-**Full step-by-step checklist:** [VERIFICATION.md](VERIFICATION.md) — covers install, static analysis, and a manual
-walkthrough of every feature in this README, organized so a failure at any step points at exactly what to fix next.
+For the complete, step-by-step checklist — installation, static analysis, and a manual walkthrough of every feature in
+this README — see [VERIFICATION.md](VERIFICATION.md).
 
 ## Changelog
 
