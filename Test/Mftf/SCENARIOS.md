@@ -7,41 +7,23 @@ jobs — not guessed from memory. Each scenario is marked:
 - ✅ **covered** — an existing MFTF test exercises this path end to end (file named).
 - ⬜ **not covered** — a real gap, candidate for a new test.
 
-Cross-reference: `Test/Mftf/README.md` for what already passed and why; `ROADMAP.md`'s
-"Test coverage" section for the standing priority list this feeds.
+Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅.** A later independent re-audit against the actual code (not against this
-document's own prior claims) found 3 more real gaps this document had missed entirely — `Plugin/Quote/
-BlockOverLimitCheckout.php`, `Observer/SendWelcomeEmail.php`, `Observer/StitchVisitorIdentity.php` — now closed
-(§12, §7). This document is kept going forward so any newly added trigger/condition/action/controller/cron/
-observer/plugin gets a row added here (⬜) before it's considered done, not as an open-gap tracker right now —
-and is worth re-auditing against code periodically rather than trusted at face value, per this exact miss.
+**Status: every row below is ✅.** Re-audit this against `etc/di.xml`/`Controller/Adminhtml/*`/`etc/events.xml`
+periodically rather than trusting it at face value — add a row (⬜) for anything newly added before considering
+it done.
 
-**Scope check, done against the actual codebase, not memory** — asked directly: do we have every API endpoint, every
-admin form/grid, every real MA scenario, the whole module? Verified:
+**Scope, verified against the codebase:**
 
-- **57 REST routes** (`etc/webapi.xml`, 8 resource groups: campaigns + their trigger/condition/ action children,
-  offers + self-extend, reorder-cycles, customer/visitor tags, order-approvals + approve/reject/decision-links,
-  free-gift-offers + tiers + products + cart eligibility/redemption, credit-limit). These are **out of MFTF's scope by
-  design** — MFTF drives a real browser, REST endpoints don't have one — and are **already covered** by a dedicated
-  suite: `Test/Api/*ApiTest.php`
-  (8 files, `AbstractApiTestCase`-based `webapi_rest` calls). Not duplicated here.
-- **All 9 admin form/grid areas** (`view/adminhtml/layout/*.xml` + `ui_component/*.xml`) — Campaign, ContentBlock,
-  Dashboard, FreeGiftOffer, MessageLog, ReorderCycle, Rfm, ScoreRule, Segment — are represented in §§1–10 below.
-  Originally said "7" and omitted ContentBlock/MessageLog entirely (added to the module after this scope check was
-  first written, never folded back in) — caught during a later re-audit against `Controller/Adminhtml/*` directly
-  rather than trusting this document's own prior count. §10 also now lists every `di.xml`-registered campaign
-  action (8, not the 5 this document originally enumerated — `add_product_recommendations`/`add_dynamic_content`/
-  `send_sms` were missing from §1c) and every `ContentBlock\ProducerPool` type (snippet/rss/product_feed, not just
-  snippet).
-- **Storefront controllers** (`Controller/{Approval,Offer,Track}/`) cross-checked file-by-file:
-  caught one real gap this document's first pass missed — `Controller/Offer/Index.php` ("My Offers", a whole page) — now
-  added to §5.
-- **Credit limit** (`Model/CreditLimitCalculator.php`, `Model/CreditLimitStatus.php`,
-  `/V1/ordo/credit-limit/*`) has a REST API (covered by `Test/Api/CreditLimitApiTest.php`) and a cron-driven warning
-  email. This document previously claimed "no storefront UI at all" — **wrong**, caught during a later re-audit:
-  `Plugin/Quote/BlockOverLimitCheckout.php` is a real, browser-visible checkout failure (a `beforePlaceOrder` plugin
-  throwing a `LocalizedException` once utilization reaches 100%), independent of the email/REST surfaces. Now in §12.
+- 57 REST routes (`etc/webapi.xml`, 8 resource groups) are out of MFTF's scope by design (no browser to drive) —
+  covered instead by `Test/Api/*ApiTest.php`.
+- 9 admin form/grid areas (Campaign, ContentBlock, Dashboard, FreeGiftOffer, MessageLog, ReorderCycle, Rfm,
+  ScoreRule, Segment) — §§1–10 below. §10 lists every `di.xml`-registered campaign action and every
+  `ContentBlock\ProducerPool` type.
+- Storefront controllers (`Controller/{Approval,Offer,Track}/`) — §5, §7.
+- Credit limit (`Model/CreditLimitCalculator.php`, `/V1/ordo/credit-limit/*`) has a REST API
+  (`Test/Api/CreditLimitApiTest.php`), a cron-driven warning email, and a real checkout-blocking plugin
+  (`Plugin/Quote/BlockOverLimitCheckout.php`, §12).
 
 ## 1. Campaign engine
 
@@ -85,7 +67,7 @@ cases separately from the type-by-type ones.
 | `send_email`                  | `{template, message}`                  | ✅ `AdminCampaignSendEmailActionTest`                                                                                                                                                                                                                                                      |
 | `generate_coupon`             | `{rule_id, prefix}`                    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                                                                                                                                                                                     |
 | `popup`                       | `{headline, body, cta_label, cta_url}` | ✅ `AdminCampaignPopupActionTest` (writes `ordo_pending_popup`; storefront poll — see §7)                                                                                                                                                                                                  |
-| `add_points`                  | `{points}`                             | ✅ `AdminCampaignAddPointsActionTest` (feeds `score_at_least`; does NOT itself dispatch `score_threshold_crossed` — confirmed from source, only `EvaluateCustomerScoreRules`'s own `customer_save_after` handling does that)                                                               |
+| `add_points`                  | `{points}`                             | ✅ `AdminCampaignAddPointsActionTest` (feeds `score_at_least`; does not itself dispatch `score_threshold_crossed` — only `EvaluateCustomerScoreRules` does)                                                               |
 | `add_product_recommendations` | `{count}`                              | ✅ `AdminAddProductRecommendationsActionTest` (co-purchase signal empty in a fresh install, exercises the documented store-wide-best-sellers fallback)                                                                                                                                     |
 | `add_dynamic_content`         | `{content_block_id, output_key}`       | ✅ `AdminCampaignDynamicContentSnippetActionTest` (`snippet` content-block type only — see §10 for `rss`/`product_feed`)                                                                                                                                                                   |
 | `send_sms`                    | `{message}`                            | ✅ `Test/Integration/CampaignSendSmsActionTest.php` — real DI/database, `SmsSenderInterface` swapped for a recording fake (real Twilio account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope (no browser-visible effect for a browser to check) |
@@ -175,21 +157,21 @@ through. `Controller/Offer/*` (self-extend,
 
 ## 7. Tracking & popups (`view/frontend/web/js/tracker.js`, `Controller/Track/`)
 
-| Scenario                                                                                                                              | Status                                                                                                                                       |
-|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `ordo_visitor_id` cookie issued on first visit, stable across reload                                                                  | ✅ `StorefrontTrackerSetsVisitorCookieTest`                                                                                                  |
-| `page_view` event posted and persisted                                                                                                | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
-| `product_view` event posted and persisted (scripted stand-in for a theme PDP hook)                                                    | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
-| `category_view` event posted and persisted                                                                                            | ✅ `StorefrontTrackerCategoryViewEventTest`                                                                                                  |
-| `element_clicked` event posted and persisted (popup-targeting click threshold)                                                        | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
-| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                           | ✅ `StorefrontTrackerViewThresholdTagsVisitorTest`                                                                                           |
-| Click-threshold crossing (default 1) tags the visitor via `element_clicked`                                                           | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
-| A campaign's `popup` action writes a pending popup, storefront poll (`Controller/Track/Popup.php`) picks it up and renders the banner | ✅ `AdminCampaignPopupActionTest`                                                                                                            |
-| Popup dismissed / closed client-side, doesn't reappear on next poll                                                                   | ✅ `AdminCampaignPopupClaimedOnceTest`                                                                                                       |
-| `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                       | ✅ `AdminPrunePendingPopupsTest` (delivered half only — expired-undelivered half is dead code in production, nothing ever sets `expires_at`) |
-| `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ✅ `StorefrontPruneVisitorEventsTest`                                                                                                        |
-| Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                       | ✅ `StorefrontTrackingDisabledConfigTest`                                                                                                    |
-| `Observer/StitchVisitorIdentity.php` — pre-login anonymous events attributed to the customer on login, still counting toward a threshold crossed after login | ✅ `StorefrontVisitorIdentityStitchedOnLoginTest`                                                                            |
+| Scenario                                                                                                                                                     | Status                                                                                                                                       |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `ordo_visitor_id` cookie issued on first visit, stable across reload                                                                                         | ✅ `StorefrontTrackerSetsVisitorCookieTest`                                                                                                  |
+| `page_view` event posted and persisted                                                                                                                       | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
+| `product_view` event posted and persisted (scripted stand-in for a theme PDP hook)                                                                           | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
+| `category_view` event posted and persisted                                                                                                                   | ✅ `StorefrontTrackerCategoryViewEventTest`                                                                                                  |
+| `element_clicked` event posted and persisted (popup-targeting click threshold)                                                                               | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
+| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                                                  | ✅ `StorefrontTrackerViewThresholdTagsVisitorTest`                                                                                           |
+| Click-threshold crossing (default 1) tags the visitor via `element_clicked`                                                                                  | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
+| A campaign's `popup` action writes a pending popup, storefront poll (`Controller/Track/Popup.php`) picks it up and renders the banner                        | ✅ `AdminCampaignPopupActionTest`                                                                                                            |
+| Popup dismissed / closed client-side, doesn't reappear on next poll                                                                                          | ✅ `AdminCampaignPopupClaimedOnceTest`                                                                                                       |
+| `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                                              | ✅ `AdminPrunePendingPopupsTest` (delivered half only — expired-undelivered half is dead code in production, nothing ever sets `expires_at`) |
+| `Cron\PruneVisitorEvents` — events past retention window removed                                                                                             | ✅ `StorefrontPruneVisitorEventsTest`                                                                                                        |
+| Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                                              | ✅ `StorefrontTrackingDisabledConfigTest`                                                                                                    |
+| `Observer/StitchVisitorIdentity.php` — pre-login anonymous events attributed to the customer on login, still counting toward a threshold crossed after login | ✅ `StorefrontVisitorIdentityStitchedOnLoginTest`                                                                                            |
 
 ## 8. Reorder cycles (`Model/ReorderCycle.php`, `Cron/CalculateReorderCycle.php`, `Cron/SendReorderReminders.php`)
 
@@ -247,9 +229,9 @@ Caught during a later re-audit against code directly (not against this document'
 corrected scope-check note at the top of this file for the credit-limit row, which this document previously and
 wrongly said had no storefront surface at all.
 
-| Scenario                                                                                                          | Status                                             |
-|--------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| `Plugin/Quote/BlockOverLimitCheckout.php` — real checkout blocked once credit utilization reaches 100%             | ✅ `StorefrontCreditLimitBlocksCheckoutTest`       |
+| Scenario                                                                                                                                             | Status                                                   |
+|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| `Plugin/Quote/BlockOverLimitCheckout.php` — real checkout blocked once credit utilization reaches 100%                                               | ✅ `StorefrontCreditLimitBlocksCheckoutTest`             |
 | `Observer/SendWelcomeEmail.php` — new-customer tag + welcome email on `customer_register_success`, independent of any `customer_registered` campaign | ✅ `StorefrontCustomerRegistrationSendsWelcomeEmailTest` |
 
 ## Suggested next batch (highest signal per test written)
