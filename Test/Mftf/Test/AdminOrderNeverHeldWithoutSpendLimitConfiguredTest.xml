@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminOrderNeverHeldWithoutSpendLimitConfiguredTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Order approval"/>
+            <title value="A real order is never held when the customer has no spend limit / approval admin email configured at all"/>
+            <description value="Different negative case than AdminOrderUnderSpendLimitNotHeldTest (a customer WITH a spend limit, staying under it) - this is the 'not configured at all' branch of Observer/HoldOrderForApproval.php's own guard (spendLimit &lt;= 0.0 || adminEmail === ''), previously unit-tested only. Simple_US_Customer (unlike OrdoApprovalCustomer) never sets ordo_order_spend_limit/ordo_approval_admin_email at all, so even a real order well over any normal threshold (SimpleProduct2, 123.00) must complete with the ordinary 'Pending' status, never ordo_pending_approval."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="tracking"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Simple_US_Customer never sets the spend-limit/approval-admin-email custom
+             attributes at all (unlike OrdoApprovalCustomer) - SimpleProduct2's real price
+             (123.00) is deliberately not a small amount, proving this isn't held for being
+             "under some limit" but because no limit is configured in the first place. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- Same reasoning as AdminOrderUnderSpendLimitNotHeldTest: checkout reaching the
+             success page at all is part of the proof (HoldOrderForApproval runs on
+             sales_order_place_after, after the order row already exists), and canViewOrder()
+             being true (never held) is exactly why orderNumber22's plain link variant, not the
+             invisible-order <span>, is the correct selector here. -->
+        <waitForElementVisible selector="{{CheckoutSuccessMainSection.orderNumber22}}" stepKey="waitForOrderNumber"/>
+        <grabTextFrom selector="{{CheckoutSuccessMainSection.orderNumber22}}" stepKey="grabOrderNumber"/>
+
+        <actionGroup ref="FilterOrderGridByIdActionGroup" stepKey="filterGridByOrderId">
+            <argument name="orderId" value="{$grabOrderNumber}"/>
+        </actionGroup>
+
+        <!-- The real point of this test: the order grid must show the ordinary post-purchase
+             status, never ordo_pending_approval, proof a real, comfortably-large order was never
+             held simply because no spend limit/admin email exists to gate on. -->
+        <see selector="{{AdminOrdersGridSection.gridCell('1', 'Status')}}" userInput="Pending" stepKey="seeOrdinaryPendingStatus"/>
+        <dontSee selector="{{AdminOrdersGridSection.gridCell('1', 'Status')}}" userInput="Pending Approval" stepKey="dontSeePendingApprovalStatus"/>
+
+        <!-- Same drain-at-the-source reasoning as AdminOrderUnderSpendLimitNotHeldTest's own
+             identical closing step. -->
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainCampaignDispatchQueue"/>
+    </test>
+</tests>

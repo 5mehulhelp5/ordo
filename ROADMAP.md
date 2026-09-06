@@ -85,7 +85,9 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   reuses `AdminApproveOrderViaEmailTest`'s exact fixture (`OrdoApprovalCustomer`, spend limit 10.00), but never
   follows the approve/reject link, leaving the approval genuinely pending; `ordo_automation/order_approval/
   escalation_days` set to 0 (real default 2) so it's already stale, `CronScheduleHelper` forces the cron to run
-  now. "No spend limit / no approval email configured → never held" is still unit-tested only.
+  now. ~~"No spend limit / no approval email configured → never held"~~ — done.
+  `AdminOrderNeverHeldWithoutSpendLimitConfiguredTest` (plain `Simple_US_Customer`, no spend-limit
+  attributes at all, a real 123.00 order still completes with the ordinary `Pending` status).
 - ~~Tracking & popups (§7): view-threshold crossing, `Cron\PrunePendingPopups`, `Cron\PruneVisitorEvents`~~ — done.
   `StorefrontTrackerViewThresholdTagsVisitorTest` (same mechanism as the existing click-threshold test, the
   `viewed_TYPE_KEY` tag shape instead of `clicked_X`), `AdminPrunePendingPopupsTest` (new

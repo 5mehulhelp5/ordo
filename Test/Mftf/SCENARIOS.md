@@ -156,7 +156,7 @@ through. `Controller/Offer/*` (self-extend,
 | Token re-use after approve/reject (already covered as the *second* half of `AdminApproveOrderViaEmailTest` — single-use enforcement) | ✅                                        |
 | `Cron\EscalateStalePendingApprovals` — a pending approval past its SLA gets escalated                                                | ✅ `AdminEscalateStalePendingApprovalTest` |
 | Order under spend limit — never held at all (negative case)                                                                          | ✅ `AdminOrderUnderSpendLimitNotHeldTest` |
-| Customer with no spend limit / no approval admin email configured — never held                                                       | ⬜ (unit-tested only)                     |
+| Customer with no spend limit / no approval admin email configured — never held                                                       | ✅ `AdminOrderNeverHeldWithoutSpendLimitConfiguredTest` |
 
 ## 7. Tracking & popups (`view/frontend/web/js/tracker.js`, `Controller/Track/`)
 
