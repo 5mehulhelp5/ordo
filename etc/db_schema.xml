@@ -372,7 +372,7 @@
         </index>
     </table>
 
-    <table name="ordo_customer_consent" resource="default" engine="innodb" comment="Per-customer, per-channel marketing consent state - the source of truth Model\ConsentManager reads before send_email/send_sms actually send anything. One row per customer_id+channel pair (see the unique constraint below); a customer with no row for a channel is treated as consented by default (opt-out register, not opt-in) - see ConsentManager's own doc for why.">
+    <table name="ordo_customer_consent" resource="default" engine="innodb" comment="Per-customer, per-channel marketing consent state - the source of truth Model\ConsentManager reads before send_email/send_sms actually send anything. One row per customer_id+channel pair (see the unique constraint below); a customer with no row for a channel is treated as consented by default (opt-out register, not opt-in) - see the ConsentManager class doc for why.">
         <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
         <column xsi:type="int" name="customer_id" padding="10" unsigned="true" nullable="false" comment="The customer this consent state applies to"/>
         <column xsi:type="varchar" name="channel" nullable="false" length="32" comment="email, sms, or push"/>
