@@ -17,6 +17,11 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   600-row scheduled-action backlog).
 - Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) over `ordo_message_log`.
 - E.164 validation for `ordo_sms_phone` before a `send_sms` action spends a Twilio API call.
+- On-site product recommendation content block (`recommendations` type) — reuses the same
+  `ProductRecommender`/`ProductRecommendationRenderer` pair `add_product_recommendations` already uses for
+  email, embeddable anywhere via a new `Block\Frontend\ContentBlock\Render` (resolves a content block by its
+  `identifier`, usable from any CMS block/page via `{{block class=...}}` or layout XML). `ProducerInterface::
+  render()` gained an optional `$context` parameter so a producer can personalize by `customer_id`.
 
 ### Fixed
 

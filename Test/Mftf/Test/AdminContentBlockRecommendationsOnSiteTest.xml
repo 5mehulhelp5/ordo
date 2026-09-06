@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminContentBlockRecommendationsOnSiteTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Dynamic content blocks"/>
+            <title value="A 'recommendations' content block renders on-site, embedded in a real CMS page, for an anonymous visitor"/>
+            <description value="Closes ROADMAP.md's 'On-site product recommendation blocks' gap: unlike every other content-block type this suite already covers (rss/product_feed/snippet), which only ever reach a customer via a campaign's send_email action, this proves Block/Frontend/ContentBlock/Render.php - a real storefront Block resolving a content block by its human-authored identifier and calling the same ProducerPool a campaign email uses, embedded via the standard {{block class=...}} CMS widget directive with zero new admin UI. A real order (by a throwaway seed customer) makes SimpleProduct2 the store's only best-seller, so ProductRecommender::getRecommendedSkus()'s own store-wide-best-sellers fallback surfaces it even for a completely anonymous, never-logged-in visitor loading a real CMS page afterward - proving the on-site path works independent of any campaign, dispatch, or login."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createSeedCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createSeedCustomer" stepKey="deleteSeedCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createCmsPage" stepKey="deleteCmsPage"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the "recommendations" content block - count deliberately left at its own
+             default (4), same reasoning as every other content-block test in this suite: this
+             test doesn't assert on the exact count, only that the one real best-selling product
+             shows up. -->
+        <amOnPage url="admin/ordo/contentblock/new" stepKey="goToNewContentBlockPage"/>
+        <waitForPageLoad stepKey="waitForNewContentBlockPage"/>
+        <waitForElementVisible selector="[name='identifier']" stepKey="waitForIdentifierField"/>
+        <fillField selector="[name='identifier']" userInput="e2e_onsite_recommendations_block" stepKey="fillIdentifier"/>
+        <fillField selector="[name='name']" userInput="E2E On-Site Recommendations Block" stepKey="fillName"/>
+        <selectOption selector="[name='type']" userInput="recommendations" stepKey="selectRecommendationsType"/>
+
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveContentBlock"/>
+        <waitForPageLoad stepKey="waitForContentBlockSave"/>
+        <see selector=".message-success" userInput="The content block has been saved." stepKey="seeContentBlockSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>
+
+        <!-- Step 2: a real CMS page whose own content is the standard Magento widget directive
+             that resolves any block by class - no new admin UI on this module's side needed for
+             "on-site" embedding, this is the same directive a merchant would type themselves. -->
+        <createData entity="_defaultCmsPage" stepKey="createCmsPage">
+            <field key="identifier">e2e-onsite-recommendations-page</field>
+            <field key="content">{{block class="Ordo\Automation\Block\Frontend\ContentBlock\Render" identifier="e2e_onsite_recommendations_block"}}</field>
+        </createData>
+
+        <!-- Step 3: a REAL order, through REAL storefront checkout, by a throwaway seed
+             customer - this is what makes SimpleProduct2 the store's only best-seller
+             (ProductRecommender::rankedBestSellerSkus()), independent of any campaign or
+             dispatch. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsSeedCustomer">
+            <argument name="Customer" value="$$createSeedCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- Step 4: log back out - the actual proof this test is after is that the on-site
+             block works for a completely anonymous visitor, not just a logged-in one. -->
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutSeedCustomer"/>
+
+        <!-- Step 5: the actual proof - the real best-selling product's own name, rendered by
+             Block\Frontend\ContentBlock\Render on a real CMS page, for a visitor who never
+             logged in and never interacted with any campaign. -->
+        <amOnPage url="e2e-onsite-recommendations-page" stepKey="goToCmsPage"/>
+        <waitForPageLoad stepKey="waitForCmsPage"/>
+        <see selector=".recommended-products" userInput="$createProduct.name$" stepKey="seeRecommendedProductOnPage"/>
+
+        <!-- Cleanup: no <deleteData> equivalent for this REST-less entity - delete it directly
+             through the real admin UI instead, same reasoning as every other content-block test
+             in this suite. -->
+        <amOnPage url="admin/ordo/contentblock/delete/entity_id/{$grabContentBlockId}/" stepKey="deleteContentBlock"/>
+        <waitForPageLoad stepKey="waitForDeleteContentBlock"/>
+    </test>
+</tests>
