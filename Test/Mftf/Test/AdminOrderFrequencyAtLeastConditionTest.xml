@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminOrderFrequencyAtLeastConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="RFM"/>
+            <title value="A campaign's order_frequency_at_least condition gates dispatch on a customer's real order count"/>
+            <description value="Like RecencyDaysAtMost, OrderFrequencyAtLeast reads RfmCalculator::getFrequency() live - no cron involved. count=2 needs a genuine second order, not just one: the FIRST real order's dispatch must NOT satisfy a threshold of 2 (proving this isn't vacuously true for any order at all), only the SECOND does, once the customer genuinely has 2 non-canceled orders at dispatch time."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, condition=order_frequency_at_least with
+             the dedicated "count" field. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Order Frequency At Least Send Email Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_frequency_at_least" stepKey="selectConditionType"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][count]']" stepKey="waitForCountField"/>
+        <fillField selector="[name='conditions[conditions][0][count]']" userInput="2" stepKey="fillConditionCount"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="send_email" stepKey="selectActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][0][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][0][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][0][message]']" userInput="Order frequency condition fired." stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+
+        <!-- Step 2: FIRST real order - frequency is only 1 at this dispatch, condition (count>=2)
+             must NOT be satisfied yet. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage1"/>
+        <waitForPageLoad stepKey="waitForProductPage1"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart1">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart1"/>
+        <waitForPageLoad stepKey="waitForCartPage1"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainDispatchQueueAfterFirstOrder"/>
+
+        <!-- Step 3: SECOND real order - frequency is now 2, condition satisfied. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage2"/>
+        <waitForPageLoad stepKey="waitForProductPage2"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart2">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart2"/>
+        <waitForPageLoad stepKey="waitForCartPage2"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSecondOrder"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainDispatchQueueAfterSecondOrder"/>
+
+        <!-- Step 4: the real, merchant-visible output only a genuine second order could have
+             produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeFrequencyConditionCopyInEmail">
+            <argument name="expectedText">Order frequency condition fired.</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+    </test>
+</tests>

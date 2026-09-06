@@ -55,10 +55,12 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   new `Test/Mftf/Helper/RfmTestHelper.php` so the table is already non-empty before the real customer's
   first order — proving the condition fails closed (not a live-scan fallback) until `CronScheduleHelper`
   forces the cron to run.
-- **Campaign engine** (§1): the other 5 RFM-based conditions
-  (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and the 2 remaining
-  percentile variants) are still untested end to end (unit-level only) — same technique now applies
-  directly. `add_tag`
+- ~~The other 5 RFM-based conditions~~ — done. `AdminRecencyDaysAtMostConditionTest`,
+  `AdminOrderFrequencyAtLeastConditionTest`, `AdminMonetaryTotalAtLeastConditionTest` (all three read
+  `RfmCalculator` live, no cron involved) and `AdminOrderFrequencyPercentileConditionTest`/
+  `AdminMonetaryPercentileConditionTest` (same `RfmTestHelper` poison-row technique as the recency
+  percentile test). All 6 RFM-based conditions now have MFTF coverage.
+- **Campaign engine** (§1): `add_tag`
   action has never been the thing directly under test (only a side
   effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is
   only incidentally exercised, never asserted; chained delays (an action pauses, resumes, pauses again) aren't

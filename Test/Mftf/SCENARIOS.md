@@ -57,12 +57,12 @@ cases separately from the type-by-type ones.
 | `order_total_gte`                     | `{amount}`                                                        | ✅ (`AdminCampaignScenarioEndToEndTest`, `AdminCreateCampaignWithConditionsAndActionsTest` as UI-only) |
 | `visitor_tag`                         | `{tag}`                                                           | ✅ `AdminCampaignVisitorTagConditionTest`                                                              |
 | `score_at_least`                      | `{threshold}`                                                     | ✅ `AdminCampaignScoreAtLeastConditionTest`                                                            |
-| `recency_days_at_most`                | `{days}` (RFM)                                                    | ⬜                                                                                                     |
-| `order_frequency_at_least`            | `{count}` (RFM)                                                   | ⬜                                                                                                     |
-| `monetary_total_at_least`             | `{amount}` (RFM)                                                  | ⬜                                                                                                     |
+| `recency_days_at_most`                | `{days}` (RFM)                                                    | ✅ `AdminRecencyDaysAtMostConditionTest`                                                               |
+| `order_frequency_at_least`            | `{count}` (RFM)                                                   | ✅ `AdminOrderFrequencyAtLeastConditionTest`                                                           |
+| `monetary_total_at_least`             | `{amount}` (RFM)                                                  | ✅ `AdminMonetaryTotalAtLeastConditionTest`                                                             |
 | `recency_percentile_at_least`         | `{percentile}` (RFM, needs `Cron\RecomputeRfmScores` to have run) | ✅ `AdminRecencyPercentileConditionTest`                                                               |
-| `order_frequency_percentile_at_least` | `{percentile}` (RFM)                                              | ⬜                                                                                                     |
-| `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ⬜                                                                                                     |
+| `order_frequency_percentile_at_least` | `{percentile}` (RFM)                                              | ✅ `AdminOrderFrequencyPercentileConditionTest`                                                        |
+| `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ✅ `AdminMonetaryPercentileConditionTest`                                                               |
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
