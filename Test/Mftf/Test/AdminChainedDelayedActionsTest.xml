@@ -95,7 +95,7 @@
              backdateMostRecentScheduledAction() also backdates the DATA the job's own
              addDueFilter() checks - both are real, separate "is this due" checks. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateFirstScheduledAction">
-            <argument name="campaignId">{$grabCampaignId}</argument>
+            <argument name="campaignId">"{$grabCampaignId}"</argument>
         </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleFirstResumeJob">
             <argument name="jobCode">ordo_automation_run_scheduled_campaign_actions</argument>
@@ -116,7 +116,7 @@
              genuinely separate forced run, not a leftover from step 3, and needs its own
              backdate (this new row also got a real run_at = NOW() + 1440 minutes). -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateSecondScheduledAction">
-            <argument name="campaignId">{$grabCampaignId}</argument>
+            <argument name="campaignId">"{$grabCampaignId}"</argument>
         </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSecondResumeJob">
             <argument name="jobCode">ordo_automation_run_scheduled_campaign_actions</argument>

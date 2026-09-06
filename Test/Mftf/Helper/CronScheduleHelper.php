@@ -65,7 +65,7 @@ class CronScheduleHelper extends Helper
      * "ORDER BY entity_id DESC LIMIT 1" would then backdate and resume THAT campaign instead.
      */
     public function backdateMostRecentScheduledAction(
-        int $campaignId,
+        string $campaignId,
         string $dbHost = '127.0.0.1',
         string $dbName = 'magento',
         string $dbUser = 'root',

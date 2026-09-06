@@ -6,26 +6,32 @@
             <features value="Ordo Automation"/>
             <stories value="Campaign engine"/>
             <title value="A real order triggers a campaign's add_product_recommendations action, and the recommendation renders in a follow-up email"/>
-            <description value="add_product_recommendations is registered in etc/di.xml (one of 8 real campaign actions) but was missing from SCENARIOS.md's own §1c table entirely, and had no MFTF/Integration coverage at all - unit-tested only. Model/Campaign/Action/AddProductRecommendations.php writes 'recommended_products_html' into the dispatch context (mutated by reference, read by a LATER action in the same chain), and the shipped ordo_campaign_generic email template already renders it automatically ({{depend recommended_products_html}}) - so this campaign chains add_product_recommendations then send_email on the same order_placed trigger, and asserts the real product name renders in the follow-up email. With only one real product ever ordered in this fresh install, ProductRecommender's co-purchase signal is empty and it falls back to store-wide best-sellers (its own documented behavior) - which is necessarily this same product, proving the fallback path works end to end, not just the co-purchase path."/>
+            <description value="add_product_recommendations is registered in etc/di.xml (one of 8 real campaign actions) but was missing from SCENARIOS.md's own §1c table entirely, and had no MFTF/Integration coverage at all - unit-tested only. Model/Campaign/Action/AddProductRecommendations.php writes 'recommended_products_html' into the dispatch context (mutated by reference, read by a LATER action in the same chain), and the shipped ordo_campaign_generic email template already renders it automatically ({{depend recommended_products_html}}) - so this campaign chains add_product_recommendations then send_email on the same order_placed trigger. Needs TWO products and TWO customers, not one of each: ProductRecommender::bestSellerSkus() deliberately excludes the target customer's OWN skus from the best-seller fallback (see its class doc - recommending what they just bought would be wrong), so a single customer buying a single product in an otherwise-empty install can never produce a recommendation regardless of the fallback firing correctly - that's not a bug in the recommender, it's this test needing a believable scenario. A throwaway seed customer buys productSeed first (establishing it as the store's only best-seller so far); the real test customer then buys a DIFFERENT product, productMain, and the campaign must recommend productSeed (not productMain, which the customer already owns) via the best-seller fallback - co-purchase affinity is empty since nobody else ever bought productMain."/>
             <severity value="CRITICAL"/>
             <group value="ordo_automation"/>
             <group value="segment"/>
         </annotations>
         <before>
+            <createData entity="Simple_US_Customer" stepKey="createSeedCustomer"/>
             <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
-            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <createData entity="SimpleProduct2" stepKey="createSeedProduct"/>
+            <createData entity="SimpleProduct2" stepKey="createMainProduct"/>
             <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
         </before>
         <after>
+            <deleteData createDataKey="createSeedCustomer" stepKey="deleteSeedCustomer"/>
             <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
-            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createSeedProduct" stepKey="deleteSeedProduct"/>
+            <deleteData createDataKey="createMainProduct" stepKey="deleteMainProduct"/>
             <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
         </after>
 
         <!-- Step 1: the campaign - trigger=order_placed, no condition, two chained actions:
              add_product_recommendations first (mutates context), send_email second (reads it via
              the shipped ordo_campaign_generic template - no dedicated field for this action's
-             "count" param, params_json left blank so it uses its own documented default of 4). -->
+             "count" param, params_json left blank so it uses its own documented default of 4).
+             Fires for BOTH orders below, but only the second (the real test customer's) is
+             asserted on. -->
         <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
         <waitForPageLoad stepKey="waitForNewCampaignPage"/>
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
@@ -53,14 +59,35 @@
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 
-        <!-- Step 2: a REAL order, through REAL storefront checkout. -->
+        <!-- Step 2: the SEED order - a different, throwaway customer buys productSeed, making it
+             the store's only best-seller so far. Its own recommendation email (if any) is never
+             asserted on; this order exists purely to give the real test below something for the
+             best-seller fallback to recommend that isn't the test customer's own purchase. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsSeedCustomer">
+            <argument name="Customer" value="$$createSeedCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createSeedProduct.custom_attributes[url_key]$.html" stepKey="goToSeedProductPage"/>
+        <waitForPageLoad stepKey="waitForSeedProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addSeedProductToCart">
+            <argument name="productName" value="$createSeedProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToSeedCart"/>
+        <waitForPageLoad stepKey="waitForSeedCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSeedOrder"/>
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutSeedCustomer"/>
+
+        <!-- Step 3: the REAL order under test - a different customer buys a DIFFERENT product
+             (productMain). ProductRecommender::ownSkus() for this customer is just productMain's
+             SKU, co-purchase affinity is empty (nobody else ever bought productMain), so the
+             best-seller fallback fires - productSeed is the store's only best-seller and isn't
+             something this customer owns, so it's exactly what must come back. -->
         <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
             <argument name="Customer" value="$$createCustomer$$"/>
         </actionGroup>
-        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <amOnPage url="$createMainProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
         <waitForPageLoad stepKey="waitForProductPage"/>
         <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
-            <argument name="productName" value="$createProduct.name$"/>
+            <argument name="productName" value="$createMainProduct.name$"/>
         </actionGroup>
         <amOnPage url="checkout/cart" stepKey="goToCart"/>
         <waitForPageLoad stepKey="waitForCartPage"/>
@@ -68,14 +95,15 @@
 
         <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
 
-        <!-- Step 3: the real, merchant-visible output only a genuine recommendation render could
-             have produced - the actual product's name, not just "no exception was thrown". -->
+        <!-- Step 4: the real, merchant-visible output only a genuine recommendation render could
+             have produced - the SEED product's name (the recommendation), not the main product
+             the customer already bought. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRecommendationsHeadingInEmail">
             <argument name="expectedText">Recommended for you</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRecommendedProductNameInEmail">
-            <argument name="expectedText">$createProduct.name$</argument>
+            <argument name="expectedText">$createSeedProduct.name$</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
     </test>
