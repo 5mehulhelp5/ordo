@@ -1143,6 +1143,71 @@
                                             <callback>visible</callback>
                                             <params><param name="0" xsi:type="boolean">false</param></params>
                                         </action>
+                                        <action name="10">
+                                            <target>${ $.parentName }.question</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                    </actions>
+                                </rule>
+                                <rule name="7">
+                                    <value>nps_survey</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.rule_id</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.prefix</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.template</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.message</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.headline</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.body</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="7">
+                                            <target>${ $.parentName }.cta_label</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="8">
+                                            <target>${ $.parentName }.cta_url</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="9">
+                                            <target>${ $.parentName }.points</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">false</param></params>
+                                        </action>
+                                        <action name="10">
+                                            <target>${ $.parentName }.question</target>
+                                            <callback>visible</callback>
+                                            <params><param name="0" xsi:type="boolean">true</param></params>
+                                        </action>
                                     </actions>
                                 </rule>
                             </rules>
@@ -1238,6 +1303,14 @@
                         <dataType>text</dataType>
                         <label translate="true">Points</label>
                         <notice translate="true">Can be negative (a penalty rule).</notice>
+                        <visible>false</visible>
+                    </settings>
+                </field>
+                <field name="question" formElement="input" sortOrder="26">
+                    <settings>
+                        <dataType>text</dataType>
+                        <label translate="true">Survey question</label>
+                        <notice translate="true">A single 0-10 question, e.g. "How likely are you to recommend us to a friend?"</notice>
                         <visible>false</visible>
                     </settings>
                 </field>

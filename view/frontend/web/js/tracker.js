@@ -28,6 +28,9 @@
     var NOTIFICATION_ENDPOINT = '/ordo/track/notification';
     var DISMISS_NOTIFICATION_ENDPOINT = '/ordo/track/dismissnotification';
     var NOTIFICATION_LIST_ID = 'ordo-notification-list';
+    var SURVEY_ENDPOINT = '/ordo/track/survey';
+    var SUBMIT_SURVEY_ENDPOINT = '/ordo/track/submitsurveyresponse';
+    var SURVEY_PROMPT_ID = 'ordo-survey-prompt';
 
     // Captured synchronously, at the top of this script's own execution — document.currentScript
     // is only reliable for a plain, synchronously-executing <script src> tag like this one; it
@@ -306,8 +309,116 @@
         setInterval(pollForNotifications, intervalSeconds * 1000);
     }
 
+    function submitSurveyResponse(surveyId, score, el) {
+        var body = new URLSearchParams({
+            visitor_id: getVisitorId(),
+            survey_id: surveyId,
+            score: score
+        });
+
+        // Same fail-open reasoning as dismissNotification: pull the widget immediately, don't
+        // make the visitor wait on the round-trip to see their own click take effect.
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+
+        fetch(SUBMIT_SURVEY_ENDPOINT, { method: 'POST', body: body, keepalive: true }).catch(function () {});
+    }
+
+    /**
+     * One 0-10 button row — deliberately minimal, no rating widget dependency, matching the rest
+     * of this file. Only one prompt shown at a time (there is realistically only ever one
+     * unclaimed survey queued per visitor at once, same as popup).
+     */
+    function renderSurvey(survey) {
+        if (document.getElementById(SURVEY_PROMPT_ID)) {
+            return;
+        }
+
+        var widget = document.createElement('div');
+        widget.id = SURVEY_PROMPT_ID;
+        widget.setAttribute(
+            'style',
+            'position:fixed;right:16px;bottom:16px;max-width:340px;background:#fff;' +
+            'color:#1a1a1a;border:1px solid #ccc;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.15);' +
+            'padding:16px;z-index:2147483000;font-family:sans-serif;font-size:14px;line-height:1.4;'
+        );
+
+        var question = document.createElement('div');
+        question.textContent = survey.question;
+        question.setAttribute('style', 'font-weight:bold;margin-bottom:10px;padding-right:20px;');
+        widget.appendChild(question);
+
+        var buttons = document.createElement('div');
+        buttons.setAttribute('style', 'display:flex;flex-wrap:wrap;gap:4px;');
+        for (var score = 0; score <= 10; score++) {
+            (function (score) {
+                var button = document.createElement('button');
+                button.textContent = String(score);
+                button.setAttribute(
+                    'style',
+                    'min-width:26px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;' +
+                    'background:#f5f5f5;cursor:pointer;'
+                );
+                button.onclick = function () {
+                    submitSurveyResponse(survey.id, score, widget);
+                };
+                buttons.appendChild(button);
+            })(score);
+        }
+        widget.appendChild(buttons);
+
+        var close = document.createElement('button');
+        close.textContent = '×';
+        close.setAttribute('aria-label', 'Close');
+        close.setAttribute(
+            'style',
+            'position:absolute;top:6px;right:8px;border:none;background:none;font-size:18px;' +
+            'line-height:1;cursor:pointer;color:#666;'
+        );
+        // Closing without answering just hides it locally — the row stays delivered-unanswered
+        // server-side and is swept up later by Cron\PruneSurveyPrompts, same as an ignored popup
+        // is never re-shown.
+        close.onclick = function () {
+            widget.parentNode.removeChild(widget);
+        };
+        widget.appendChild(close);
+
+        document.body.appendChild(widget);
+    }
+
+    function pollForSurvey() {
+        var url = SURVEY_ENDPOINT + '?visitor_id=' + encodeURIComponent(getVisitorId());
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (data && data.survey) {
+                    renderSurvey(data.survey);
+                }
+            })
+            .catch(function () {});
+    }
+
+    function startSurveyPolling() {
+        if (!currentScript || currentScript.getAttribute('data-nps-survey-enabled') !== '1') {
+            return;
+        }
+
+        var intervalSeconds = parseInt(currentScript.getAttribute('data-nps-survey-poll-interval'), 10);
+        if (!intervalSeconds || intervalSeconds <= 0) {
+            intervalSeconds = 25;
+        }
+
+        setTimeout(pollForSurvey, 2000);
+        setInterval(pollForSurvey, intervalSeconds * 1000);
+    }
+
     window.ordoTrack = track;
     track('page_view');
     startPopupPolling();
     startNotificationPolling();
+    startSurveyPolling();
 })();

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignNpsSurveyActionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="On-site behavior tracking"/>
+            <title value="A real campaign's nps_survey action delivers a 0-10 question, the visitor's real answer gates a downstream campaign"/>
+            <description value="Closes ROADMAP.md's 'Single-question satisfaction/NPS survey action' gap. Same queue-and-poll delivery shape as AdminCampaignPopupActionTest/AdminCampaignNotifyActionTest, proven end to end: Model/Campaign/Action/NpsSurvey.php queues a row in ordo_survey_prompt, Controller/Track/Survey.php claims and hands it out to the storefront poll, the real browser click posts to Controller/Track/SubmitSurveyResponse.php which records score+responded_at - then, exactly like AdminCampaignTagAddedTriggerTest.xml's own proven vehicle for firing a SEPARATE tag_added-triggered campaign, a segment bulk add_tag action is used to fire Campaign B, whose Model/Campaign/Condition/NpsScoreAtLeast.php condition reads that real, already-answered score row and gates its own add_tag action - proving the whole answer-then-condition loop, not just delivery."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="tracking"/>
+        </annotations>
+        <before>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: Campaign A - trigger=order_placed, action=nps_survey with a real question,
+             via the dedicated "question" field (ordo_campaign_form.xml's switcherConfig rule 7). -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignAPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignAPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldA"/>
+        <fillField selector="[name='name']" userInput="E2E NPS Survey Campaign" stepKey="fillNameA"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonA"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowA"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowA"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventA"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowA"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowA"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="nps_survey" stepKey="selectActionTypeA"/>
+        <waitForElementVisible selector="[name='actions[actions][0][question]']" stepKey="waitForQuestionField"/>
+        <fillField selector="[name='actions[actions][0][question]']" userInput="How likely are you to recommend us to a friend?" stepKey="fillQuestion"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesA"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignA"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueA"/>
+        <waitForPageLoad stepKey="waitForSaveA"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageA"/>
+
+        <!-- Step 2: Campaign B - trigger=tag_added, condition=nps_score_at_least {"threshold": 9}
+             via the "Params (JSON)" fallback (same dedicated-field-free precedent as
+             AdminLoyaltyTierAtLeastConditionTest.xml's loyalty_tier_at_least), action=add_tag -
+             the smallest, most directly DB-observable side effect. This can only fire once the
+             real score answered in Step 4 below is already committed. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignBPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignBPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
+        <fillField selector="[name='name']" userInput="NPS Score At Least After Survey Campaign" stepKey="fillNameB"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonB"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowB"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowB"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="tag_added" stepKey="selectTriggerEventB"/>
+
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRowB"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="nps_score_at_least" stepKey="selectConditionTypeB"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][params_json]']" stepKey="waitForParamsJsonFieldB"/>
+        <fillField selector="[name='conditions[conditions][0][params_json]']" userInput='{"threshold":9}' stepKey="fillConditionParamsB"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowB"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowB"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionTypeB"/>
+        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagFieldB"/>
+        <fillField selector="[name='actions[actions][0][tag]']" userInput="nps_promoter" stepKey="fillTagB"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesB"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignB"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueB"/>
+        <waitForPageLoad stepKey="waitForSaveB"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
+
+        <!-- Step 3: a REAL order, through REAL storefront checkout, as a REAL customer. -->
+        <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 4: the survey widget appears - same long wait reasoning as
+             AdminCampaignPopupActionTest.xml (tracker.js's first poll tick fires after 2s, then
+             falls back to a full poll-interval cycle) - and the visitor picks a real 9, the
+             actual click Controller/Track/SubmitSurveyResponse.php records. -->
+        <waitForElementVisible selector="#ordo-survey-prompt" time="90" stepKey="waitForSurveyPrompt"/>
+        <see selector="#ordo-survey-prompt" userInput="How likely are you to recommend us to a friend?" stepKey="seeSurveyQuestion"/>
+        <click selector="#ordo-survey-prompt button:nth-of-type(10)" stepKey="clickScoreNine"/>
+        <dontSeeElement selector="#ordo-survey-prompt" stepKey="dontSeeSurveyPromptAfterAnswering"/>
+
+        <!-- Step 5: a demographic score rule + segment matching this customer's default group,
+             purely as the vehicle to apply a real tag from the admin UI - exact same mechanism
+             AdminCampaignTagAddedTriggerTest.xml already proves reliable. -->
+        <amOnPage url="admin/ordo/scorerule/new" stepKey="goToNewScoreRulePage"/>
+        <waitForPageLoad stepKey="waitForNewScoreRulePage"/>
+        <executeJS function="require(['uiRegistry'], function (uiRegistry) { uiRegistry.get('ordo_scorerule_form.ordo_scorerule_form.general.attribute_code', function (field) { field.value('group_id'); }); });" stepKey="fillAttributeCode"/>
+        <selectOption selector="[name='operator']" userInput="equals" stepKey="selectOperator"/>
+        <fillField selector="[name='value']" userInput="1" stepKey="fillValue"/>
+        <fillField selector="[name='points']" userInput="80" stepKey="fillPoints"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveScoreRule"/>
+        <waitForPageLoad stepKey="waitForScoreRuleSave"/>
+        <see selector=".message-success" userInput="The score rule has been saved." stepKey="seeScoreRuleSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabScoreRuleId"/>
+
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Test NPS Survey Tag Vehicle Segment" stepKey="fillSegmentName"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSegment"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addSegmentConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForSegmentConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="score_at_least" stepKey="selectSegmentConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][params_json]']" userInput="{&quot;threshold&quot;: &quot;40&quot;}" stepKey="fillSegmentConditionParams"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueSegment"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
+
+        <amOnPage url="admin/ordo/segment/edit/entity_id/{$grabSegmentId}" stepKey="goToSegmentEditPage"/>
+        <waitForPageLoad stepKey="waitForSegmentEditPage"/>
+        <waitForElementVisible selector="#ordo-segment-bulk-action-type" stepKey="waitForBulkActionForm"/>
+        <selectOption selector="#ordo-segment-bulk-action-type" userInput="add_tag" stepKey="selectAddTagAction"/>
+        <fillField selector="#ordo-segment-bulk-tag" userInput="triggered-for-nps-check" stepKey="fillBulkTag"/>
+        <click selector="//button[contains(., 'Run Bulk Action')]" stepKey="clickRunBulkAction"/>
+        <waitForPageLoad stepKey="waitForBulkActionRedirect"/>
+        <see selector=".message-success" userInput="Queued &quot;Add Tag&quot; for 1 matching customer(s)." stepKey="seeQueuedMessage"/>
+
+        <!-- Step 6: drain both queues in order, same reasoning as AdminCampaignTagAddedTriggerTest.xml. -->
+        <magentoCLI command="queue:consumers:start ordo.automation.segment.bulk_action --max-messages=50" stepKey="runSegmentBulkActionConsumer"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runSecondCampaignDispatchConsumer"/>
+
+        <!-- Step 7: the actual proof - a real ordo_customer_tag row that only Campaign B's
+             nps_score_at_least condition, reading the real score=9 response Step 4 committed
+             and correctly resolving 9 >= 9, could have allowed through. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertCustomerTagAddedByEmail" stepKey="assertNpsPromoterTagAdded">
+            <argument name="email">$createCustomer.email$</argument>
+            <argument name="tag">nps_promoter</argument>
+        </helper>
+
+        <!-- Cleanup: same reasoning as AdminCampaignTagAddedTriggerTest.xml's identical closing
+             step - an unscoped group_id=1 demographic score rule would otherwise stack on every
+             General customer created for the rest of this same CI job. -->
+        <amOnPage url="admin/ordo/scorerule/delete/entity_id/{$grabScoreRuleId}" stepKey="deleteScoreRule"/>
+        <waitForPageLoad stepKey="waitForScoreRuleDelete"/>
+        <see selector=".message-success" userInput="The score rule has been deleted." stepKey="seeScoreRuleDeleteSuccessMessage"/>
+    </test>
+</tests>

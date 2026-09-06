@@ -24,6 +24,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
   dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
   producer can personalize by `customer_id`.
+- Single-question satisfaction/NPS survey action (`nps_survey`) — same queue-and-poll delivery
+  shape as `popup`/`notify`: new `ordo_survey_prompt` table holds both the queued 0-10 question
+  and its eventual response in one row, `Controller/Track/Survey.php` claims and hands it out
+  (claim-before-use, same as `popup`), a real click posts to `Controller/Track/
+  SubmitSurveyResponse.php` which records the answer once and never overwrites it. New
+  `nps_score_at_least` segment/campaign condition (`Model/Campaign/Condition/
+  NpsScoreAtLeast.php`) reads a customer's most recent answered score, reusing the same
+  dedicated "threshold" field `score_at_least` already has — no new admin field needed for the
+  condition side. `Cron/PruneSurveyPrompts.php` cleans up responded/expired/stale-delivered rows.
 - Persistent in-site notification action (`notify`) — non-modal, sibling to the existing `popup` action, but
   never claimed-and-gone: new `ordo_notification` table, `Controller/Track/Notification.php` returns every
   unread row on every poll (unlike `Popup.php`'s one-shot claim), `Controller/Track/DismissNotification.php` is

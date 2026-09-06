@@ -11,5 +11,7 @@ $viewModel = $block->getData('view_model');
     data-popup-poll-interval="<?= (int) $viewModel->getPopupPollIntervalSeconds() ?>"
     data-notification-enabled="<?= $viewModel->isNotificationEnabled() ? '1' : '0' ?>"
     data-notification-poll-interval="<?= (int) $viewModel->getNotificationPollIntervalSeconds() ?>"
+    data-nps-survey-enabled="<?= $viewModel->isNpsSurveyEnabled() ? '1' : '0' ?>"
+    data-nps-survey-poll-interval="<?= (int) $viewModel->getNpsSurveyPollIntervalSeconds() ?>"
 ></script>
 <?php endif; ?>

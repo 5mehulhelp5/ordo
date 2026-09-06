@@ -27,6 +27,7 @@ class TypeLabels
         'monetary_percentile_at_least' => 'Monetary Percentile At Least (top N% by spend)',
         'in_segment' => 'In Segment',
         'loyalty_tier_at_least' => 'Loyalty Tier At Least',
+        'nps_score_at_least' => 'NPS Score At Least',
     ];
 
     private const array ACTION_LABELS = [
@@ -39,6 +40,7 @@ class TypeLabels
         'add_dynamic_content' => 'Add Dynamic Content',
         'send_sms' => 'Send SMS',
         'notify' => 'Persistent Notification',
+        'nps_survey' => 'NPS Survey',
     ];
 
     public function conditionLabel(string $type): string

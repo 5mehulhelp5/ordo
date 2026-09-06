@@ -33,6 +33,7 @@ class ConfigTest extends TestCase
         self::assertTrue($this->config->isTrackingEnabled());
         self::assertTrue($this->config->isPopupEnabled());
         self::assertTrue($this->config->isNotificationEnabled());
+        self::assertTrue($this->config->isNpsSurveyEnabled());
         self::assertTrue($this->config->isFreeGiftEnabled());
         self::assertTrue($this->config->isCreditLimitCheckoutBlockEnabled());
         self::assertTrue($this->config->isLeadScoringEnabled());
@@ -81,6 +82,7 @@ class ConfigTest extends TestCase
         self::assertSame(1, $this->config->getTrackingClickThreshold());
         self::assertSame(15, $this->config->getPopupPollIntervalSeconds());
         self::assertSame(20, $this->config->getNotificationPollIntervalSeconds());
+        self::assertSame(25, $this->config->getNpsSurveyPollIntervalSeconds());
         self::assertSame(24, $this->config->getPopupFrequencyCapHours());
         self::assertSame(100, $this->config->getScoreThreshold());
         self::assertSame(100, $this->config->getLoyaltySilverThreshold());

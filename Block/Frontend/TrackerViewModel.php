@@ -37,4 +37,14 @@ class TrackerViewModel implements ArgumentInterface
     {
         return $this->config->getNotificationPollIntervalSeconds();
     }
+
+    public function isNpsSurveyEnabled(): bool
+    {
+        return $this->config->isNpsSurveyEnabled();
+    }
+
+    public function getNpsSurveyPollIntervalSeconds(): int
+    {
+        return $this->config->getNpsSurveyPollIntervalSeconds();
+    }
 }

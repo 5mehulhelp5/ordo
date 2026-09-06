@@ -56,4 +56,20 @@ class TrackerViewModelTest extends TestCase
 
         self::assertSame(25, (new TrackerViewModel($config))->getNotificationPollIntervalSeconds());
     }
+
+    public function testIsNpsSurveyEnabledReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isNpsSurveyEnabled')->willReturn(true);
+
+        self::assertTrue((new TrackerViewModel($config))->isNpsSurveyEnabled());
+    }
+
+    public function testGetNpsSurveyPollIntervalSecondsReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getNpsSurveyPollIntervalSeconds')->willReturn(30);
+
+        self::assertSame(30, (new TrackerViewModel($config))->getNpsSurveyPollIntervalSeconds());
+    }
 }

@@ -43,6 +43,9 @@
         <job name="ordo_automation_prune_notifications" instance="Ordo\Automation\Cron\PruneNotifications" method="execute">
             <schedule>35 4 * * *</schedule>
         </job>
+        <job name="ordo_automation_prune_survey_prompts" instance="Ordo\Automation\Cron\PruneSurveyPrompts" method="execute">
+            <schedule>40 4 * * *</schedule>
+        </job>
         <job name="ordo_automation_recompute_rfm_scores" instance="Ordo\Automation\Cron\RecomputeRfmScores" method="execute">
             <schedule>0 1 * * *</schedule>
         </job>

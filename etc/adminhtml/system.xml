@@ -194,6 +194,20 @@
                         <field id="notification_enabled">1</field>
                     </depends>
                 </field>
+                <field id="nps_survey_enabled" translate="label comment" type="select" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable single-question NPS/satisfaction survey</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Lets a campaign's "NPS Survey" action queue a single 0-10 question, delivered and answered the same poll-and-claim way as "Show Popup"/"Persistent Notification" above. Requires tracking to be enabled above.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="nps_survey_poll_interval_seconds" translate="label" type="text" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>NPS survey poll interval (seconds)</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                    <depends>
+                        <field id="enabled">1</field>
+                        <field id="nps_survey_enabled">1</field>
+                    </depends>
+                </field>
             </group>
 
             <group id="free_gift" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">

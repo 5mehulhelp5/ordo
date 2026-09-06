@@ -46,6 +46,9 @@ class Config
     private const string XML_PATH_NOTIFICATION_ENABLED = 'ordo_automation/tracking/notification_enabled';
     private const string XML_PATH_NOTIFICATION_POLL_INTERVAL_SECONDS
         = 'ordo_automation/tracking/notification_poll_interval_seconds';
+    private const string XML_PATH_NPS_SURVEY_ENABLED = 'ordo_automation/tracking/nps_survey_enabled';
+    private const string XML_PATH_NPS_SURVEY_POLL_INTERVAL_SECONDS
+        = 'ordo_automation/tracking/nps_survey_poll_interval_seconds';
 
     private const string XML_PATH_FREE_GIFT_ENABLED = 'ordo_automation/free_gift/enabled';
 
@@ -277,6 +280,20 @@ class Config
     public function getNotificationPollIntervalSeconds(?int $storeId = null): int
     {
         return $this->intConfig(self::XML_PATH_NOTIFICATION_POLL_INTERVAL_SECONDS, 20, $storeId);
+    }
+
+    public function isNpsSurveyEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_NPS_SURVEY_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getNpsSurveyPollIntervalSeconds(?int $storeId = null): int
+    {
+        return $this->intConfig(self::XML_PATH_NPS_SURVEY_POLL_INTERVAL_SECONDS, 25, $storeId);
     }
 
     public function isFreeGiftEnabled(?int $storeId = null): bool

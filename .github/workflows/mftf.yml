@@ -203,6 +203,10 @@ jobs:
           # actually run (gated behind data-notification-enabled="1") — off by default, same as
           # popup_enabled above.
           bin/magento config:set ordo_automation/tracking/notification_enabled 1
+          # AdminCampaignNpsSurveyActionTest needs tracker.js's startSurveyPolling() to actually
+          # run (gated behind data-nps-survey-enabled="1") — off by default, same as
+          # notification_enabled above.
+          bin/magento config:set ordo_automation/tracking/nps_survey_enabled 1
           # AdminTagInactiveCustomersAndWinBackEmailTest/AdminSendCreditLimitAlertTest/
           # AdminSendSalesRepDigestTest (lifecycle group) need their crons' own feature flags
           # actually on — off by default, same as the flags above.

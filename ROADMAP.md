@@ -41,8 +41,6 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **Single-question satisfaction/NPS survey action** — a 0–10 post-purchase prompt feeding into segment
-  conditions the same way tags/scores do. Narrower than a full survey builder.
 - **GDPR/consent manager** — per-customer marketing consent state (opt-in/opt-out per channel: email/SMS/push),
   with timestamp/source, plus a data-subject export/erase admin action. Every campaign send action should check
   consent before sending. Compliance gap, not just a feature gap.
