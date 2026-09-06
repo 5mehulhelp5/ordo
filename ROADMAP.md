@@ -41,8 +41,6 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **Loyalty tiers on top of lead scoring** — map `ordo_customer_score` ranges to named tiers, as a segment
-  condition type + dashboard stat.
 - **Persistent in-site notification action** — non-modal, persists until read or expired, sibling to the
   existing `popup` action.
 - **Single-question satisfaction/NPS survey action** — a 0–10 post-purchase prompt feeding into segment

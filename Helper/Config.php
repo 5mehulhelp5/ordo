@@ -48,6 +48,8 @@ class Config
 
     private const string XML_PATH_LEAD_SCORING_ENABLED = 'ordo_automation/lead_scoring/enabled';
     private const string XML_PATH_LEAD_SCORING_THRESHOLD = 'ordo_automation/lead_scoring/score_threshold';
+    private const string XML_PATH_LOYALTY_SILVER_THRESHOLD = 'ordo_automation/lead_scoring/loyalty_silver_threshold';
+    private const string XML_PATH_LOYALTY_GOLD_THRESHOLD = 'ordo_automation/lead_scoring/loyalty_gold_threshold';
 
     private const string XML_PATH_SMS_ENABLED = 'ordo_automation/sms/enabled';
     private const string XML_PATH_SMS_TWILIO_ACCOUNT_SID = 'ordo_automation/sms/twilio_account_sid';
@@ -281,6 +283,20 @@ class Config
     public function getScoreThreshold(?int $storeId = null): int
     {
         return $this->intConfig(self::XML_PATH_LEAD_SCORING_THRESHOLD, 100, $storeId);
+    }
+
+    /**
+     * Bronze is implicit (any score below this) - only Silver/Gold have their own threshold,
+     * same "just the ones that need a value" shape as the rest of this class.
+     */
+    public function getLoyaltySilverThreshold(?int $storeId = null): int
+    {
+        return $this->intConfig(self::XML_PATH_LOYALTY_SILVER_THRESHOLD, 100, $storeId);
+    }
+
+    public function getLoyaltyGoldThreshold(?int $storeId = null): int
+    {
+        return $this->intConfig(self::XML_PATH_LOYALTY_GOLD_THRESHOLD, 500, $storeId);
     }
 
     public function isSmsEnabled(?int $storeId = null): bool

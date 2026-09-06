@@ -88,6 +88,46 @@ class CustomerScoreManagerTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testCountCustomersWithScoreAtLeastReturnsIntCount(): void
+    {
+        $select = $this->createStub(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->method('join')->willReturnSelf();
+        $select->method('where')->willReturnSelf();
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('fetchOne')->willReturn('7');
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $manager = new CustomerScoreManager($resourceConnection);
+
+        self::assertSame(7, $manager->countCustomersWithScoreAtLeast(100));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testCountAllCustomersReturnsIntCount(): void
+    {
+        $select = $this->createStub(Select::class);
+        $select->method('from')->willReturnSelf();
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('fetchOne')->willReturn('123');
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $manager = new CustomerScoreManager($resourceConnection);
+
+        self::assertSame(123, $manager->countAllCustomers());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testGetDemographicScoreReturnsStoredScore(): void
     {
         $select = $this->createStub(Select::class);

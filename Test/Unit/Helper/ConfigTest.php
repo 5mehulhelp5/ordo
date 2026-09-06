@@ -81,6 +81,8 @@ class ConfigTest extends TestCase
         self::assertSame(15, $this->config->getPopupPollIntervalSeconds());
         self::assertSame(24, $this->config->getPopupFrequencyCapHours());
         self::assertSame(100, $this->config->getScoreThreshold());
+        self::assertSame(100, $this->config->getLoyaltySilverThreshold());
+        self::assertSame(500, $this->config->getLoyaltyGoldThreshold());
     }
 
     public function testIntGetterHonorsExplicitZero(): void

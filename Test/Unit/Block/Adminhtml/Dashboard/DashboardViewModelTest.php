@@ -12,6 +12,7 @@ use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\Collection as CampaignT
 use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\CollectionFactory as CampaignTriggerCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\FreeGiftOffer\Collection as FreeGiftOfferCollection;
 use Ordo\Automation\Model\ResourceModel\FreeGiftOffer\CollectionFactory as FreeGiftOfferCollectionFactory;
+use Ordo\Automation\Model\LoyaltyTierCalculator;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle\Collection as ReorderCycleCollection;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle\CollectionFactory as ReorderCycleCollectionFactory;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
@@ -27,7 +28,8 @@ class DashboardViewModelTest extends TestCase
         ?FreeGiftOfferCollectionFactory $freeGiftOfferCollectionFactory = null,
         ?CampaignTriggerCollectionFactory $campaignTriggerCollectionFactory = null,
         ?TriggerOutcomeLogger $triggerOutcomeLogger = null,
-        ?PricingHelper $pricingHelper = null
+        ?PricingHelper $pricingHelper = null,
+        ?LoyaltyTierCalculator $loyaltyTierCalculator = null
     ): DashboardViewModel {
         $pricingHelper ??= $this->createStub(PricingHelper::class);
         $pricingHelper->method('currency')->willReturnCallback(
@@ -40,7 +42,8 @@ class DashboardViewModelTest extends TestCase
             $reorderCycleCollectionFactory ?? $this->createStub(ReorderCycleCollectionFactory::class),
             $freeGiftOfferCollectionFactory ?? $this->createStub(FreeGiftOfferCollectionFactory::class),
             $triggerOutcomeLogger ?? $this->createStub(TriggerOutcomeLogger::class),
-            $pricingHelper
+            $pricingHelper,
+            $loyaltyTierCalculator ?? $this->createStub(LoyaltyTierCalculator::class)
         );
     }
 
@@ -324,6 +327,33 @@ class DashboardViewModelTest extends TestCase
                 'recovered_revenue_formatted' => '$0.00',
             ],
             $stats[TriggerOutcomeLogger::TRIGGER_REORDER_REMINDER]
+        );
+    }
+
+    public function testGetLoyaltyTierDistributionReturnsOneRowPerTierInOrder(): void
+    {
+        $loyaltyTierCalculator = $this->createStub(LoyaltyTierCalculator::class);
+        $loyaltyTierCalculator->method('getAllTiers')->willReturn(['bronze', 'silver', 'gold']);
+        $loyaltyTierCalculator->method('getTierLabel')->willReturnMap([
+            ['bronze', 'Bronze'],
+            ['silver', 'Silver'],
+            ['gold', 'Gold'],
+        ]);
+        $loyaltyTierCalculator->method('getTierDistribution')->willReturn([
+            'bronze' => 40,
+            'silver' => 7,
+            'gold' => 3,
+        ]);
+
+        $viewModel = $this->makeViewModel(loyaltyTierCalculator: $loyaltyTierCalculator);
+
+        self::assertSame(
+            [
+                ['tier' => 'bronze', 'label' => 'Bronze', 'count' => 40],
+                ['tier' => 'silver', 'label' => 'Silver', 'count' => 7],
+                ['tier' => 'gold', 'label' => 'Gold', 'count' => 3],
+            ],
+            $viewModel->getLoyaltyTierDistribution()
         );
     }
 }

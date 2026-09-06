@@ -22,6 +22,10 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   email, embeddable anywhere via a new `Block\Frontend\ContentBlock\Render` (resolves a content block by its
   `identifier`, usable from any CMS block/page via `{{block class=...}}` or layout XML). `ProducerInterface::
   render()` gained an optional `$context` parameter so a producer can personalize by `customer_id`.
+- Loyalty tiers on top of lead scoring — `Model/LoyaltyTierCalculator.php` maps the existing `ordo_customer_score`
+  running total (the same score `score_at_least` already reads) into Bronze/Silver/Gold, configurable via two new
+  `lead_scoring` config thresholds. New `loyalty_tier_at_least` campaign/segment condition (`{tier}`, no dedicated
+  admin field yet — via the Params JSON fallback) and a new dashboard stat showing the customer count per tier.
 
 ### Fixed
 

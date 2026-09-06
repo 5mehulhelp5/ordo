@@ -9,6 +9,7 @@ use Ordo\Automation\Api\Data\CampaignInterface;
 use Ordo\Automation\Api\Data\CampaignTriggerInterface;
 use Ordo\Automation\Model\Campaign;
 use Ordo\Automation\Model\CampaignTrigger;
+use Ordo\Automation\Model\LoyaltyTierCalculator;
 use Ordo\Automation\Model\ResourceModel\Campaign\CollectionFactory as CampaignCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\CollectionFactory as CampaignTriggerCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\FreeGiftOffer\CollectionFactory as FreeGiftOfferCollectionFactory;
@@ -72,7 +73,8 @@ class DashboardViewModel implements ArgumentInterface
         private readonly ReorderCycleCollectionFactory $reorderCycleCollectionFactory,
         private readonly FreeGiftOfferCollectionFactory $freeGiftOfferCollectionFactory,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly PricingHelper $pricingHelper
+        private readonly PricingHelper $pricingHelper,
+        private readonly LoyaltyTierCalculator $loyaltyTierCalculator
     ) {
     }
 
@@ -123,6 +125,27 @@ class DashboardViewModel implements ArgumentInterface
     public function getFreeGiftOfferCount(): int
     {
         return $this->freeGiftOfferCollectionFactory->create()->getSize();
+    }
+
+    /**
+     * @return array<int, array{tier: string, label: string, count: int}> bronze/silver/gold, in
+     *   ascending order - same "always show every row, even zero" convention as
+     *   getFixedTriggerEvents() above.
+     */
+    public function getLoyaltyTierDistribution(): array
+    {
+        $distribution = $this->loyaltyTierCalculator->getTierDistribution();
+
+        $rows = [];
+        foreach ($this->loyaltyTierCalculator->getAllTiers() as $tier) {
+            $rows[] = [
+                'tier' => $tier,
+                'label' => $this->loyaltyTierCalculator->getTierLabel($tier),
+                'count' => $distribution[$tier] ?? 0,
+            ];
+        }
+
+        return $rows;
     }
 
     public function getTriggerLabel(string $triggerEvent): string

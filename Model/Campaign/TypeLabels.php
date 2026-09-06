@@ -26,6 +26,7 @@ class TypeLabels
         'order_frequency_percentile_at_least' => 'Order Frequency Percentile At Least (top N%)',
         'monetary_percentile_at_least' => 'Monetary Percentile At Least (top N% by spend)',
         'in_segment' => 'In Segment',
+        'loyalty_tier_at_least' => 'Loyalty Tier At Least',
     ];
 
     private const array ACTION_LABELS = [

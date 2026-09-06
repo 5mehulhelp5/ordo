@@ -78,6 +78,41 @@ class CustomerScoreManager
     }
 
     /**
+     * Count-only counterpart to getCustomerIdsWithScoreAtLeast() - LoyaltyTierCalculator's
+     * dashboard tier distribution only needs a number per threshold, not the actual customer
+     * ids, so this skips fetching/hydrating a potentially large id list just to count it.
+     */
+    public function countCustomersWithScoreAtLeast(int $threshold): int
+    {
+        $connection = $this->resourceConnection->getConnection();
+        $table = $this->resourceConnection->getTableName('ordo_customer_score');
+        $customerTable = $this->resourceConnection->getTableName('customer_entity');
+
+        return (int) $connection->fetchOne(
+            $connection->select()
+                ->from(['s' => $table], ['count' => new \Zend_Db_Expr('COUNT(*)')])
+                ->join(['c' => $customerTable], 's.customer_id = c.entity_id', [])
+                ->where('s.score >= ?', $threshold)
+        );
+    }
+
+    /**
+     * Every registered customer, scored or not - a customer with no ordo_customer_score row
+     * at all has an implicit score of 0 (see getScore()'s own false-to-0 fallback), which is
+     * why LoyaltyTierCalculator's Bronze count is derived as "everyone else", not just
+     * "customers with a low score row".
+     */
+    public function countAllCustomers(): int
+    {
+        $connection = $this->resourceConnection->getConnection();
+        $customerTable = $this->resourceConnection->getTableName('customer_entity');
+
+        return (int) $connection->fetchOne(
+            $connection->select()->from($customerTable, ['count' => new \Zend_Db_Expr('COUNT(*)')])
+        );
+    }
+
+    /**
      * Current sum of matching ordo_score_rule points for a customer — kept in a separate
      * table (ordo_customer_demographic_score) from the running score total, so
      * EvaluateCustomerScoreRules can compute a delta between the old and new sum instead of

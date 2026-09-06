@@ -150,6 +150,7 @@
                 <item name="order_frequency_percentile_at_least" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\OrderFrequencyPercentileAtLeast</item>
                 <item name="monetary_percentile_at_least" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\MonetaryPercentileAtLeast</item>
                 <item name="in_segment" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\InSegment</item>
+                <item name="loyalty_tier_at_least" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\LoyaltyTierAtLeast</item>
             </argument>
         </arguments>
     </type>

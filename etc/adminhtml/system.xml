@@ -202,6 +202,16 @@
                     <validate>validate-number</validate>
                     <comment>Total lead score (behavioral + demographic) at which the "score_threshold_crossed" campaign trigger fires.</comment>
                 </field>
+                <field id="loyalty_silver_threshold" translate="label" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Loyalty Tier: Silver Threshold</label>
+                    <validate>validate-number</validate>
+                    <comment>Total lead score at which a customer's loyalty tier becomes Silver (below this, Bronze).</comment>
+                </field>
+                <field id="loyalty_gold_threshold" translate="label" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Loyalty Tier: Gold Threshold</label>
+                    <validate>validate-number</validate>
+                    <comment>Total lead score at which a customer's loyalty tier becomes Gold.</comment>
+                </field>
             </group>
 
 

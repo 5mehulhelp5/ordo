@@ -58,6 +58,7 @@ cases separately from the type-by-type ones.
 | `order_frequency_percentile_at_least` | `{percentile}` (RFM)                                              | ✅ `AdminOrderFrequencyPercentileConditionTest`                                                        |
 | `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ✅ `AdminMonetaryPercentileConditionTest`                                                              |
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
+| `loyalty_tier_at_least`               | `{tier}` (bronze/silver/gold, no dedicated field yet — via Params JSON) | ✅ `AdminLoyaltyTierAtLeastConditionTest`                                                        |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 
@@ -122,6 +123,7 @@ cases separately from the type-by-type ones.
 | Crossing the configured threshold fires `score_threshold_crossed` (chains §1a)                           | ✅ `AdminScoreThresholdCampaignTest`                 |
 | Score rule edited/disabled — no longer contributes on next customer save                                 | ✅ `AdminDisableScoreRuleStopsContributingTest`      |
 | Score rule deleted                                                                                       | ✅ `AdminDeleteScoreRuleStopsContributingTest`       |
+| Loyalty tier (`Model/LoyaltyTierCalculator.php`) derived from the same running score, gates a campaign via `loyalty_tier_at_least` | ✅ `AdminLoyaltyTierAtLeastConditionTest` |
 
 ## 5. Free gift offers (`Model/FreeGiftOffer.php`, `Model/FreeGiftManagement.php`,
 

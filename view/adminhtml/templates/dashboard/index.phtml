@@ -77,6 +77,20 @@ $segmentNavDesc = __(
         </table>
     </div>
 
+    <div class="ordo-dashboard-triggers">
+        <div class="ordo-section-head">
+            <h2><?= $escaper->escapeHtml(__('Loyalty tiers')) ?></h2>
+        </div>
+        <div class="ordo-trigger-stats">
+            <?php foreach ($viewModel->getLoyaltyTierDistribution() as $tierRow): ?>
+                <div class="ordo-trigger-stat-row">
+                    <span class="ordo-trigger-stat-label"><?= $escaper->escapeHtml($tierRow['label']) ?></span>
+                    <span class="ordo-trigger-stat-value"><?= $escaper->escapeHtml((string) $tierRow['count']) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
     <div class="ordo-dashboard-nav">
         <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/index')) ?>">
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaigns')) ?></span>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminLoyaltyTierAtLeastConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Lead scoring"/>
+            <title value="A campaign's loyalty_tier_at_least condition gates a downstream campaign, after add_points crosses the Gold threshold"/>
+            <description value="Closes ROADMAP.md's 'Loyalty tiers on top of lead scoring' gap: Model/LoyaltyTierCalculator.php maps the exact same running ordo_customer_score total score_at_least already reads (via CustomerScoreManager::getScore()) into a named tier (Bronze/Silver/Gold) - a pure re-labeling, not a second scoring system, so this test reuses AdminCampaignAddPointsActionTest's exact proven shape: two campaigns on the SAME order_placed trigger, Campaign A's add_points action commits a real ordo_customer_score row before Campaign B's condition is evaluated in that same CampaignDispatcher::dispatch() call. loyalty_tier_at_least has no dedicated admin field yet (ROADMAP.md notes this as a follow-up, not required for the condition to work) - configured here via the 'Params (JSON)' fallback, exactly like every other condition type used before it got one."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set ordo_automation/lead_scoring/loyalty_gold_threshold 500" stepKey="setGoldThreshold"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: Campaign A - trigger=order_placed, no condition, action=add_points, 600
+             points - comfortably over the 500-point Gold threshold set above, created FIRST so
+             its lower campaign_id runs before Campaign B's within the same dispatch() call (see
+             AdminCampaignAddPointsActionTest.xml's own note on why ascending campaign_id order
+             is what makes this chain provable, not assumed). -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignAPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignAPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldA"/>
+        <fillField selector="[name='name']" userInput="Add Points For Loyalty Tier Campaign" stepKey="fillNameA"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonA"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowA"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowA"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventA"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowA"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowA"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_points" stepKey="selectActionTypeA"/>
+        <waitForElementVisible selector="[name='actions[actions][0][points]']" stepKey="waitForPointsField"/>
+        <fillField selector="[name='actions[actions][0][points]']" userInput="600" stepKey="fillPoints"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesA"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignA"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueA"/>
+        <waitForPageLoad stepKey="waitForSaveA"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageA"/>
+
+        <!-- Step 2: Campaign B - same order_placed trigger, condition=loyalty_tier_at_least
+             {"tier": "gold"} via the raw Params (JSON) fallback (no dedicated field for this
+             condition type yet), action=add_tag - the smallest, most directly DB-observable
+             side effect, same choice AdminCampaignAddTagActionTest already established. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignBPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignBPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
+        <fillField selector="[name='name']" userInput="Loyalty Tier At Least After Add Points Campaign" stepKey="fillNameB"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonB"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowB"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowB"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventB"/>
+
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRowB"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="loyalty_tier_at_least" stepKey="selectConditionTypeB"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][params_json]']" stepKey="waitForParamsJsonFieldB"/>
+        <fillField selector="[name='conditions[conditions][0][params_json]']" userInput='{"tier":"gold"}' stepKey="fillConditionParamsB"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowB"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowB"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionTypeB"/>
+        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagFieldB"/>
+        <fillField selector="[name='actions[actions][0][tag]']" userInput="gold_tier_customer" stepKey="fillTagB"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesB"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignB"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueB"/>
+        <waitForPageLoad stepKey="waitForSaveB"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
+
+        <!-- Step 3: a REAL order, through REAL storefront checkout, as a REAL customer. -->
+        <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- Step 4: see AdminCampaignAddPointsActionTest.xml's own note on why one consumer run
+             is enough here - add_points never publishes a second message, both campaigns are
+             matched to the same order_placed trigger_event and run inside this one dispatch()
+             call. max-messages=50 to safely drain any stale message left by another test in
+             this same CI job. -->
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 5: the actual proof - a real ordo_customer_tag row that only Campaign B's
+             loyalty_tier_at_least condition, reading the real ordo_customer_score row Campaign
+             A's add_points action just committed and correctly resolving 600 >= the 500-point
+             Gold threshold, could have allowed through. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertCustomerTagAddedByEmail" stepKey="assertGoldTierTagAdded">
+            <argument name="email">$createCustomer.email$</argument>
+            <argument name="tag">gold_tier_customer</argument>
+        </helper>
+    </test>
+</tests>
