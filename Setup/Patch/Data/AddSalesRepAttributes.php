@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Setup\Patch\Data;
 
+use Ordo\Automation\Setup\Patch\AbstractCustomerAttributePatch;
+
 /**
  * The "assigned rep" relationship, kept as three plain customer attributes rather than a
  * separate rep entity — a rep is just whoever's name/email/phone is on the customer record.

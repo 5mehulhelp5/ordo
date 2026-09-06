@@ -5,13 +5,45 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`setup:install`/`setup:upgrade` crashed on this module's data patches.** The
+  `AbstractCustomerAttributePatch` base class (see "Changed" below) lived in `Setup/Patch/Data/`
+  alongside its concrete subclasses — harmless for unit tests, but Magento's `Setup\Patch\PatchReader`
+  globs every `*.php` file directly under that folder and treats each one as a real patch class,
+  with no check for `abstract`. A real install therefore failed with `call_user_func(): Argument #1
+  ($callback) must be a valid callback, cannot call abstract method
+  AbstractCustomerAttributePatch::getDependencies()`. Caught by actually running
+  `Test/Integration/CampaignDispatchLoadTest.php` (new, see "Added") against a real Magento install
+  — no unit test exercises `PatchReader`, so this had been silently broken since the dedup change
+  below. Fixed by moving the base class to `Setup/Patch/AbstractCustomerAttributePatch.php`, one
+  directory above where patch discovery looks; the four concrete patches (`AddSalesRepAttributes`,
+  `AddCustomerSpendLimitAttributes`, `AddCustomerSmsPhoneAttribute`, `AddCustomerCreditLimitAttribute`)
+  are otherwise unchanged.
+
+### Added
+
+- **Load/soak test for the campaign dispatch engine.** `Test/Integration/CampaignDispatchLoadTest.php`
+  puts a concrete number on Phase 7's dispatch performance work (ROADMAP.md): 200 campaigns matched
+  to one trigger dispatch in ~1.05s (~191 campaigns/sec, proving the batched condition/action
+  loading, not one query per campaign, still holds at scale), and a 600-row
+  `ordo_campaign_scheduled_action` backlog (deliberately over `RunScheduledCampaignActions`'s
+  500-row batch size) is fully claimed and resumed in ~1.36s (~440 rows/sec) across two batches
+  within one cron tick.
+
 ### Changed
 
 - **Deduplicated the `*PercentileAtLeast` campaign conditions and the customer-attribute Setup
   patches**, per SonarCloud's duplication report. New shared base classes
   `Model/Campaign/Condition/AbstractPercentileAtLeast.php` and
-  `Setup/Patch/Data/AbstractCustomerAttributePatch.php` — no behavior change, existing tests pass
+  `Setup/Patch/AbstractCustomerAttributePatch.php` — no behavior change, existing tests pass
   unmodified.
+- **Extracted `Model/Cron/CronRunLogger.php`** for the `Ordo_Automation: failed to ...: %s` /
+  `Ordo_Automation: ... .` log-line shape duplicated across the reminder/alert crons
+  (`SendWinBackEmails`, `SendOfferExpiryReminders`, `SendReorderReminders`, `SendCreditLimitAlerts`,
+  `SendSalesRepDigest`) — the same duplication SonarCloud had flagged on the
+  `buildCustomerMap()`/email-send shape those crons already share via `CustomerMapBuilder` and
+  `ReminderEmailSender`.
 
 ### Added
 

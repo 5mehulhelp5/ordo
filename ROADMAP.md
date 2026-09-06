@@ -9,8 +9,22 @@ scoped from real hands-on marketing automation experience.
 
 ## Test coverage
 
-- **Load/soak test** for Phase 7's dispatch performance work — the architectural bottlenecks (N+1, sync blocking,
-  unbounded cron) are fixed, but no test has put a concurrent-throughput number on it.
+- ~~Load/soak test for Phase 7's dispatch performance work~~ — done.
+  `Test/Integration/CampaignDispatchLoadTest.php` puts real numbers on both fixes: 200 campaigns
+  matched to one trigger dispatch in ~1.05s (~191 campaigns/sec, batched condition/action loading,
+  not one query per campaign), and a 600-row `ordo_campaign_scheduled_action` backlog (deliberately
+  over `RunScheduledCampaignActions::BATCH_SIZE`, 500) is fully claimed and resumed in ~1.36s
+  (~440 rows/sec) across two batches within one cron tick. Asserted bounds are deliberately generous
+  (15s / 60s) — the point is catching a regression back to O(n) query behavior, not
+  micro-benchmarking a specific number that would make CI flaky on a slower runner. Running this
+  against a real install caught a real, separate bug along the way: the shared
+  `AbstractCustomerAttributePatch` base class (extracted for the Setup-patch dedup, see
+  docs/CHANGELOG.md) lived in `Setup/Patch/Data/` alongside its concrete subclasses — harmless for
+  unit tests, but Magento's `PatchReader` globs every `*.php` directly under that folder and treats
+  each one as a real patch class with no abstract-class check, so `setup:install`/`setup:upgrade`
+  crashed calling the abstract class's unimplemented `getDependencies()`. Fixed by moving the base
+  class to `Setup/Patch/AbstractCustomerAttributePatch.php`, one directory above where Magento's
+  patch discovery looks.
 - **`send_sms` has no test against a real Twilio account.** Unit tests (`TwilioSmsSenderTest`) drive the real SDK
   request-building/error-parsing logic via a fake `Twilio\Http\Client`, and the integration test
   (`CampaignSendSmsActionTest`) uses real DI/database but swaps out `SmsSenderInterface` for a

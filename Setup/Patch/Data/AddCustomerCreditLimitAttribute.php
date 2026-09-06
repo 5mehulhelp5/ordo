@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Setup\Patch\Data;
 
+use Ordo\Automation\Setup\Patch\AbstractCustomerAttributePatch;
+
 /**
  * Adds the "credit limit" customer attribute Magento Open Source doesn't have natively
  * (it's an Adobe Commerce B2B "Company" feature there). Kept intentionally simple: a single

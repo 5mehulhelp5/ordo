@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Setup\Patch\Data;
 
+use Ordo\Automation\Setup\Patch\AbstractCustomerAttributePatch;
+
 /**
  * Adds a dedicated "SMS phone" customer attribute for the send_sms campaign action — deliberately
  * NOT the core customer address telephone (a customer can have several addresses, or none, and

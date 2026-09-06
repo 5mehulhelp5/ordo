@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Ordo\Automation\Setup\Patch\Data;
+namespace Ordo\Automation\Setup\Patch;
 
 use Magento\Customer\Model\Customer;
 use Magento\Customer\Setup\CustomerSetupFactory;
@@ -15,6 +15,15 @@ use Magento\Framework\Setup\Patch\DataPatchInterface;
  * AddCustomerCreditLimitAttribute/AddCustomerSmsPhoneAttribute pair as duplicated code.
  * getAttributes() is the only thing a concrete patch needs to supply; addAttribute()'s
  * boilerplate (start/end setup, per-attribute save, used_in_forms/scope) lives here once.
+ *
+ * Deliberately lives one directory above Setup/Patch/Data/, NOT inside it: Magento's
+ * Setup\Patch\PatchReader::read() globs every *.php file directly under Setup/Patch/Data/ (and
+ * Setup/Patch/Schema/) and treats each one as a concrete patch class name, with no check for
+ * abstract classes. An earlier version of this file lived in Setup/Patch/Data/ alongside its
+ * subclasses — harmless for `phpunit`/static analysis, but it broke `setup:install`/
+ * `setup:upgrade` for real (`call_user_func(): Argument #1 ($callback) must be a valid callback,
+ * cannot call abstract method ...::getDependencies()`), since nothing short of actually running
+ * an install catches PatchReader's directory-is-the-whole-contract behavior.
  */
 abstract class AbstractCustomerAttributePatch implements DataPatchInterface
 {

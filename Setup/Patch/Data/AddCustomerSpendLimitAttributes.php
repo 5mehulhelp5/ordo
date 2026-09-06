@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Setup\Patch\Data;
 
+use Ordo\Automation\Setup\Patch\AbstractCustomerAttributePatch;
+
 /**
  * Deliberately minimal stand-in for a company/sub-account hierarchy: rather than modeling
  * companies, admins and buyers as separate entities, every customer gets an optional spend
