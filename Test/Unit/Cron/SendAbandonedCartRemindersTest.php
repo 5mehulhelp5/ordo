@@ -16,6 +16,7 @@ use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\SendAbandonedCartReminders;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CampaignDispatcher;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -156,7 +157,7 @@ class SendAbandonedCartRemindersTest extends TestCase
             $this->createStub(StoreManagerInterface::class),
             $this->createStub(StateInterface::class),
             $dispatcher,
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -198,7 +199,7 @@ class SendAbandonedCartRemindersTest extends TestCase
             $storeManager,
             $this->createStub(StateInterface::class),
             $dispatcher ?? $this->createStub(CampaignDispatcher::class),
-            $logger ?? $this->createStub(LoggerInterface::class)
+            new CronRunLogger($logger ?? $this->createStub(LoggerInterface::class))
         );
     }
 }

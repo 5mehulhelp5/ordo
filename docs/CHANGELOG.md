@@ -78,6 +78,13 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   `SendSalesRepDigest`) — the same duplication SonarCloud had flagged on the
   `buildCustomerMap()`/email-send shape those crons already share via `CustomerMapBuilder` and
   `ReminderEmailSender`.
+- **Adopted `CronRunLogger` in the remaining 10 crons** that still had the same log-line shape
+  inline (`RecomputeRfmScores`, `RefreshRssContentBlocks`, `CalculateReorderCycle`,
+  `RunScheduledCampaignActions`, `SendAbandonedCartReminders`, `EscalateStalePendingApprovals`,
+  `TagInactiveCustomers`, `PruneVisitorEvents`, `PrunePendingPopups`, `ExpireOverdueOffers`) —
+  no behavior change beyond the log text itself becoming consistent with the reminder/alert
+  family's wording (`RunScheduledCampaignActions` keeps its own `LoggerInterface` alongside
+  `CronRunLogger` for its batch-cap warning, a distinct log shape `CronRunLogger` doesn't cover).
 
 ### Added
 

@@ -11,7 +11,7 @@ use Magento\Quote\Model\QuoteFactory;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CampaignDispatcher;
-use Psr\Log\LoggerInterface;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 
 /**
  * Finds quotes with items that have not been touched for the configured delay,
@@ -46,7 +46,7 @@ class SendAbandonedCartReminders
         private readonly StoreManagerInterface $storeManager,
         private readonly StateInterface $inlineTranslation,
         private readonly CampaignDispatcher $campaignDispatcher,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -94,17 +94,14 @@ class SendAbandonedCartReminders
                 $this->dispatchCampaigns($row);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(
-                    sprintf(
-                        'Ordo_Automation: failed to send abandoned cart reminder for quote #%d: %s',
-                        (int) $row['entity_id'],
-                        $e->getMessage()
-                    )
+                $this->cronRunLogger->logFailure(
+                    sprintf('send abandoned cart reminder for quote #%d', (int) $row['entity_id']),
+                    $e
                 );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d abandoned cart reminders.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d abandoned cart reminders', $sent));
     }
 
     /**

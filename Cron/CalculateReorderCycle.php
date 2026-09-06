@@ -4,9 +4,9 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Magento\Framework\App\ResourceConnection;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\ReorderCycleFactory;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle as ReorderCycleResource;
-use Psr\Log\LoggerInterface;
 
 /**
  * Detects, per registered customer and SKU, a recurring purchase pattern from order history
@@ -22,7 +22,7 @@ class CalculateReorderCycle
         private readonly ResourceConnection $resourceConnection,
         private readonly ReorderCycleFactory $reorderCycleFactory,
         private readonly ReorderCycleResource $reorderCycleResource,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -95,7 +95,7 @@ class CalculateReorderCycle
             $processed++;
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: recalculated %d reorder cycles.', $processed));
+        $this->cronRunLogger->logSummary(sprintf('recalculated %d reorder cycles', $processed));
     }
 
     private function upsertCycle(

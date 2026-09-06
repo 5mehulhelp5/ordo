@@ -6,6 +6,7 @@ namespace Ordo\Automation\Test\Unit\Cron;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Ordo\Automation\Cron\PrunePendingPopups;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -25,6 +26,6 @@ class PrunePendingPopupsTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info');
 
-        (new PrunePendingPopups($resourceConnection, $logger))->execute();
+        (new PrunePendingPopups($resourceConnection, new CronRunLogger($logger)))->execute();
     }
 }

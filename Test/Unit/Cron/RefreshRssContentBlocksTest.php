@@ -10,6 +10,7 @@ use Magento\Framework\Stdlib\DateTime\DateTime;
 use Ordo\Automation\Cron\RefreshRssContentBlocks;
 use Ordo\Automation\Model\ContentBlock;
 use Ordo\Automation\Model\ContentBlock\RssFetcher;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\Collection;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -44,7 +45,7 @@ class RefreshRssContentBlocksTest extends TestCase
             $this->resourceConnection,
             $this->rssFetcher,
             $this->dateTime,
-            $this->logger
+            new CronRunLogger($this->logger)
         );
     }
 
@@ -136,7 +137,7 @@ class RefreshRssContentBlocksTest extends TestCase
         });
 
         $this->logger->expects(self::once())->method('error')->with(self::stringContains(
-            'RefreshRssContentBlocks failed for content block #1'
+            'failed to refresh content block #1'
         ));
         $this->logger->expects(self::once())->method('info')->with(
             'Ordo_Automation: refreshed 1 RSS content block(s).'

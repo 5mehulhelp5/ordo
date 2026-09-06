@@ -6,6 +6,7 @@ namespace Ordo\Automation\Test\Unit\Cron;
 use Ordo\Automation\Cron\RunScheduledCampaignActions;
 use Ordo\Automation\Model\CampaignDispatcher;
 use Ordo\Automation\Model\CampaignScheduledAction;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\ResourceModel\Campaign\ScheduledAction as CampaignScheduledActionResource;
 use Ordo\Automation\Model\ResourceModel\Campaign\ScheduledAction\Collection as ScheduledActionCollection;
 use Ordo\Automation\Model\ResourceModel\Campaign\ScheduledAction\CollectionFactory as ScheduledActionCollectionFactory;
@@ -30,7 +31,13 @@ class RunScheduledCampaignActionsTest extends TestCase
 
     private function makeCron(): RunScheduledCampaignActions
     {
-        return new RunScheduledCampaignActions($this->collectionFactory, $this->resource, $this->dispatcher, $this->logger);
+        return new RunScheduledCampaignActions(
+            $this->collectionFactory,
+            $this->resource,
+            $this->dispatcher,
+            $this->logger,
+            new CronRunLogger($this->logger)
+        );
     }
 
     #[AllowMockObjectsWithoutExpectations]

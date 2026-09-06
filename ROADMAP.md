@@ -24,16 +24,6 @@ Full inventory with what's covered and why: `Test/Mftf/SCENARIOS.md`. Every row 
 gaps. Kept as the standing scope check for anything newly added to the module (new trigger/condition/action/
 controller/cron gets a row there before it's considered done).
 
-## Code quality
-
-- **The "Ordo_Automation: ..." per-item-failure + run-summary log shape is still duplicated across ~10 cron
-  jobs** outside the reminder/alert family (`RecomputeRfmScores`, `RefreshRssContentBlocks`,
-  `CalculateReorderCycle`, `RunScheduledCampaignActions`, `SendAbandonedCartReminders`,
-  `EscalateStalePendingApprovals`, `TagInactiveCustomers`, `PruneVisitorEvents`, `PrunePendingPopups`,
-  `ExpireOverdueOffers`) — `Model\Cron\CronRunLogger` (extracted for the 5 reminder/alert crons) covers exactly
-  this shape and could be adopted there too. Low priority: each occurrence is only 2–4 lines and Sonar hasn't
-  flagged it, so this is a minor readability cleanup, not a correctness or architectural issue.
-
 ## Gaps vs. a full-market MA platform
 
 Not a code review — a capability comparison against the category. Each is a real, separate stream of work:

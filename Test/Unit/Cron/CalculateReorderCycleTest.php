@@ -10,6 +10,7 @@ use Ordo\Automation\Cron\CalculateReorderCycle;
 use Ordo\Automation\Model\ReorderCycle;
 use Ordo\Automation\Model\ReorderCycleFactory;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle as ReorderCycleResource;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -49,7 +50,7 @@ class CalculateReorderCycleTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info')->with(self::stringContains('0 reorder cycles'));
 
-        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, $logger))->execute();
+        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, new CronRunLogger($logger)))->execute();
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -84,7 +85,7 @@ class CalculateReorderCycleTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info')->with(self::stringContains('1 reorder cycles'));
 
-        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, $logger))->execute();
+        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, new CronRunLogger($logger)))->execute();
     }
 
     public function testExecuteSkipsSameDayRepeatPurchases(): void
@@ -111,7 +112,7 @@ class CalculateReorderCycleTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info')->with(self::stringContains('0 reorder cycles'));
 
-        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, $logger))->execute();
+        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, new CronRunLogger($logger)))->execute();
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -144,6 +145,6 @@ class CalculateReorderCycleTest extends TestCase
 
         $logger = $this->createStub(LoggerInterface::class);
 
-        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, $logger))->execute();
+        (new CalculateReorderCycle($resourceConnection, $reorderCycleFactory, $reorderCycleResource, new CronRunLogger($logger)))->execute();
     }
 }

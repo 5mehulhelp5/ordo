@@ -10,11 +10,11 @@ use Magento\Sales\Model\Order;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\OrderApproval;
 use Ordo\Automation\Model\ResourceModel\OrderApproval as OrderApprovalResource;
 use Ordo\Automation\Model\ResourceModel\OrderApproval\CollectionFactory as OrderApprovalCollectionFactory;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
-use Psr\Log\LoggerInterface;
 
 /**
  * If nobody has approved or rejected a held order within the configured window, this reminds
@@ -36,7 +36,7 @@ class EscalateStalePendingApprovals
         private readonly StoreManagerInterface $storeManager,
         private readonly StateInterface $inlineTranslation,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -80,17 +80,14 @@ class EscalateStalePendingApprovals
                 }
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(
-                    sprintf(
-                        'Ordo_Automation: failed to send approval escalation for order #%d: %s',
-                        (int) $order->getEntityId(),
-                        $e->getMessage()
-                    )
+                $this->cronRunLogger->logFailure(
+                    sprintf('send approval escalation for order #%d', (int) $order->getEntityId()),
+                    $e
                 );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d order approval escalations.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d order approval escalations', $sent));
     }
 
     private function sendEscalationEmail(OrderApproval $approval, Order $order): void

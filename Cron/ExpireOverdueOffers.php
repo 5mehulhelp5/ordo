@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Ordo\Automation\Api\Data\OfferInterface;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Offer;
 use Ordo\Automation\Model\ResourceModel\Offer as OfferResource;
 use Ordo\Automation\Model\ResourceModel\Offer\CollectionFactory as OfferCollectionFactory;
-use Psr\Log\LoggerInterface;
 
 /**
  * Marks offers past their expiry date as "expired" (they stay "sent" until then, even if the
@@ -19,7 +19,7 @@ class ExpireOverdueOffers
     public function __construct(
         private readonly OfferCollectionFactory $offerCollectionFactory,
         private readonly OfferResource $offerResource,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -36,6 +36,6 @@ class ExpireOverdueOffers
             $expired++;
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: marked %d offers as expired.', $expired));
+        $this->cronRunLogger->logSummary(sprintf('marked %d offers as expired', $expired));
     }
 }

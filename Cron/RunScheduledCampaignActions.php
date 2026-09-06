@@ -5,6 +5,7 @@ namespace Ordo\Automation\Cron;
 
 use Ordo\Automation\Model\CampaignDispatcher;
 use Ordo\Automation\Model\CampaignScheduledAction;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\ResourceModel\Campaign\ScheduledAction as CampaignScheduledActionResource;
 use Ordo\Automation\Model\ResourceModel\Campaign\ScheduledAction\CollectionFactory as ScheduledActionCollectionFactory;
 use Psr\Log\LoggerInterface;
@@ -33,7 +34,8 @@ class RunScheduledCampaignActions
         private readonly ScheduledActionCollectionFactory $campaignScheduledActionCollectionFactory,
         private readonly CampaignScheduledActionResource $campaignScheduledActionResource,
         private readonly CampaignDispatcher $campaignDispatcher,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -82,12 +84,14 @@ class RunScheduledCampaignActions
                 $scheduled->getContext()
             );
         } catch (\Throwable $e) {
-            $this->logger->error(sprintf(
-                'Ordo_Automation: scheduled campaign action #%d (campaign #%d) failed: %s',
-                (int) $scheduled->getEntityId(),
-                $scheduled->getCampaignId(),
-                $e->getMessage()
-            ));
+            $this->cronRunLogger->logFailure(
+                sprintf(
+                    'resume scheduled campaign action #%d (campaign #%d)',
+                    (int) $scheduled->getEntityId(),
+                    $scheduled->getCampaignId()
+                ),
+                $e
+            );
         }
     }
 }

@@ -5,7 +5,7 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Framework\App\ResourceConnection;
 use Ordo\Automation\Helper\Config;
-use Psr\Log\LoggerInterface;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 
 /**
  * Deletes raw visitor events past the configured retention window (default 7 days). This is
@@ -19,7 +19,7 @@ class PruneVisitorEvents
     public function __construct(
         private readonly Config $config,
         private readonly ResourceConnection $resourceConnection,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -33,10 +33,6 @@ class PruneVisitorEvents
 
         $deleted = $connection->delete($table, ['created_at < ?' => $cutoff]);
 
-        $this->logger->info(sprintf(
-            'Ordo_Automation: pruned %d visitor events older than %d days.',
-            $deleted,
-            $retentionDays
-        ));
+        $this->cronRunLogger->logSummary(sprintf('pruned %d visitor events older than %d days', $deleted, $retentionDays));
     }
 }

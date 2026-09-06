@@ -5,8 +5,8 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Framework\App\ResourceConnection;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\CustomerTagManager;
-use Psr\Log\LoggerInterface;
 
 /**
  * Nightly pass tagging customers as "inactive" once they haven't ordered in the configured
@@ -21,7 +21,7 @@ class TagInactiveCustomers
         private readonly Config $config,
         private readonly ResourceConnection $resourceConnection,
         private readonly CustomerTagManager $customerTagManager,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -77,10 +77,6 @@ class TagInactiveCustomers
             }
         }
 
-        $this->logger->info(sprintf(
-            'Ordo_Automation: tagged %d customers as inactive, cleared %d.',
-            $tagged,
-            $untagged
-        ));
+        $this->cronRunLogger->logSummary(sprintf('tagged %d customers as inactive, cleared %d', $tagged, $untagged));
     }
 }

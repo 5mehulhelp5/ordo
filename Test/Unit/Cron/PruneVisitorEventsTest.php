@@ -7,6 +7,7 @@ use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Ordo\Automation\Cron\PruneVisitorEvents;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -29,6 +30,6 @@ class PruneVisitorEventsTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info');
 
-        (new PruneVisitorEvents($config, $resourceConnection, $logger))->execute();
+        (new PruneVisitorEvents($config, $resourceConnection, new CronRunLogger($logger)))->execute();
     }
 }

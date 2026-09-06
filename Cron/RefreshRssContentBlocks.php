@@ -7,8 +7,8 @@ use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Stdlib\DateTime\DateTime;
 use Ordo\Automation\Model\ContentBlock;
 use Ordo\Automation\Model\ContentBlock\RssFetcher;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory as ContentBlockCollectionFactory;
-use Psr\Log\LoggerInterface;
 
 /**
  * Refreshes ordo_content_block_rss_cache for every enabled rss-type content block, every 30
@@ -32,7 +32,7 @@ class RefreshRssContentBlocks
         private readonly ResourceConnection $resourceConnection,
         private readonly RssFetcher $rssFetcher,
         private readonly DateTime $dateTime,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -54,15 +54,11 @@ class RefreshRssContentBlocks
                 $this->rssFetcher->fetch($block);
                 $refreshed++;
             } catch (\Throwable $e) {
-                $this->logger->error(sprintf(
-                    'Ordo_Automation: RefreshRssContentBlocks failed for content block #%d: %s',
-                    $blockId,
-                    $e->getMessage()
-                ));
+                $this->cronRunLogger->logFailure(sprintf('refresh content block #%d', $blockId), $e);
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: refreshed %d RSS content block(s).', $refreshed));
+        $this->cronRunLogger->logSummary(sprintf('refreshed %d RSS content block(s)', $refreshed));
     }
 
     private function isFresh(int $blockId): bool

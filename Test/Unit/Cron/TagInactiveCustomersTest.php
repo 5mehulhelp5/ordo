@@ -10,6 +10,7 @@ use Ordo\Automation\Cron\SendWinBackEmails;
 use Ordo\Automation\Cron\TagInactiveCustomers;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CustomerTagManager;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -39,7 +40,7 @@ class TagInactiveCustomersTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
 
-        (new TagInactiveCustomers($config, $resourceConnection, $tagManager, $this->createStub(LoggerInterface::class)))->execute();
+        (new TagInactiveCustomers($config, $resourceConnection, $tagManager, new CronRunLogger($this->createStub(LoggerInterface::class))))->execute();
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -71,6 +72,6 @@ class TagInactiveCustomersTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('info')->with(self::stringContains('tagged 1 customers as inactive, cleared 1'));
 
-        (new TagInactiveCustomers($config, $resourceConnection, $tagManager, $logger))->execute();
+        (new TagInactiveCustomers($config, $resourceConnection, $tagManager, new CronRunLogger($logger)))->execute();
     }
 }

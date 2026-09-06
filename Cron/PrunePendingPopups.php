@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Magento\Framework\App\ResourceConnection;
-use Psr\Log\LoggerInterface;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 
 /**
  * Deletes pending popups that are no longer relevant: already delivered (kept briefly for
@@ -18,7 +18,7 @@ class PrunePendingPopups
 
     public function __construct(
         private readonly ResourceConnection $resourceConnection,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -39,8 +39,8 @@ class PrunePendingPopups
             'expires_at < ?' => $now,
         ]);
 
-        $this->logger->info(sprintf(
-            'Ordo_Automation: pruned %d delivered and %d expired-undelivered pending popups.',
+        $this->cronRunLogger->logSummary(sprintf(
+            'pruned %d delivered and %d expired-undelivered pending popups',
             $deletedDelivered,
             $deletedExpired
         ));

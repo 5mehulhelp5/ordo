@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Cron;
 
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Rfm\RfmCalculator;
-use Psr\Log\LoggerInterface;
 
 /**
  * Refreshes ordo_customer_rfm_score — the precomputed percentile-rank/quintile snapshot
@@ -19,7 +19,7 @@ class RecomputeRfmScores
 {
     public function __construct(
         private readonly RfmCalculator $rfmCalculator,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -27,6 +27,6 @@ class RecomputeRfmScores
     {
         $this->rfmCalculator->recomputeAndStoreScores();
 
-        $this->logger->info('Ordo_Automation: recomputed RFM percentile ranks and quintiles.');
+        $this->cronRunLogger->logSummary('recomputed RFM percentile ranks and quintiles');
     }
 }

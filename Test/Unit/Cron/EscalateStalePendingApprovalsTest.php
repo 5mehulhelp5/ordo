@@ -13,6 +13,7 @@ use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\EscalateStalePendingApprovals;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\OrderApproval;
 use Ordo\Automation\Model\ResourceModel\OrderApproval as OrderApprovalResource;
 use Ordo\Automation\Model\ResourceModel\OrderApproval\Collection as ApprovalCollection;
@@ -60,7 +61,7 @@ class EscalateStalePendingApprovalsTest extends TestCase
             $this->storeManager,
             $this->inlineTranslation,
             $this->triggerOutcomeLogger,
-            $this->logger
+            new CronRunLogger($this->logger)
         );
     }
 
