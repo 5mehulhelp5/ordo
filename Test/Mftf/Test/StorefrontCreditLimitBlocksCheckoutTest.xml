@@ -74,8 +74,13 @@
         <!-- Step 4: the actual proof - the plugin's OWN error text, which only a real
              beforePlaceOrder() throw could have surfaced here, and the checkout page NOT
              advancing to the success page. -->
+        <!-- Not a <dontSeeElement> on CheckoutSuccessMainSection.successTitle here - that
+             selector is the generic ".page-title", present on this same checkout/payment page
+             too (a real CI run caught this: it's never absent, so it can't prove anything). The
+             real error message itself, plus staying on the payment step instead of ever reaching
+             /checkout/onepage/success/, is the actual proof. -->
         <waitForElementVisible selector="{{CheckoutPaymentSection.errormessage}}" stepKey="waitForCheckoutError"/>
         <see selector="{{CheckoutPaymentSection.errormessage}}" userInput="reached its credit limit" stepKey="seeCreditLimitErrorMessage"/>
-        <dontSeeElement selector="{{CheckoutSuccessMainSection.successTitle}}" stepKey="dontSeeSuccessPage"/>
+        <dontSeeInCurrentUrl url="checkout/onepage/success" stepKey="dontSeeSuccessUrl"/>
     </test>
 </tests>
