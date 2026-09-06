@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminAddProductRecommendationsActionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A real order triggers a campaign's add_product_recommendations action, and the recommendation renders in a follow-up email"/>
+            <description value="add_product_recommendations is registered in etc/di.xml (one of 8 real campaign actions) but was missing from SCENARIOS.md's own §1c table entirely, and had no MFTF/Integration coverage at all - unit-tested only. Model/Campaign/Action/AddProductRecommendations.php writes 'recommended_products_html' into the dispatch context (mutated by reference, read by a LATER action in the same chain), and the shipped ordo_campaign_generic email template already renders it automatically ({{depend recommended_products_html}}) - so this campaign chains add_product_recommendations then send_email on the same order_placed trigger, and asserts the real product name renders in the follow-up email. With only one real product ever ordered in this fresh install, ProductRecommender's co-purchase signal is empty and it falls back to store-wide best-sellers (its own documented behavior) - which is necessarily this same product, proving the fallback path works end to end, not just the co-purchase path."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, no condition, two chained actions:
+             add_product_recommendations first (mutates context), send_email second (reads it via
+             the shipped ordo_campaign_generic template - no dedicated field for this action's
+             "count" param, params_json left blank so it uses its own documented default of 4). -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Add Product Recommendations Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow0"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow0"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_product_recommendations" stepKey="selectActionType0"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow1"/>
+        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForActionRow1"/>
+        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectActionType1"/>
+        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][1][message]']" userInput="Product recommendations action fired." stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+
+        <!-- Step 2: a REAL order, through REAL storefront checkout. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 3: the real, merchant-visible output only a genuine recommendation render could
+             have produced - the actual product's name, not just "no exception was thrown". -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRecommendationsHeadingInEmail">
+            <argument name="expectedText">Recommended for you</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRecommendedProductNameInEmail">
+            <argument name="expectedText">$createProduct.name$</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+    </test>
+</tests>

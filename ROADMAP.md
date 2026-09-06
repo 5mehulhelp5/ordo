@@ -38,6 +38,15 @@ scoped from real hands-on marketing automation experience.
 
 Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. The real gaps (⬜ rows there), grouped:
 
+- **Found via a direct re-audit against `di.xml`/`Controller/Adminhtml/*`, not by trusting SCENARIOS.md's own
+  prior scope check** (which undercounted admin areas as 7 instead of 9, and campaign actions as 5 instead of 8):
+  ~~`add_product_recommendations` action, Message Log admin grid~~ — done (`AdminAddProductRecommendationsActionTest`,
+  `AdminMessageLogGridReflectsRealDataTest`). Still open: `rss`/`product_feed` content-block types
+  (`Model/ContentBlock/Producer/{Rss,ProductFeed}Producer.php`), `Cron\RefreshRssContentBlocks`, and the admin
+  "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`) — genuinely more setup than the
+  rest of this list (`rss` needs a real, fetchable feed URL past `RssFetcher`'s SSRF hardening; `product_feed`
+  needs a real category-product fixture), deliberately left for a dedicated pass rather than rushed.
+
 - ~~`cart_abandoned` trigger / `Cron\SendAbandonedCartReminders`~~ — done.
   `AdminSendAbandonedCartReminderAndTriggerTest`: a real cart abandoned for real (added to, then
   left — no synthetic dispatch call), `ordo_automation/abandoned_cart/delay_minutes` set to 0 so

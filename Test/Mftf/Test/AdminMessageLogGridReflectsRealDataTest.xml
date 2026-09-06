@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminMessageLogGridReflectsRealDataTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Message log"/>
+            <title value="The Message Log admin grid lists a real ordo_message_log row"/>
+            <description value="Controller/Adminhtml/MessageLog/Index.php (Marketing -&gt; Ordo Automation -&gt; Message Log) had no MFTF coverage at all - missed by SCENARIOS.md's own scope check (which only enumerated 7 admin areas; ContentBlock and MessageLog were added later and never folded in). ordo_message_log is written only by a real send_sms campaign action (which needs a real Twilio account this environment doesn't have, see ROADMAP.md) or the delivery-status webhook, so MessageLogTestHelper inserts a row directly via SQL - same reasoning as OfferTestHelper/OrderBackdateHelper for their own tables. The grid itself IS a real admin UI component page, driven for real here."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\MessageLogTestHelper" method="insertMessageLog" stepKey="insertMessageLog">
+                <argument name="channel">sms</argument>
+                <argument name="toAddress">+15551234567</argument>
+                <argument name="status">delivered</argument>
+            </helper>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <amOnPage url="admin/ordo/messagelog/index" stepKey="goToMessageLogGrid"/>
+        <waitForPageLoad stepKey="waitForMessageLogGrid"/>
+        <waitForText selector="table.data-grid" userInput="+15551234567" stepKey="seeToAddressInGrid"/>
+        <see selector="table.data-grid" userInput="sms" stepKey="seeChannelInGrid"/>
+        <see selector="table.data-grid" userInput="delivered" stepKey="seeStatusInGrid"/>
+    </test>
+</tests>

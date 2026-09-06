@@ -19,9 +19,14 @@ admin form/grid, every real MA scenario, the whole module? Verified:
   design** — MFTF drives a real browser, REST endpoints don't have one — and are **already covered** by a dedicated
   suite: `Test/Api/*ApiTest.php`
   (8 files, `AbstractApiTestCase`-based `webapi_rest` calls). Not duplicated here.
-- **All 7 admin form/grid areas** (`view/adminhtml/layout/*.xml` + `ui_component/*.xml`) — Campaign, Dashboard,
-  FreeGiftOffer, ReorderCycle, Rfm, ScoreRule, Segment — are represented in §§1–9 below. No admin area was missing
-  structurally; most rows within each are still ⬜.
+- **All 9 admin form/grid areas** (`view/adminhtml/layout/*.xml` + `ui_component/*.xml`) — Campaign, ContentBlock,
+  Dashboard, FreeGiftOffer, MessageLog, ReorderCycle, Rfm, ScoreRule, Segment — are represented in §§1–10 below.
+  Originally said "7" and omitted ContentBlock/MessageLog entirely (added to the module after this scope check was
+  first written, never folded back in) — caught during a later re-audit against `Controller/Adminhtml/*` directly
+  rather than trusting this document's own prior count. §10 also now lists every `di.xml`-registered campaign
+  action (8, not the 5 this document originally enumerated — `add_product_recommendations`/`add_dynamic_content`/
+  `send_sms` were missing from §1c) and every `ContentBlock\ProducerPool` type (snippet/rss/product_feed, not just
+  snippet).
 - **Storefront controllers** (`Controller/{Approval,Offer,Track}/`) cross-checked file-by-file:
   caught one real gap this document's first pass missed — `Controller/Offer/Index.php` ("My Offers", a whole page) — now
   added to §5.
@@ -74,6 +79,9 @@ cases separately from the type-by-type ones.
 | `generate_coupon` | `{rule_id, prefix}`                    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                                                                                                                       |
 | `popup`           | `{headline, body, cta_label, cta_url}` | ✅ `AdminCampaignPopupActionTest` (writes `ordo_pending_popup`; storefront poll — see §7)                                                                                                                                    |
 | `add_points`      | `{points}`                             | ✅ `AdminCampaignAddPointsActionTest` (feeds `score_at_least`; does NOT itself dispatch `score_threshold_crossed` — confirmed from source, only `EvaluateCustomerScoreRules`'s own `customer_save_after` handling does that) |
+| `add_product_recommendations` | `{count}`                  | ✅ `AdminAddProductRecommendationsActionTest` (co-purchase signal empty in a fresh install, exercises the documented store-wide-best-sellers fallback)                                                                       |
+| `add_dynamic_content` | `{content_block_id, output_key}`    | ✅ `AdminCampaignDynamicContentSnippetActionTest` (`snippet` content-block type only — see §10 for `rss`/`product_feed`)                                                                                                       |
+| `send_sms`        | `{message}`                            | ✅ `Test/Integration/CampaignSendSmsActionTest.php` — real DI/database, `SmsSenderInterface` swapped for a recording fake (real Twilio account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope (no browser-visible effect for a browser to check) |
 
 ### 1d. Structural cases (not type-specific)
 
@@ -190,7 +198,21 @@ through. `Controller/Offer/*` (self-extend,
 | Single "Ordo Automation" menu entry lands on the dashboard, stat cards render                   | ✅ `AdminViewDashboardTest` |
 | Stat cards reflect real data (e.g. campaign count, trigger performance) after creating fixtures | ✅ `AdminDashboardReflectsRealDataTest` |
 
-## 10. Cron jobs not otherwise covered above
+## 10. Content blocks (`Model/ContentBlock/`, `Controller/Adminhtml/ContentBlock/`) and Message Log (`Controller/Adminhtml/MessageLog/`)
+
+Both missing from this document's original scope check (see the note at the top of this file) — added here rather
+than retrofitted into an existing section, since neither fits §1-§9's shape.
+
+| Scenario                                                                                                    | Status |
+|----------------------------------------------------------------------------------------------------------------|--------|
+| Create a `snippet` content block, resolved by a real `add_dynamic_content` campaign action                     | ✅ `AdminCreateContentBlockSnippetTest` / `AdminCampaignDynamicContentSnippetActionTest` |
+| `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                          | ⬜ |
+| `product_feed` content block type, `source: category` (`CategoryProductLister`) or `source: rule` (`RuleProductLister`) | ⬜ |
+| `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                       | ⬜ |
+| Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                            | ⬜ |
+| Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row        | ✅ `AdminMessageLogGridReflectsRealDataTest` |
+
+## 11. Cron jobs not otherwise covered above
 
 | Job                          | What it does                                                 | Status |
 |------------------------------|--------------------------------------------------------------|--------|
