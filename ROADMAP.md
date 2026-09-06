@@ -38,8 +38,15 @@ scoped from real hands-on marketing automation experience.
 
 Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. The real gaps (⬜ rows there), grouped:
 
-- **Campaign engine** (§1): `cart_abandoned` trigger has no MFTF test (only unit-level, dispatched from
-  `Cron/SendAbandonedCartReminders.php` rather than a live observer); all 6 RFM-based conditions
+- ~~`cart_abandoned` trigger / `Cron\SendAbandonedCartReminders`~~ — done.
+  `AdminSendAbandonedCartReminderAndTriggerTest`: a real cart abandoned for real (added to, then
+  left — no synthetic dispatch call), `ordo_automation/abandoned_cart/delay_minutes` set to 0 so
+  it already qualifies (real default is 120 minutes), `CronScheduleHelper` forces the cron to run
+  now instead of waiting out its real every-30-minutes schedule. Asserts both real outputs: the
+  cron's own fixed reminder email AND the campaign the `cart_abandoned` trigger dispatched —
+  `MailHogHelper::seeTextInAnyRecentEmail()` (new, alongside the existing `seeTextInLatestEmail()`)
+  since this one cron tick genuinely sends both emails to the same address in sequence.
+- **Campaign engine** (§1): all 6 RFM-based conditions
   (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and their 3 percentile
   variants) are untested end to end; `add_tag` action has never been the thing directly under test (only a side
   effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is

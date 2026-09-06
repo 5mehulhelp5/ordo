@@ -45,7 +45,7 @@ cases separately from the type-by-type ones.
 | `order_placed`            | `Observer/DispatchOrderPlacedCampaigns.php` (`sales_order_place_after`)    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                  |
 | `customer_registered`     | `Observer/DispatchCustomerRegisteredCampaigns.php`                         | ✅ `AdminCampaignCustomerRegisteredTriggerTest`                                                                         |
 | `tag_added`               | `Observer/DispatchTagAddedCampaigns.php` (`ordo_customer_tag_added`)       | ✅ `AdminCampaignTagAddedTriggerTest`                                                                                   |
-| `cart_abandoned`          | `Cron/SendAbandonedCartReminders.php`'s own dispatch, not a live observer  | ⬜                                                                                                                      |
+| `cart_abandoned`          | `Cron/SendAbandonedCartReminders.php`'s own dispatch, not a live observer  | ✅ `AdminSendAbandonedCartReminderAndTriggerTest`                                                                       |
 | `visitor_tag_added`       | `Observer/DispatchVisitorTagAddedCampaigns.php` (`ordo_visitor_tag_added`) | ✅ `AdminCampaignVisitorTagConditionTest`                                                                               |
 | `score_threshold_crossed` | `Observer/DispatchScoreThresholdCampaigns.php` (lead scoring, see §4)      | ✅ `AdminScoreThresholdCampaignTest`                                                                                    |
 
@@ -198,7 +198,7 @@ through. `Controller/Offer/*` (self-extend,
 | `SendSalesRepDigest`         | Digest email to a sales rep                                  | ✅ `AdminSendSalesRepDigestTest` |
 | `SendWinBackEmails`          | Emails customers `TagInactiveCustomers` tagged inactive      | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` |
 | `TagInactiveCustomers`       | Tags customers inactive past the configured window           | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` (same test — the two crons are tightly coupled, see its own description) |
-| `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ⬜     |
+| `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ✅ `AdminSendAbandonedCartReminderAndTriggerTest` |
 
 All four crons above only fire once a day (or, for `SendSalesRepDigest`, once a week) at a fixed
 wall-clock time (`etc/crontab.xml`) — no MFTF test can wait that out. `Test/Mftf/Helper/CronScheduleHelper.php`

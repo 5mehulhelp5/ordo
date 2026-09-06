@@ -17,6 +17,38 @@ use Magento\FunctionalTestingFramework\Helper\Helper;
 class MailHogHelper extends Helper
 {
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchMessages(string $toAddress, int $limit, string $mailhogUrl): array
+    {
+        $endpoint = $toAddress === ''
+            ? $mailhogUrl . '/api/v2/messages?limit=' . $limit
+            : $mailhogUrl . '/api/v2/search?kind=to&query=' . rawurlencode($toAddress) . '&limit=' . $limit;
+
+        $response = @file_get_contents($endpoint);
+        if ($response === false) {
+            throw new \RuntimeException("Could not reach MailHog at {$mailhogUrl}");
+        }
+
+        $data = json_decode($response, true);
+
+        return $data['items'] ?? [];
+    }
+
+    private function decodeBody(array $item): string
+    {
+        $body = (string) ($item['Content']['Body'] ?? '');
+        $encoding = $item['Content']['Headers']['Content-Transfer-Encoding'][0] ?? '';
+        if ($encoding === 'quoted-printable') {
+            $body = quoted_printable_decode($body);
+        } elseif ($encoding === 'base64') {
+            $body = (string) base64_decode($body, true);
+        }
+
+        return $body;
+    }
+
+    /**
      * Fetches the most recent message from MailHog and returns the href of the first link
      * whose visible text matches $linkText (e.g. "Approve" or "Reject").
      *
@@ -32,28 +64,12 @@ class MailHogHelper extends Helper
         string $toAddress = '',
         string $mailhogUrl = 'http://127.0.0.1:8025'
     ): string {
-        $endpoint = $toAddress === ''
-            ? $mailhogUrl . '/api/v2/messages?limit=1'
-            : $mailhogUrl . '/api/v2/search?kind=to&query=' . rawurlencode($toAddress) . '&limit=1';
-
-        $response = @file_get_contents($endpoint);
-        if ($response === false) {
-            throw new \RuntimeException("Could not reach MailHog at {$mailhogUrl}");
-        }
-
-        $data = json_decode($response, true);
-        $item = $data['items'][0] ?? null;
+        $item = $this->fetchMessages($toAddress, 1, $mailhogUrl)[0] ?? null;
         if ($item === null) {
             throw new \RuntimeException('MailHog has no messages.');
         }
 
-        $body = (string) ($item['Content']['Body'] ?? '');
-        $encoding = $item['Content']['Headers']['Content-Transfer-Encoding'][0] ?? '';
-        if ($encoding === 'quoted-printable') {
-            $body = quoted_printable_decode($body);
-        } elseif ($encoding === 'base64') {
-            $body = (string) base64_decode($body, true);
-        }
+        $body = $this->decodeBody($item);
 
         $pattern = '/<a[^>]+href="([^"]+)"[^>]*>(?:(?!<\/a>).)*?' . preg_quote($linkText, '/') . '(?:(?!<\/a>).)*?<\/a>/is';
         if (!preg_match($pattern, $body, $matches)) {
@@ -71,31 +87,45 @@ class MailHogHelper extends Helper
      */
     public function seeTextInLatestEmail(string $expectedText, string $toAddress, string $mailhogUrl = 'http://127.0.0.1:8025'): void
     {
-        $endpoint = $mailhogUrl . '/api/v2/search?kind=to&query=' . rawurlencode($toAddress) . '&limit=1';
-
-        $response = @file_get_contents($endpoint);
-        if ($response === false) {
-            throw new \RuntimeException("Could not reach MailHog at {$mailhogUrl}");
-        }
-
-        $data = json_decode($response, true);
-        $item = $data['items'][0] ?? null;
+        $item = $this->fetchMessages($toAddress, 1, $mailhogUrl)[0] ?? null;
         if ($item === null) {
             throw new \RuntimeException("MailHog has no messages sent to \"{$toAddress}\".");
         }
 
-        $body = (string) ($item['Content']['Body'] ?? '');
-        $encoding = $item['Content']['Headers']['Content-Transfer-Encoding'][0] ?? '';
-        if ($encoding === 'quoted-printable') {
-            $body = quoted_printable_decode($body);
-        } elseif ($encoding === 'base64') {
-            $body = (string) base64_decode($body, true);
-        }
-
-        if (!str_contains($body, $expectedText)) {
+        if (!str_contains($this->decodeBody($item), $expectedText)) {
             throw new \RuntimeException(
                 "Text \"{$expectedText}\" not found in the latest MailHog message sent to \"{$toAddress}\"."
             );
         }
+    }
+
+    /**
+     * Same assertion as seeTextInLatestEmail(), but scans the last $limit messages sent to
+     * $toAddress instead of only the very latest one — needed when a single cron tick (or
+     * request) can legitimately send more than one email to the same address in an order this
+     * test doesn't control (e.g. Cron\SendAbandonedCartReminders sends its own fixed reminder,
+     * then immediately dispatches a "cart_abandoned" campaign that can itself send another
+     * email - only the second is "latest").
+     */
+    public function seeTextInAnyRecentEmail(
+        string $expectedText,
+        string $toAddress,
+        int $limit = 5,
+        string $mailhogUrl = 'http://127.0.0.1:8025'
+    ): void {
+        $items = $this->fetchMessages($toAddress, $limit, $mailhogUrl);
+        if ($items === []) {
+            throw new \RuntimeException("MailHog has no messages sent to \"{$toAddress}\".");
+        }
+
+        foreach ($items as $item) {
+            if (str_contains($this->decodeBody($item), $expectedText)) {
+                return;
+            }
+        }
+
+        throw new \RuntimeException(
+            "Text \"{$expectedText}\" not found in any of the last {$limit} MailHog messages sent to \"{$toAddress}\"."
+        );
     }
 }

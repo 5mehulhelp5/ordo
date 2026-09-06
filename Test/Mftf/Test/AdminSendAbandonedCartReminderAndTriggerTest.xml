@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSendAbandonedCartReminderAndTriggerTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="Cron\SendAbandonedCartReminders emails a real abandoned cart and dispatches the cart_abandoned campaign trigger"/>
+            <description value="Closes the last uncovered trigger (see SCENARIOS.md §1a): cart_abandoned is fired from Cron/SendAbandonedCartReminders.php's own dispatch() call, not a live observer, so this is the only way to exercise it. A real customer adds a real product to their cart and leaves - never checks out - then ordo_automation/abandoned_cart/delay_minutes is set to 0 so the quote already counts as 'abandoned' the instant the cron runs (its real schedule is every 30 minutes, see etc/crontab.xml, which CronScheduleHelper forces to run now instead). Both real outputs are asserted: the cron's own fixed abandoned_cart_reminder.html email, and a campaign's send_email action fired via the cart_abandoned trigger - seeTextInAnyRecentEmail (not seeTextInLatestEmail) because this one cron tick genuinely sends both emails to the same address, in that order."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <!-- Both off by default (see Helper/Config.php's isSetFlag-backed getters) - the
+                 delay is also cut from the real default (120 minutes) to 0, so a cart abandoned
+                 moments ago already qualifies instead of needing to genuinely wait two hours.
+                 Both restored in <after> so they don't linger for whatever other campaign-group
+                 test runs next in this same install. -->
+            <magentoCLI command="config:set ordo_automation/abandoned_cart/enabled 1" stepKey="enableAbandonedCart"/>
+            <magentoCLI command="config:set ordo_automation/abandoned_cart/delay_minutes 0" stepKey="setDelayToZero"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/abandoned_cart/enabled 0" stepKey="disableAbandonedCart"/>
+            <magentoCLI command="config:set ordo_automation/abandoned_cart/delay_minutes 120" stepKey="restoreDelayDefault"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=cart_abandoned, no condition (vacuously satisfied,
+             same reasoning as AdminCampaignSendEmailActionTest/AdminScoreThresholdCampaignTest),
+             action=send_email with a distinct static message so it can't be confused with the
+             cron's own fixed reminder copy. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Cart Abandoned Send Email Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="cart_abandoned" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="send_email" stepKey="selectActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][0][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][0][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][0][message]']" userInput="Still thinking it over? Here is a nudge." stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+
+        <!-- Step 2: a REAL cart, abandoned for real - added to, then simply left. No checkout,
+             no dispatch call of any kind here; SendAbandonedCartReminders must find this quote
+             entirely on its own via its addExpiringOnFilter-style SQL (is_active=1, items_count>0,
+             updated_at <= cutoff, subtotal >= min, not already reminded). -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+
+        <!-- Step 3: force SendAbandonedCartReminders to run now - its real schedule is every 30
+             minutes (etc/crontab.xml), which a CI run can't wait out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSendAbandonedCartRemindersJob">
+            <argument name="jobCode">ordo_automation_send_abandoned_cart_reminders</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runSendAbandonedCartRemindersCron"/>
+
+        <!-- Step 4: both real outputs only a genuinely-found abandoned quote could have
+             produced - the cron's own fixed reminder (sendReminder(), which must succeed before
+             dispatchCampaigns() is even reached - both live in the same try block, see the
+             cron's own class doc) and the campaign action the cart_abandoned trigger dispatched. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInAnyRecentEmail" stepKey="seeFixedReminderCopyInEmail">
+            <argument name="expectedText">You still have items waiting in your cart</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInAnyRecentEmail" stepKey="seeCampaignMessageInEmail">
+            <argument name="expectedText">Still thinking it over? Here is a nudge.</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+    </test>
+</tests>
