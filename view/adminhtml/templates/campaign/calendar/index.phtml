@@ -1,0 +1,89 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+/** @var \Ordo\Automation\Block\Adminhtml\Campaign\Calendar\CampaignCalendarViewModel $viewModel */
+$viewModel = $block->getData('view_model');
+$campaigns = $viewModel->getCampaigns();
+?>
+<div class="ordo-dashboard ordo-campaign-calendar">
+    <div class="ordo-section-head">
+        <h2><?= $escaper->escapeHtml(__('Campaign Calendar')) ?></h2>
+        <a class="ordo-btn ordo-btn-primary" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/new')) ?>">
+            <?= $escaper->escapeHtml(__('+ New Campaign')) ?>
+        </a>
+    </div>
+    <p class="ordo-calendar-intro">
+        <?= $escaper->escapeHtml(__(
+            'Every campaign\'s trigger(s) and its action chain\'s timing in one place — '
+            . '"offset" is the cumulative wait since the trigger fires, not just that step\'s '
+            . 'own delay, since each action\'s delay_minutes counts from the PREVIOUS action, '
+            . 'not from the start.'
+        )) ?>
+    </p>
+
+    <?php if (empty($campaigns)): ?>
+        <p class="ordo-empty-state">
+            <?= $escaper->escapeHtml(__('No campaigns yet — create one to get started.')) ?>
+        </p>
+    <?php else: ?>
+        <table class="ordo-calendar-table">
+            <thead>
+                <tr>
+                    <th><?= $escaper->escapeHtml(__('Campaign')) ?></th>
+                    <th><?= $escaper->escapeHtml(__('Status')) ?></th>
+                    <th><?= $escaper->escapeHtml(__('Trigger(s)')) ?></th>
+                    <th><?= $escaper->escapeHtml(__('Action timeline')) ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($campaigns as $campaign): ?>
+                    <?php
+                    $campaignId = (int) $campaign->getEntityId();
+                    $campaignEditUrl = $block->getUrl('ordo/campaign/edit', ['entity_id' => $campaignId]);
+                    $timeline = $viewModel->getActionTimelineForCampaign($campaignId);
+                    ?>
+                    <tr>
+                        <td>
+                            <a href="<?= $escaper->escapeUrl($campaignEditUrl) ?>">
+                                <?= $escaper->escapeHtml($campaign->getName()) ?>
+                            </a>
+                        </td>
+                        <td>
+                            <span class="ordo-badge <?= $campaign->isEnabled() ? 'ordo-badge-on' : 'ordo-badge-off' ?>">
+                                <?= $campaign->isEnabled()
+                                    ? $escaper->escapeHtml(__('Enabled'))
+                                    : $escaper->escapeHtml(__('Disabled')) ?>
+                            </span>
+                        </td>
+                        <td><?= $escaper->escapeHtml($viewModel->getTriggerLabelsForCampaign($campaignId)) ?></td>
+                        <td>
+                            <?php if (empty($timeline)): ?>
+                                <span class="ordo-calendar-no-actions">
+                                    <?= $escaper->escapeHtml(__('No actions configured')) ?>
+                                </span>
+                            <?php else: ?>
+                                <ol class="ordo-calendar-timeline">
+                                    <?php foreach ($timeline as $step): ?>
+                                        <li>
+                                            <span class="ordo-calendar-step-label">
+                                                <?= $escaper->escapeHtml($step['label']) ?>
+                                            </span>
+                                            <span class="ordo-calendar-step-offset">
+                                                <?= $step['offset_minutes'] > 0
+                                                    ? $escaper->escapeHtml(
+                                                        __('+%1 min', $step['offset_minutes'])
+                                                    )
+                                                    : $escaper->escapeHtml(__('immediate')) ?>
+                                            </span>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ol>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+</div>

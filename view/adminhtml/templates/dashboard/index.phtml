@@ -82,6 +82,12 @@ $segmentNavDesc = __(
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaigns')) ?></span>
             <span class="ordo-nav-desc"><?= $escaper->escapeHtml(__('Build and manage automation campaigns')) ?></span>
         </a>
+        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/calendar')) ?>">
+            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaign Calendar')) ?></span>
+            <span class="ordo-nav-desc"><?=
+                $escaper->escapeHtml(__('Every campaign\'s trigger(s) and action timing in one place'))
+            ?></span>
+        </a>
         <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/reordercycle/index')) ?>">
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Reorder Cycles')) ?></span>
             <span class="ordo-nav-desc"><?=

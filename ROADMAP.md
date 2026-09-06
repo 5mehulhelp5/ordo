@@ -45,8 +45,6 @@ Not a code review — a capability comparison against the category. Each is a re
   product suggestions using data the module already has (customer/visitor tags, RFM scores, segment membership),
   not a new AI/recommendation engine. Extends the existing content-block and campaign-action surface rather than
   bolting on a separate subsystem.
-- **Campaign calendar view** — an admin grid/calendar overlay showing every campaign's trigger window and any
-  delayed actions (`delay_minutes`) in one place. Pure UI on top of data already modeled — no new entities.
 - **Loyalty tiers on top of lead scoring** — map `ordo_customer_score` ranges to named tiers (e.g. Bronze/Silver/Gold),
   surfaced as a new segment condition type and a dashboard stat. Small and additive to the scoring system already
   built for §4 (lead scoring), not a separate loyalty subsystem.

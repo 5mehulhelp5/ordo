@@ -1,0 +1,70 @@
+.ordo-calendar-intro {
+  color: var(--ordo-text-muted);
+  font-size: var(--ordo-font-base);
+  max-width: 720px;
+  margin: 4px 0 20px;
+}
+
+.ordo-calendar-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--ordo-border);
+  border-radius: var(--ordo-radius);
+  overflow: hidden;
+}
+
+.ordo-calendar-table th,
+.ordo-calendar-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ordo-border);
+  vertical-align: top;
+}
+
+.ordo-calendar-table th {
+  font-size: var(--ordo-font-sm);
+  font-weight: var(--ordo-weight-medium);
+  color: var(--ordo-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ordo-calendar-table tbody tr:last-child td { border-bottom: none; }
+
+.ordo-calendar-no-actions {
+  color: var(--ordo-text-muted);
+  font-size: var(--ordo-font-base);
+}
+
+.ordo-calendar-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ordo-calendar-timeline li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: var(--ordo-off-bg);
+  border-radius: var(--ordo-radius);
+  padding: 4px 10px;
+  font-size: var(--ordo-font-base);
+}
+
+.ordo-calendar-timeline li:not(:last-child)::after {
+  content: "→";
+  margin-left: 6px;
+  color: var(--ordo-text-muted);
+}
+
+.ordo-calendar-step-label { font-weight: var(--ordo-weight-medium); }
+
+.ordo-calendar-step-offset {
+  font-size: var(--ordo-font-xs);
+  color: var(--ordo-text-muted);
+}

@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Campaign calendar view.** New read-only admin page (Dashboard → "Campaign Calendar" nav card,
+  `admin/ordo/campaign/calendar`) listing every campaign with its trigger(s) and its action
+  chain's timing in one place — the "offset" shown per action step is a cumulative running sum
+  of `delay_minutes`, not each step's raw value, since `CampaignDispatcher::runActionsFrom()`
+  treats each action's own `delay_minutes` as the wait after the PREVIOUS action, not from the
+  trigger firing. Pure UI on top of `ordo_campaign`/`ordo_campaign_trigger`/`ordo_campaign_action`
+  data already modeled — no new entities, same server-rendered ViewModel pattern as the
+  dashboard itself (`Block/Adminhtml/Campaign/Calendar/CampaignCalendarViewModel.php`).
 - **Dedicated admin fields for the 6 RFM-based campaign conditions.** `recency_days_at_most`,
   `order_frequency_at_least`, `monetary_total_at_least`, and the 3 percentile variants
   previously had no field-mapping rule in the campaign edit form's conditions switcher — the
