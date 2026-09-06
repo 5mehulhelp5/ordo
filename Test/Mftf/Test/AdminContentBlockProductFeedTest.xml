@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminContentBlockProductFeedTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Dynamic content blocks"/>
+            <title value="A product_feed content block (source=rule) really lists a catalog product, and add_dynamic_content really delivers it in an email"/>
+            <description value="Closes SCENARIOS.md §10's last remaining gap: the product_feed content-block type (Model/ContentBlock/Producer/ProductFeedProducer.php), specifically its 'source: rule' branch (Model/ContentBlock/RuleProductLister.php), which resolves SKUs by validating each catalog product against a real Cart Price Rule's Actions-tab combine (Rule::getActions()->validate()) — reuses the same ApiSalesRule fixture already proven elsewhere in this suite, whose default actions combine has no product conditions at all and therefore matches any product, including the one real SimpleProduct2 created below. Wired end-to-end exactly like AdminCampaignDynamicContentSnippetActionTest (add_dynamic_content -&gt; send_email, content_block_id set via the Flow canvas's JS dropdown since the native dynamicRows form has no field for it on a brand-new campaign) so the proof is a real product name reaching a real customer's real received email, not just ProductFeedProducer::render() returning non-empty HTML in isolation."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set cms/wysiwyg/enabled disabled" stepKey="disableWysiwyg"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <createData entity="ApiSalesRule" stepKey="createRule"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set cms/wysiwyg/enabled enabled" stepKey="reenableWysiwyg"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createRule" stepKey="deleteRule"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the product_feed content block, source=rule pointed at the real ApiSalesRule
+             created above. That fixture's default actions combine has no product conditions
+             (an empty Combine validates every product), so it will list SimpleProduct2 without
+             needing any category/product-linkage fixtures this suite has never used before. -->
+        <amOnPage url="admin/ordo/contentblock/new" stepKey="goToNewContentBlockPage"/>
+        <waitForPageLoad stepKey="waitForNewContentBlockPage"/>
+        <waitForElementVisible selector="[name='identifier']" stepKey="waitForIdentifierField"/>
+        <fillField selector="[name='identifier']" userInput="e2e_product_feed_block" stepKey="fillIdentifier"/>
+        <fillField selector="[name='name']" userInput="E2E Product Feed Block" stepKey="fillName"/>
+
+        <selectOption selector="[name='type']" userInput="product_feed" stepKey="selectProductFeedType"/>
+        <waitForElementVisible selector="[name='source']" stepKey="waitForSourceField"/>
+        <selectOption selector="[name='source']" userInput="rule" stepKey="selectRuleSource"/>
+        <waitForElementVisible selector="[name='rule_id']" stepKey="waitForRuleIdField"/>
+        <fillField selector="[name='rule_id']" userInput="$createRule.rule_id$" stepKey="fillRuleId"/>
+        <fillField selector="[name='product_feed_item_count']" userInput="4" stepKey="fillItemCount"/>
+
+        <click selector="#save" stepKey="clickSaveContentBlock"/>
+        <waitForPageLoad stepKey="waitForContentBlockSave"/>
+        <see selector=".message-success" userInput="The content block has been saved." stepKey="seeContentBlockSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>
+
+        <!-- Step 2: the campaign — same shape as AdminCampaignDynamicContentSnippetActionTest:
+             trigger=order_placed with no condition (vacuously satisfied), add_dynamic_content
+             then send_email using the shipped ordo_campaign_generic template, which embeds
+             {{var dynamic_content_html|raw}}. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="E2E Product Feed Campaign" stepKey="fillCampaignName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addFirstActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForFirstActionRow"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_dynamic_content" stepKey="selectFirstActionType"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillFirstActionDelay"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addSecondActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForSecondActionRow"/>
+        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectSecondActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][1][message]']" userInput="Check out these new arrivals:" stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillSecondActionDelay"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+
+        <!-- Step 3: same Flow-canvas dropdown as AdminCampaignDynamicContentSnippetActionTest —
+             content_block_id has no plain dynamicRows field on a brand-new campaign. -->
+        <waitForElementVisible selector=".ordo-flow-canvas" stepKey="waitForFlowCanvas"/>
+        <waitForElementVisible selector=".ordo-flow-node[data-kind='action'] select[data-field='content_block_id']" stepKey="waitForContentBlockDropdown"/>
+        <selectOption selector=".ordo-flow-node[data-kind='action'] select[data-field='content_block_id']" userInput="E2E Product Feed Block (product_feed)" stepKey="selectContentBlockOnCanvas"/>
+
+        <click selector="[data-flow-action='apply']" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForFlowApplySave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeFlowApplySuccessMessage"/>
+
+        <!-- Step 4: a REAL order, through REAL storefront checkout, as the REAL customer. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 5: the actual proof — the real product's own name, which only
+             AddDynamicContent -&gt; ProductFeedProducer -&gt; RuleProductLister validating it
+             against the real ApiSalesRule -&gt; SendEmail's context forwarding could have put in
+             this email, plus the producer's own fixed "New Arrivals" heading. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeProductNameInEmail">
+            <argument name="expectedText">$createProduct.name$</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeHeadingInEmail">
+            <argument name="expectedText">New Arrivals</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+
+        <!-- Cleanup: no <deleteData> equivalent for this REST-less entity — delete it directly
+             through the real admin UI instead, same reasoning as AdminContentBlockRssTest. -->
+        <amOnPage url="admin/ordo/contentblock/delete/entity_id/{$grabContentBlockId}/" stepKey="deleteContentBlock"/>
+        <waitForPageLoad stepKey="waitForDeleteContentBlock"/>
+    </test>
+</tests>

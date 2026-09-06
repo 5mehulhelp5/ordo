@@ -206,10 +206,10 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | Scenario                                                                                                    | Status |
 |----------------------------------------------------------------------------------------------------------------|--------|
 | Create a `snippet` content block, resolved by a real `add_dynamic_content` campaign action                     | ✅ `AdminCreateContentBlockSnippetTest` / `AdminCampaignDynamicContentSnippetActionTest` |
-| `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                          | ⬜ |
-| `product_feed` content block type, `source: category` (`CategoryProductLister`) or `source: rule` (`RuleProductLister`) | ⬜ |
-| `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                       | ⬜ |
-| Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                            | ⬜ |
+| `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                          | ✅ `AdminContentBlockRssTest` |
+| `product_feed` content block type, `source: category` (`CategoryProductLister`) or `source: rule` (`RuleProductLister`) | ✅ `AdminContentBlockProductFeedTest` (`source: rule` only — `source: category` still open, arguably not worth a dedicated test given it's the same producer/renderer just fed a different lister) |
+| `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                       | ✅ `AdminContentBlockRssTest` |
+| Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                            | ✅ `AdminContentBlockRssTest` |
 | Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row        | ✅ `AdminMessageLogGridReflectsRealDataTest` |
 
 ## 11. Cron jobs not otherwise covered above

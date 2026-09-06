@@ -47,17 +47,25 @@ class CronScheduleHelper extends Helper
     }
 
     /**
-     * Backdates the most recently written ordo_campaign_scheduled_action row's run_at into the
-     * past, so Cron\RunScheduledCampaignActions' own addDueFilter() (run_at <= NOW()) finds it
-     * as due immediately - forcing the CRON JOB to run via scheduleJobNow() alone isn't enough
-     * here, unlike every other cron this helper targets: this one cron doesn't just check
-     * "is it my turn on the clock", it separately checks whether the specific DATA row it reads
-     * is due, which CampaignDispatcher wrote with a real run_at = NOW() + delay_minutes at
-     * dispatch time. Safe to key off "most recent row" because MFTF tests run sequentially in
-     * one browser session against one Magento install - by the time this is called, the row
-     * this same test's own dispatch just wrote is unambiguously the latest one.
+     * Backdates the most recently written ordo_campaign_scheduled_action row belonging to
+     * $campaignId into the past, so Cron\RunScheduledCampaignActions' own addDueFilter()
+     * (run_at <= NOW()) finds it as due immediately - forcing the CRON JOB to run via
+     * scheduleJobNow() alone isn't enough here, unlike every other cron this helper targets:
+     * this one cron doesn't just check "is it my turn on the clock", it separately checks
+     * whether the specific DATA row it reads is due, which CampaignDispatcher wrote with a real
+     * run_at = NOW() + delay_minutes at dispatch time.
+     *
+     * MUST filter by campaign_id, not just take the single most-recently-written row overall:
+     * confirmed via a real CI failure (AdminChainedDelayedActionsTest silently resuming the
+     * wrong campaign) that any OTHER enabled order_placed campaign left over from an earlier
+     * test in the same MFTF run - campaigns have no <deleteData> cleanup path, so they stay live
+     * for the rest of the whole job - fires on every subsequent real order for the rest of the
+     * suite. If that leftover campaign also has a pending delay, its own resume row can be
+     * written with a higher entity_id than this test's own row, and an unfiltered
+     * "ORDER BY entity_id DESC LIMIT 1" would then backdate and resume THAT campaign instead.
      */
     public function backdateMostRecentScheduledAction(
+        int $campaignId,
         string $dbHost = '127.0.0.1',
         string $dbName = 'magento',
         string $dbUser = 'root',
@@ -70,9 +78,10 @@ class CronScheduleHelper extends Helper
             [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
         );
 
-        $pdo->exec(
+        $statement = $pdo->prepare(
             'UPDATE ordo_campaign_scheduled_action SET run_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) '
-            . 'ORDER BY entity_id DESC LIMIT 1'
+            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id DESC LIMIT 1'
         );
+        $statement->execute(['campaign_id' => $campaignId]);
     }
 }

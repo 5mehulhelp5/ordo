@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Static RSS 2.0 fixture for AdminContentBlockRssTest.xml — Model/ContentBlock/RssFetcher.php
+    needs a real, fetchable http(s) URL past its own SSRF hardening (assertSafeUrl() blocks
+    literal loopback/private/reserved IPs and the "localhost"/".local" hostnames, so nothing
+    reachable from inside the test environment itself qualifies). Hosted at this file's real
+    raw.githubusercontent.com URL once committed to main - a public, stable hostname this
+    module's author controls, rather than a third-party feed this suite would depend on staying
+    up/unchanged.
+-->
+<rss version="2.0">
+    <channel>
+        <title>Ordo Automation MFTF Test Feed</title>
+        <link>https://github.com/michalper/ordo</link>
+        <description>Static fixture feed for AdminContentBlockRssTest.xml</description>
+        <item>
+            <title>ORDO-RSS-TEST-ITEM-ONE</title>
+            <link>https://github.com/michalper/ordo</link>
+            <description>First test item</description>
+        </item>
+        <item>
+            <title>ORDO-RSS-TEST-ITEM-TWO</title>
+            <link>https://github.com/michalper/ordo</link>
+            <description>Second test item</description>
+        </item>
+    </channel>
+</rss>

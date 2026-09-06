@@ -61,6 +61,7 @@
         <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
 
         <!-- Step 2: a REAL order dispatches the chain. Only chain-start must apply so far - the
              first delay must have genuinely paused the rest. -->
@@ -93,7 +94,9 @@
              NOW() + delay_minutes (24h away, given delay_minutes=1440 above), so
              backdateMostRecentScheduledAction() also backdates the DATA the job's own
              addDueFilter() checks - both are real, separate "is this due" checks. -->
-        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateFirstScheduledAction"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateFirstScheduledAction">
+            <argument name="campaignId">{$grabCampaignId}</argument>
+        </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleFirstResumeJob">
             <argument name="jobCode">ordo_automation_run_scheduled_campaign_actions</argument>
         </helper>
@@ -112,7 +115,9 @@
              written when chain-middle's own resume hit the second delay, so this must be a
              genuinely separate forced run, not a leftover from step 3, and needs its own
              backdate (this new row also got a real run_at = NOW() + 1440 minutes). -->
-        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateSecondScheduledAction"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentScheduledAction" stepKey="backdateSecondScheduledAction">
+            <argument name="campaignId">{$grabCampaignId}</argument>
+        </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSecondResumeJob">
             <argument name="jobCode">ordo_automation_run_scheduled_campaign_actions</argument>
         </helper>

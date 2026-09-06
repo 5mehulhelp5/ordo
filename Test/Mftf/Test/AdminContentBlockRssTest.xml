@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminContentBlockRssTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Dynamic content blocks"/>
+            <title value="An rss content block's feed is fetched by the admin 'Refresh now' button and by Cron\RefreshRssContentBlocks"/>
+            <description value="Closes three of §10's four remaining gaps in SCENARIOS.md: the rss content-block type itself, the admin 'Refresh Feed Now' button (Controller/Adminhtml/ContentBlock/RefreshRss.php), and Cron\RefreshRssContentBlocks. Model/ContentBlock/RssFetcher.php needs a real, fetchable http(s) URL past its own SSRF hardening (assertSafeUrl() blocks literal loopback/private/reserved IPs and the 'localhost'/'.local' hostnames, so nothing reachable from inside the test environment itself qualifies) - Test/Mftf/Fixture/rss_test_feed.xml is committed to this repo and referenced by its real raw.githubusercontent.com URL, a public, stable hostname this module's author controls. First the admin button fetches it for real (asserted via new RssCacheTestHelper reading ordo_content_block_rss_cache directly - no admin UI shows the cached HTML). Then the cache row is deleted (Cron\RefreshRssContentBlocks::isFresh() would otherwise skip a block fetched moments earlier within its own 30-minute freshness window) and CronScheduleHelper forces the cron to run instead of waiting out its real every-30-minutes schedule, proving the cron independently re-fetches the same real feed."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: create the rss content block, pointed at this repo's own committed fixture
+             feed (see Test/Mftf/Fixture/rss_test_feed.xml's own comment on why an
+             internet-reachable URL is required here, not a local one). -->
+        <amOnPage url="admin/ordo/contentblock/new" stepKey="goToNewContentBlockPage"/>
+        <waitForPageLoad stepKey="waitForNewContentBlockPage"/>
+        <waitForElementVisible selector="[name='identifier']" stepKey="waitForIdentifierField"/>
+        <fillField selector="[name='identifier']" userInput="test_rss_block" stepKey="fillIdentifier"/>
+        <fillField selector="[name='name']" userInput="Test RSS Block" stepKey="fillName"/>
+
+        <selectOption selector="[name='type']" userInput="rss" stepKey="selectRssType"/>
+        <waitForElementVisible selector="[name='feed_url']" stepKey="waitForFeedUrlField"/>
+        <fillField selector="[name='feed_url']" userInput="https://raw.githubusercontent.com/michalper/ordo/main/Test/Mftf/Fixture/rss_test_feed.xml" stepKey="fillFeedUrl"/>
+        <fillField selector="[name='rss_item_count']" userInput="5" stepKey="fillItemCount"/>
+
+        <click selector="#save" stepKey="clickSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The content block has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>
+
+        <!-- Step 2: the real "Refresh Feed Now" button - only rendered for an already-saved
+             rss-type block (Block/Adminhtml/ContentBlock/Edit/RefreshRssButton.php), so this
+             reloads the edit page first to be sure it's present. Its on_click handler alerts
+             the JSON response's message, a native browser dialog acceptPopup() must dismiss
+             before any further WebDriver command. -->
+        <amOnPage url="admin/ordo/contentblock/edit/entity_id/{$grabContentBlockId}/" stepKey="goToContentBlockEditPage"/>
+        <waitForPageLoad stepKey="waitForContentBlockEditPage"/>
+        <waitForElementVisible selector="//button[contains(., 'Refresh Feed Now')]" stepKey="waitForRefreshButton"/>
+        <click selector="//button[contains(., 'Refresh Feed Now')]" stepKey="clickRefreshButton"/>
+        <acceptPopup stepKey="acceptRefreshAlert"/>
+
+        <!-- Step 3: the real, database-observable output only a genuine fetch of the real feed
+             could have produced - both test items' titles, rendered as real HTML, not "no
+             exception was thrown" from a mocked fetch. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="assertRssCacheContains" stepKey="assertCacheAfterButtonRefresh">
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
+            <argument name="expectedText">ORDO-RSS-TEST-ITEM-ONE</argument>
+        </helper>
+
+        <!-- Step 4: reset the cache to "never fetched" - RefreshRssContentBlocks' own
+             30-minute freshness window would otherwise skip a block refreshed moments ago by
+             the button click above - then force the cron to run now (real schedule every 30
+             minutes, see etc/crontab.xml, which a CI run can't wait out). -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="deleteRssCache" stepKey="deleteRssCacheBeforeCronTest">
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleRefreshRssContentBlocksJob">
+            <argument name="jobCode">ordo_automation_refresh_rss_content_blocks</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runRefreshRssContentBlocksCron"/>
+
+        <!-- Step 5: the cron independently re-fetched and re-rendered the same real feed. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="assertRssCacheContains" stepKey="assertCacheAfterCronRefresh">
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
+            <argument name="expectedText">ORDO-RSS-TEST-ITEM-TWO</argument>
+        </helper>
+
+        <!-- Cleanup: no <deleteData> equivalent for this REST-less entity - same reasoning as
+             OfferTestHelper's own tables - delete it directly through the real admin UI instead,
+             which this module's ContentBlock controllers do support. -->
+        <amOnPage url="admin/ordo/contentblock/delete/entity_id/{$grabContentBlockId}/" stepKey="deleteContentBlock"/>
+        <waitForPageLoad stepKey="waitForDeleteContentBlock"/>
+    </test>
+</tests>

@@ -709,10 +709,16 @@
                         <notice translate="true">E.g. 80 = among the best 20% of customers on this metric.</notice>
                         <visible>false</visible>
                         <validation>
+                            <!-- NOT "validate-range": Magento's own rules.js validator by that
+                                 name checks whether the value is FORMATTED like a "min-max" range
+                                 string (e.g. "10-50"), not whether a single number falls between
+                                 two bounds — its digits-branch has no return statement at all, so
+                                 it evaluates to undefined (falsy) for every plain number,
+                                 unconditionally failing validation. Confirmed live: a real CI run
+                                 blocked "Save" on percentile=0 with "The value is not within the
+                                 specified range." precisely because of this. validate-digits
+                                 (non-negative integer) is enough of a functional guard here. -->
                             <rule name="validate-digits" xsi:type="boolean">true</rule>
-                            <rule name="validate-range" xsi:type="boolean">true</rule>
-                            <rule name="min_range" xsi:type="number">0</rule>
-                            <rule name="max_range" xsi:type="number">100</rule>
                         </validation>
                     </settings>
                 </field>
