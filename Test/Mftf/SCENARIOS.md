@@ -154,7 +154,7 @@ through. `Controller/Offer/*` (self-extend,
 | Real order over spend limit → held, approve email sent, approve link releases it                                                     | ✅ `AdminApproveOrderViaEmailTest`        |
 | Reject link (`Controller/Approval/Reject.php`) — order canceled, not released                                                        | ✅ `AdminRejectOrderViaEmailTest`         |
 | Token re-use after approve/reject (already covered as the *second* half of `AdminApproveOrderViaEmailTest` — single-use enforcement) | ✅                                        |
-| `Cron\EscalateStalePendingApprovals` — a pending approval past its SLA gets escalated                                                | ⬜                                        |
+| `Cron\EscalateStalePendingApprovals` — a pending approval past its SLA gets escalated                                                | ✅ `AdminEscalateStalePendingApprovalTest` |
 | Order under spend limit — never held at all (negative case)                                                                          | ✅ `AdminOrderUnderSpendLimitNotHeldTest` |
 | Customer with no spend limit / no approval admin email configured — never held                                                       | ⬜ (unit-tested only)                     |
 

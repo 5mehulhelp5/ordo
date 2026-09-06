@@ -59,8 +59,11 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   `Offer::canSelfExtend()`), the "My Offers" storefront account page (`Controller/Offer/Index.php`),
   `Cron\SendOfferExpiryReminders`'s reminder email, and `Cron\ExpireOverdueOffers` marking a lapsed offer expired
   are all uncovered.
-- **Order approval** (§6): `Cron\EscalateStalePendingApprovals` (a pending approval past its SLA) has no test;
-  "no spend limit / no approval email configured → never held" is unit-tested only.
+- ~~Order approval (§6): `Cron\EscalateStalePendingApprovals`~~ — done. `AdminEscalateStalePendingApprovalTest`
+  reuses `AdminApproveOrderViaEmailTest`'s exact fixture (`OrdoApprovalCustomer`, spend limit 10.00), but never
+  follows the approve/reject link, leaving the approval genuinely pending; `ordo_automation/order_approval/
+  escalation_days` set to 0 (real default 2) so it's already stale, `CronScheduleHelper` forces the cron to run
+  now. "No spend limit / no approval email configured → never held" is still unit-tested only.
 - **Tracking & popups** (§7): view-threshold crossing tagging the visitor (chaining into `visitor_tag_added`,
   §1a) isn't covered; neither is `Cron\PrunePendingPopups` or `Cron\PruneVisitorEvents`.
 - ~~Reorder cycles (§8): `Cron\CalculateReorderCycle`, `Cron\SendReorderReminders`~~ — done.
