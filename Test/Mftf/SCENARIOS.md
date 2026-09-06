@@ -188,7 +188,7 @@ through. `Controller/Offer/*` (self-extend,
 | Scenario                                                                                        | Status                      |
 |-------------------------------------------------------------------------------------------------|-----------------------------|
 | Single "Ordo Automation" menu entry lands on the dashboard, stat cards render                   | ✅ `AdminViewDashboardTest` |
-| Stat cards reflect real data (e.g. campaign count, trigger performance) after creating fixtures | ⬜                          |
+| Stat cards reflect real data (e.g. campaign count, trigger performance) after creating fixtures | ✅ `AdminDashboardReflectsRealDataTest` |
 
 ## 10. Cron jobs not otherwise covered above
 

@@ -6,12 +6,12 @@ namespace Ordo\Automation\Cron;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CreditLimitCalculator;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\SalesRepEmailContext;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
-use Psr\Log\LoggerInterface;
 
 /**
  * Most systems only react once a customer is already blocked at 100% of their credit limit.
@@ -33,7 +33,7 @@ class SendCreditLimitAlerts
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -71,15 +71,14 @@ class SendCreditLimitAlerts
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_CREDIT_LIMIT_ALERT, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(sprintf(
-                    'Ordo_Automation: failed to send credit limit alert for customer #%d: %s',
-                    $customerId,
-                    $e->getMessage()
-                ));
+                $this->cronRunLogger->logFailure(
+                    sprintf('send credit limit alert for customer #%d', $customerId),
+                    $e
+                );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d credit limit alerts.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d credit limit alerts', $sent));
     }
 
     private function resolveBand(float $utilization, int $warningThreshold): ?int

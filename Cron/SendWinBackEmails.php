@@ -4,11 +4,11 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\CustomerTagManager;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
-use Psr\Log\LoggerInterface;
 
 /**
  * Emails everyone TagInactiveCustomers has tagged "inactive" who hasn't already received a
@@ -26,7 +26,7 @@ class SendWinBackEmails
         private readonly CustomerMapBuilder $customerMapBuilder,
         private readonly ReminderEmailSender $emailSender,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -61,14 +61,13 @@ class SendWinBackEmails
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_WIN_BACK, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(sprintf(
-                    'Ordo_Automation: failed to send win-back email to customer #%d: %s',
-                    $customerId,
-                    $e->getMessage()
-                ));
+                $this->cronRunLogger->logFailure(
+                    sprintf('send win-back email to customer #%d', $customerId),
+                    $e
+                );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d win-back emails.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d win-back emails', $sent));
     }
 }

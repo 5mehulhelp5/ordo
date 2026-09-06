@@ -5,6 +5,7 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
 use Ordo\Automation\Model\CustomerMapBuilder;
@@ -12,7 +13,6 @@ use Ordo\Automation\Model\ReorderCycle;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle\CollectionFactory as ReorderCycleCollectionFactory;
 use Ordo\Automation\Model\SalesRepEmailContext;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
-use Psr\Log\LoggerInterface;
 
 /**
  * Reads reorder cycles calculated by CalculateReorderCycle and, for the ones whose
@@ -32,7 +32,7 @@ class SendReorderReminders
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -82,17 +82,14 @@ class SendReorderReminders
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_REORDER_REMINDER, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(
-                    sprintf(
-                        'Ordo_Automation: failed to send reorder reminder for cycle #%d: %s',
-                        (int) $cycle->getEntityId(),
-                        $e->getMessage()
-                    )
+                $this->cronRunLogger->logFailure(
+                    sprintf('send reorder reminder for cycle #%d', (int) $cycle->getEntityId()),
+                    $e
                 );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d reorder reminders.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d reorder reminders', $sent));
     }
 
     /**

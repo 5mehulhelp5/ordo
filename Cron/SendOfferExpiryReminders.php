@@ -5,6 +5,7 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
 use Ordo\Automation\Model\CustomerMapBuilder;
@@ -12,7 +13,6 @@ use Ordo\Automation\Model\Offer;
 use Ordo\Automation\Model\ResourceModel\Offer\CollectionFactory as OfferCollectionFactory;
 use Ordo\Automation\Model\SalesRepEmailContext;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
-use Psr\Log\LoggerInterface;
 
 /**
  * Every established B2B platform we could check (Adobe Commerce B2B, OroCommerce) only notifies about a quote
@@ -34,7 +34,7 @@ class SendOfferExpiryReminders
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -84,15 +84,14 @@ class SendOfferExpiryReminders
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_OFFER_EXPIRY, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(sprintf(
-                    'Ordo_Automation: failed to send offer expiry reminder for offer #%d: %s',
-                    $offer->getEntityId(),
-                    $e->getMessage()
-                ));
+                $this->cronRunLogger->logFailure(
+                    sprintf('send offer expiry reminder for offer #%d', $offer->getEntityId()),
+                    $e
+                );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d offer expiry reminders.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d offer expiry reminders', $sent));
     }
 
     /**

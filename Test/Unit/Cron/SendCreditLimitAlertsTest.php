@@ -26,6 +26,7 @@ use Ordo\Automation\Model\SalesRepEmailContext;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 
 class SendCreditLimitAlertsTest extends TestCase
@@ -201,7 +202,7 @@ class SendCreditLimitAlertsTest extends TestCase
             $this->makeReminderLogStore($resourceConnection),
             $salesRepEmailContext,
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -244,7 +245,7 @@ class SendCreditLimitAlertsTest extends TestCase
             $this->makeReminderLogStore($resourceConnection),
             $this->createStub(SalesRepEmailContext::class),
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -285,7 +286,7 @@ class SendCreditLimitAlertsTest extends TestCase
             $this->makeReminderLogStore($resourceConnection),
             $salesRepEmailContext,
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger ?? $this->createStub(LoggerInterface::class)
+            new CronRunLogger($logger ?? $this->createStub(LoggerInterface::class))
         );
     }
 }

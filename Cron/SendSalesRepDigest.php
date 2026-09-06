@@ -4,11 +4,11 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\CustomerTagManager;
 use Ordo\Automation\Setup\Patch\Data\AddSalesRepAttributes;
-use Psr\Log\LoggerInterface;
 
 /**
  * One digest email per rep instead of one alert per signal — a rep with 40 accounts should not
@@ -24,7 +24,7 @@ class SendSalesRepDigest
         private readonly CustomerTagManager $customerTagManager,
         private readonly CustomerMapBuilder $customerMapBuilder,
         private readonly ReminderEmailSender $emailSender,
-        private readonly LoggerInterface $logger
+        private readonly CronRunLogger $cronRunLogger
     ) {
     }
 
@@ -42,15 +42,14 @@ class SendSalesRepDigest
                 $this->sendDigest($repEmail, $customerNames);
                 $sent++;
             } catch (\Throwable $e) {
-                $this->logger->error(sprintf(
-                    'Ordo_Automation: failed to send sales rep digest to %s: %s',
-                    $repEmail,
-                    $e->getMessage()
-                ));
+                $this->cronRunLogger->logFailure(
+                    sprintf('send sales rep digest to %s', $repEmail),
+                    $e
+                );
             }
         }
 
-        $this->logger->info(sprintf('Ordo_Automation: sent %d sales rep digests.', $sent));
+        $this->cronRunLogger->logSummary(sprintf('sent %d sales rep digests', $sent));
     }
 
     /**

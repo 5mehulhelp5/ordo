@@ -20,6 +20,7 @@ use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\CustomerTagManager;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -98,7 +99,7 @@ class SendWinBackEmailsTest extends TestCase
             $customerMapBuilder,
             $emailSender,
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -155,7 +156,7 @@ class SendWinBackEmailsTest extends TestCase
             $customerMapBuilder,
             $this->makeEmailSender($transportBuilder),
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -181,7 +182,7 @@ class SendWinBackEmailsTest extends TestCase
             $customerMapBuilder,
             $this->makeEmailSender($this->createStub(TransportBuilder::class)),
             $this->createStub(TriggerOutcomeLogger::class),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -201,7 +202,7 @@ class SendWinBackEmailsTest extends TestCase
             $customerMapBuilder,
             $emailSender,
             $this->createStub(TriggerOutcomeLogger::class),
-            $this->createStub(LoggerInterface::class)
+            new CronRunLogger($this->createStub(LoggerInterface::class))
         );
     }
 }

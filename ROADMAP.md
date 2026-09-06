@@ -20,79 +20,62 @@ scoped from real hands-on marketing automation experience.
   `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
   mocked, so a real DB round trip (write on send → status update on callback) is untested.
 
-## Tooling ideas, not yet actioned
+### MFTF/scenario coverage gaps
 
-- ~~PHPUnit 13~~ — done. Bumped `composer.json`'s `"php"` constraint from `>=8.2 <8.6` to
-  `>=8.4 <8.6` and `phpunit/phpunit` to `^13.0`; moved the whole CI matrix (`ci.yml`,
-  `coverage.yml`, `mftf.yml`) from PHP 8.3 to 8.4, including the `mftf.yml` nginx+PHP-FPM stack,
-  which needed the `ppa:ondrej/php` PPA added since ubuntu-24.04's default apt repo only ships
-  8.3 natively. Also bumped `rector.php`'s `withPhpSets()` from `php82` to `php84`, which flagged
-  35 files needing `AddTypeToConstRector` (typed class constants) — applied. The real work was
-  the "zero deprecation warnings" prerequisite: PHPUnit 13 deprecates `->method('x')->with(args)`
-  used without a preceding `->expects(...)` (199 sites across 74 test files) — converted those to
-  `->willReturnMap([[...args, value]])` (stub-style, no call-count assertion, matching the
-  original behavior) rather than `->expects(self::any())`, since `any()` itself is *also*
-  deprecated in this PHPUnit version ("will be removed in PHPUnit 14"). That conversion had a
-  second-order effect: `willReturnMap()` doesn't set a "parameters rule" the way `->with()` did,
-  so 93 of those same mocks newly tripped PHPUnit's separate "no expectations configured" notice
-  — fixed by adding `#[AllowMockObjectsWithoutExpectations]`, the same attribute this suite
-  already used elsewhere for exactly this case. Verified against the literal command
-  `ci.yml` runs (`--fail-on-phpunit-notice --fail-on-notice --fail-on-warning
-  --fail-on-deprecation`): exit 0, 992 tests, 6526 assertions, zero notices/deprecations.
+Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. The real gaps (⬜ rows there), grouped:
+
+- **Campaign engine** (§1): `cart_abandoned` trigger has no MFTF test (only unit-level, dispatched from
+  `Cron/SendAbandonedCartReminders.php` rather than a live observer); all 6 RFM-based conditions
+  (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and their 3 percentile
+  variants) are untested end to end; `add_tag` action has never been the thing directly under test (only a side
+  effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is
+  only incidentally exercised, never asserted; chained delays (an action pauses, resumes, pauses again) aren't
+  covered.
+- **RFM** (§3): `Cron\RecomputeRfmScores` populating `ordo_customer_rfm_score` and the RFM report reflecting it,
+  and the percentile-based campaign conditions actually reading that precomputed table (rather than a live scan),
+  are both untested.
+- **Free gift offers / storefront offers** (§5): offer self-extension (`Controller/Offer/Extend.php`,
+  `Offer::canSelfExtend()`), the "My Offers" storefront account page (`Controller/Offer/Index.php`),
+  `Cron\SendOfferExpiryReminders`'s reminder email, and `Cron\ExpireOverdueOffers` marking a lapsed offer expired
+  are all uncovered.
+- **Order approval** (§6): `Cron\EscalateStalePendingApprovals` (a pending approval past its SLA) has no test;
+  "no spend limit / no approval email configured → never held" is unit-tested only.
+- **Tracking & popups** (§7): view-threshold crossing tagging the visitor (chaining into `visitor_tag_added`,
+  §1a) isn't covered; neither is `Cron\PrunePendingPopups` or `Cron\PruneVisitorEvents`.
+- **Reorder cycles** (§8): `Cron\CalculateReorderCycle` detecting a recurring purchase pattern from real order
+  history, and `Cron\SendReorderReminders` emailing a customer whose predicted next-order date arrived, are both
+  uncovered.
+- **Reminder/alert crons** (§10): `SendCreditLimitAlerts`, `SendSalesRepDigest`, `SendWinBackEmails`, and
+  `TagInactiveCustomers` have no MFTF equivalent (unit-tested only) — same underlying gap as the
+  `cart_abandoned` trigger above, since `SendAbandonedCartReminders` is the same family.
 
 ## Code quality
 
-- **Code duplication flagged by SonarCloud on the cron/reminder family** — `Cron/SendWinBackEmails.php`
-  (51.2%), `Cron/SendOfferExpiryReminders.php` (41.5%), `Cron/SendReorderReminders.php` (36.4%).
-  Confirmed real, not a false positive: all three (plus `SendCreditLimitAlerts.php` and
-  `SendSalesRepDigest.php`, not flagged by Sonar's "new code" filter but sharing the same shape)
-  have a byte-identical private `buildCustomerMap(array $customerIds): array` method, and a
-  near-identical `sendReminder()`/`sendEmail()` shape (suspend inline translation, build a
-  transport with template identifier/options/vars/from/to, send, resume). `SendOfferExpiryReminders`
-  and `SendReorderReminders` additionally duplicate a "has a reminder already been logged for this
-  entity" query + insert pair against their own per-feature `ordo_*_reminder_log` table — not
-  quite identical (one checks by type with no date bound, the other checks same-day only), so
-  that half needs a parameterized shared implementation, not a blind extract. Likely fix: a shared
-  `CustomerMapBuilder` collaborator for the map-building half, and a shared base/trait for the
-  suspend/build/send/resume email shape — scope this as one pass across all five files, not just
-  the three Sonar flagged, since they're the same duplication.
+- **The "Ordo_Automation: ..." per-item-failure + run-summary log shape is still duplicated across ~10 cron
+  jobs** outside the reminder/alert family (`RecomputeRfmScores`, `RefreshRssContentBlocks`,
+  `CalculateReorderCycle`, `RunScheduledCampaignActions`, `SendAbandonedCartReminders`,
+  `EscalateStalePendingApprovals`, `TagInactiveCustomers`, `PruneVisitorEvents`, `PrunePendingPopups`,
+  `ExpireOverdueOffers`) — `Model\Cron\CronRunLogger` (extracted for the 5 reminder/alert crons) covers exactly
+  this shape and could be adopted there too. Low priority: each occurrence is only 2–4 lines and Sonar hasn't
+  flagged it, so this is a minor readability cleanup, not a correctness or architectural issue.
 
 ## Gaps vs. a full-market MA platform
 
 Not a code review — a capability comparison against the category. Each is a real, separate stream of work:
 
-- ~~Multichannel recovery: SMS~~ — done. `send_sms` campaign action (`Model/Campaign/Action/SendSms` +
-  `Model/Sms/TwilioSmsSender`, official `twilio/sdk`) — any campaign (`cart_abandoned`/win-back included) can add
-  it alongside or instead of `send_email` from the Flow canvas. Phone resolves via a dedicated `ordo_sms_phone`
-  customer attribute (not the unreliable core address telephone). Delivery is tracked in a new, deliberately
-  channel-generic `ordo_message_log` table via `Controller/Sms/StatusCallback.php`, a signature-verified webhook
-  (`Twilio\Security\RequestValidator`) Twilio POSTs status updates to. Opted-out recipients (Twilio error 21610)
-  are recorded as `status=opted_out`, distinct from a generic failure, and the Flow canvas's SMS message field
-  carries a TCPA/opt-out-instruction reminder notice.
-    - **WhatsApp** — still open, and confirmed via Twilio's own docs to be materially more work than "same API,
-      `whatsapp:` prefix": outside a 24-hour customer-service session window (started only when the *customer*
-      messages first), only pre-approved message templates can be sent (Marketing/Utility/Authentication
-      categories, each with separate Meta fees, ~minutes-to-48h approval turnaround). A cold-start marketing
-      cart-recovery message is necessarily template-based, so this needs a template-authoring/approval-tracking
-      admin UI, not just a new `SmsSenderInterface`-style action — scope this properly before starting, don't
-      underestimate it as a copy of the SMS slice.
-    - **Push notifications** — still open, not investigated yet.
-    - **SendGrid-backed email delivery tracking** — not multichannel-recovery scope exactly, but a natural
-      follow-up now that `ordo_message_log`/the webhook pattern exist: Twilio's SendGrid (Mail Send API + Event
-      Webhook for opens/clicks/bounces) could replace `send_email`'s current fire-and-forget `TransportBuilder`
-      call the same way `send_sms` now tracks delivery. A real, separate architectural decision (email sending is
-      threaded through `TransportBuilder` in more places than just `SendEmail`), not a small addition.
-    - ~~No admin visibility into `ordo_message_log`~~ — done. A read-only grid at Marketing → Ordo Automation →
-      Message Log (`Controller/Adminhtml/MessageLog/Index.php`, `ordo_messagelog_listing.xml`) lists every
-      send/opt-out/failure `Model\Sms\MessageLogWriter` wrote, with the status Twilio's delivery webhook
-      (`Controller\Sms\StatusCallback`) later updated. Reuses the `Ordo_Automation::campaigns` ACL resource, same as
-      the RFM report, rather than adding a new permission for an operational view. Will cover email too once the
-      SendGrid tracking item above lands, since the table is already channel-generic.
-    - ~~`ordo_sms_phone` has no format validation~~ — done. `SendSms::execute()` now rejects anything that doesn't
-      match a basic E.164 shape (`+`, non-zero leading digit, 8-15 digits total) before spending a Twilio API call,
-      logging and recording it as `failed` in `ordo_message_log` the same way a real send failure would be — this is
-      a fail-fast sanity check, not a full numbering-plan validator, so country-specific length/prefix rules still
-      aren't enforced and a syntactically valid but non-existent number still only fails at Twilio.
+- **WhatsApp** (multichannel recovery, alongside the shipped SMS channel) — confirmed via Twilio's own docs to be
+  materially more work than "same API, `whatsapp:` prefix": outside a 24-hour customer-service session window
+  (started only when the *customer* messages first), only pre-approved message templates can be sent
+  (Marketing/Utility/Authentication categories, each with separate Meta fees, ~minutes-to-48h approval
+  turnaround). A cold-start marketing cart-recovery message is necessarily template-based, so this needs a
+  template-authoring/approval-tracking admin UI, not just a new `SmsSenderInterface`-style action — scope this
+  properly before starting, don't underestimate it as a copy of the SMS slice.
+- **Push notifications** — still open, not investigated yet.
+- **SendGrid-backed email delivery tracking** — a natural follow-up now that `ordo_message_log`/the SMS delivery
+  webhook pattern exist: Twilio's SendGrid (Mail Send API + Event Webhook for opens/clicks/bounces) could replace
+  `send_email`'s current fire-and-forget `TransportBuilder` call the same way `send_sms` now tracks delivery. A
+  real, separate architectural decision (email sending is threaded through `TransportBuilder` in more places than
+  just `SendEmail`), not a small addition.
 - **On-site product recommendation blocks** — a new content-block type (or campaign action) rendering personalized
   product suggestions using data the module already has (customer/visitor tags, RFM scores, segment membership),
   not a new AI/recommendation engine. Extends the existing content-block and campaign-action surface rather than

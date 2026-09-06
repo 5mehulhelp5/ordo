@@ -23,6 +23,7 @@ use Ordo\Automation\Model\CustomerTagManager;
 use Ordo\Automation\Setup\Patch\Data\AddSalesRepAttributes;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
+use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 
 class SendSalesRepDigestTest extends TestCase
@@ -67,7 +68,7 @@ class SendSalesRepDigestTest extends TestCase
                 $this->createStub(TransportBuilder::class),
                 $this->createStub(StoreManagerInterface::class)
             ),
-            $this->createStub(LoggerInterface::class)
+            new CronRunLogger($this->createStub(LoggerInterface::class))
         ))->execute();
     }
 
@@ -90,7 +91,7 @@ class SendSalesRepDigestTest extends TestCase
                 $this->createStub(TransportBuilder::class),
                 $this->createStub(StoreManagerInterface::class)
             ),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -146,7 +147,7 @@ class SendSalesRepDigestTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $this->makeEmailSender($transportBuilder, $storeManager),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -172,7 +173,7 @@ class SendSalesRepDigestTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $this->makeEmailSender($transportBuilder, $this->createStub(StoreManagerInterface::class)),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 
@@ -207,7 +208,7 @@ class SendSalesRepDigestTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $this->makeEmailSender($this->createStub(TransportBuilder::class), $storeManager),
-            $logger
+            new CronRunLogger($logger)
         ))->execute();
     }
 }
