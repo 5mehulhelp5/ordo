@@ -28,6 +28,10 @@
              thing SendSalesRepDigest's grouping actually keys on. -->
         <amOnPage url="{{AdminEditCustomerPage.url($$createCustomer.id$$)}}" stepKey="goToCustomerEditPage"/>
         <waitForPageLoad stepKey="waitForCustomerEditPage"/>
+        <!-- The edit page lands on the read-only "Customer View" tab by default - the actual
+             editable form (and this custom attribute's field) only exists under "Account
+             Information", loaded via its own AJAX call once that tab is clicked. -->
+        <actionGroup ref="AdminOpenAccountInformationTabFromCustomerEditPageActionGroup" stepKey="openAccountInformationTab"/>
         <waitForElementVisible selector="[name='customer[ordo_sales_rep_email]']" stepKey="waitForRepEmailField"/>
         <fillField selector="[name='customer[ordo_sales_rep_email]']" userInput="rep-digest-test@example.test" stepKey="fillRepEmail"/>
         <click selector="{{AdminCustomerMainActionsSection.saveButton}}" stepKey="saveCustomer"/>
