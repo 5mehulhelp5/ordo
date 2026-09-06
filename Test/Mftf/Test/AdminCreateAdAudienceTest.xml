@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCreateAdAudienceTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="Admin can create, see in the grid, and delete an ad audience sync configuration"/>
+            <description value="Closes ROADMAP.md's 'Ad-audience sync (Google Ads / Meta)' gap. Covers the new ordo_ad_audience admin CRUD (Model/AdAudience + Controller/Adminhtml/AdAudience/*): create a real segment as the picker's only real option, create an ad audience row pointing at it, confirm it appears in the grid, then delete it. The actual sync call to a real Google Ads/Meta account is out of MFTF's own scope, same reasoning as send_sms's own ROADMAP.md note - covered instead by GoogleAdsSyncClientTest/MetaSyncClientTest (fake HTTP client) and Test/Integration/SyncAdAudiencesTest.php (real segment/DB, fake sync client)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real segment, purely as the picker's only real option. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Test Segment For Ad Audience" stepKey="fillSegmentName"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueSegment"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
+
+        <!-- Step 2: the ad audience row under test. -->
+        <amOnPage url="admin/ordo/adaudience/new" stepKey="goToNewAdAudiencePage"/>
+        <waitForPageLoad stepKey="waitForNewAdAudiencePage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Test Ad Audience" stepKey="fillName"/>
+        <selectOption selector="[name='segment_id']" userInput="Test Segment For Ad Audience" stepKey="selectSegment"/>
+        <selectOption selector="[name='platform']" userInput="Google Ads" stepKey="selectPlatform"/>
+        <fillField selector="[name='external_audience_id']" userInput="customers/123/userLists/456" stepKey="fillExternalAudienceId"/>
+
+        <click selector="#save" stepKey="clickSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The ad audience has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabAdAudienceId"/>
+
+        <!-- Step 3: the grid reflects the real, just-saved row. -->
+        <amOnPage url="admin/ordo/adaudience/index" stepKey="goToAdAudienceGrid"/>
+        <waitForPageLoad stepKey="waitForGrid"/>
+        <see selector="table.data-grid" userInput="Test Ad Audience" stepKey="seeAdAudienceInGrid"/>
+        <see selector="table.data-grid" userInput="Google Ads" stepKey="seePlatformInGrid"/>
+
+        <!-- Step 4: delete it for real. -->
+        <amOnPage url="admin/ordo/adaudience/delete/entity_id/{$grabAdAudienceId}" stepKey="deleteAdAudience"/>
+        <waitForPageLoad stepKey="waitForDeleteAdAudience"/>
+        <see selector=".message-success" userInput="The ad audience has been deleted." stepKey="seeDeleteSuccessMessage"/>
+        <amOnPage url="admin/ordo/adaudience/index" stepKey="goToAdAudienceGridAfterDelete"/>
+        <waitForPageLoad stepKey="waitForGridAfterDelete"/>
+        <dontSee selector="table.data-grid" userInput="Test Ad Audience" stepKey="dontSeeAdAudienceInGrid"/>
+
+        <!-- Cleanup: the segment. -->
+        <amOnPage url="admin/ordo/segment/delete/entity_id/{$grabSegmentId}" stepKey="deleteSegment"/>
+        <waitForPageLoad stepKey="waitForDeleteSegment"/>
+        <see selector=".message-success" userInput="The segment has been deleted." stepKey="seeDeleteSegmentSuccessMessage"/>
+    </test>
+</tests>

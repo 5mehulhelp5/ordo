@@ -250,6 +250,16 @@ module's.
 | `Controller/Adminhtml/Gdpr/Export.php` (data-subject access request JSON download)                                                | ✅ `Test/Unit/Controller/Adminhtml/Gdpr/ExportTest.php` — correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above (no browser-observable effect a browser-driven test can assert on a file download) |
 | SMS opt-out via `ConsentManager` (as opposed to Twilio's own STOP-reply opt-out) — same `recordOptedOut` code path `send_sms` already exercises for Twilio's own opt-out | ✅ `SendSmsTest::testExecuteSkipsAndRecordsOptedOutWhenConsentWithdrawn` |
 
+## 14. Ad audiences (`Model/AdAudience/`, `Controller/Adminhtml/AdAudience/`, `Cron/SyncAdAudiences.php`)
+
+| Scenario                                                                                                          | Status                                                          |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| Admin CRUD (create/grid/delete) for an `ordo_ad_audience` row                                                      | ✅ `AdminCreateAdAudienceTest`                                    |
+| `Cron\SyncAdAudiences` resolves a real segment's current members and hands their hashed emails to the configured platform's `SyncClientInterface` | ✅ `Test/Integration/SyncAdAudiencesTest.php` (real segment/DB, fake sync client) |
+| `Model/AdAudience/PiiHasher` — email normalization + SHA-256 hashing matches the shared Google/Meta spec           | ✅ `PiiHasherTest` (known hash vector)                           |
+| `GoogleAdsSyncClient`/`MetaSyncClient`/`GoogleOAuthTokenProvider` — real request-building/response-parsing         | ✅ `GoogleAdsSyncClientTest` / `MetaSyncClientTest` / `GoogleOAuthTokenProviderTest` (fake `Curl`) |
+| A real sync against a live Google Ads/Meta account                                                                | See ROADMAP.md's own note — out of MFTF's scope, same reasoning as `send_sms`'s equivalent gap |
+
 ## Suggested next batch (highest signal per test written)
 
 Empty — every scenario this list ever tracked is now ✅ (see the sections above). Re-populate this when a new

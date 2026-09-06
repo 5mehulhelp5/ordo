@@ -22,6 +22,13 @@ scoped from real hands-on marketing automation experience.
   against a live/trial Twilio account. `StatusCallbackTest` is unit-level too: it uses a real
   `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
   mocked, so a real DB round trip (write on send → status update on callback) is untested.
+- **Ad-audience sync (`Cron\SyncAdAudiences`) has no test against a real Google Ads/Meta account.** Same shape
+  as `send_sms` above: unit tests (`GoogleAdsSyncClientTest`/`MetaSyncClientTest`/`GoogleOAuthTokenProviderTest`)
+  drive the real request-building/response-parsing logic via a fake `Curl`, and the integration test
+  (`SyncAdAudiencesTest`) uses real DI/database (real segment/tag/customer rows, real `SegmentMemberResolver`
+  query, real `PiiHasher`) but swaps `SyncClientInterface` for a `RecordingSyncClient` — so the actual HTTP
+  calls to `googleads.googleapis.com`/`graph.facebook.com` (OAuth token exchange, offline user data job
+  lifecycle, Custom Audience creation/replace) have never been exercised against live credentials.
 
 ### MFTF/scenario coverage
 
@@ -41,9 +48,6 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **Ad-audience sync (Google Ads / Meta)** — export a segment's customer emails/hashes as a Customer Match
-  audience for remarketing, refreshed on a cron. New outbound integration (OAuth, PII hashing), no existing
-  precedent in this module.
 - **Product feed export to shopping channels** — a Google Merchant Center-compatible product feed (and similar
   comparison-shopping formats) generated from catalog data. Distinct from the existing `product_feed` content
   block, which renders content inside campaigns/on-site, not an exportable feed file.

@@ -24,6 +24,16 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
   dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
   producer can personalize by `customer_id`.
+- Ad-audience sync (Google Ads / Meta) — new `ordo_ad_audience` admin CRUD entity (segment +
+  platform + external audience id), `Cron\SyncAdAudiences` resolves a segment's real current
+  members (`Model\Segment\SegmentMemberResolver`, the same resolver `in_segment`/segment bulk
+  actions already use), hashes their emails to the shared SHA-256 spec both platforms require
+  (`Model\AdAudience\PiiHasher`), and hands the list to the configured platform's
+  `SyncClientInterface`: `GoogleAdsSyncClient` (OAuth refresh-token exchange +
+  create/addOperations/run against the OfflineUserDataJobService REST endpoints) or
+  `MetaSyncClient` (Custom Audience create + `usersreplace`). Plain HTTP via
+  `Magento\Framework\HTTP\Client\Curl`, no new SDK dependency — same choice `RssFetcher` already
+  made for its own external call.
 - GDPR/consent manager — new `ordo_customer_consent` table (per-customer, per-channel: email/
   sms/push), `Model/ConsentManager.php` is the single source of truth `send_email`/`send_sms`
   both check before sending anything (opt-out register, not opt-in — a customer with no row is

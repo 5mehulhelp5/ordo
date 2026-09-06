@@ -1,0 +1,81 @@
+<?php
+declare(strict_types=1);
+
+namespace Ordo\Automation\Test\Unit\Model\AdAudience;
+
+use Magento\Framework\HTTP\Client\Curl;
+use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\AdAudience\GoogleAdsSyncClient;
+use Ordo\Automation\Model\AdAudience\GoogleOAuthTokenProvider;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\TestCase;
+
+class GoogleAdsSyncClientTest extends TestCase
+{
+    private Curl&\PHPUnit\Framework\MockObject\MockObject $curl;
+    private Config $config;
+    private GoogleOAuthTokenProvider&\PHPUnit\Framework\MockObject\MockObject $tokenProvider;
+    private GoogleAdsSyncClient $client;
+
+    protected function setUp(): void
+    {
+        $this->curl = $this->createMock(Curl::class);
+        $this->config = $this->createStub(Config::class);
+        $this->config->method('getGoogleAdsLoginCustomerId')->willReturn('1234567890');
+        $this->config->method('getGoogleAdsDeveloperToken')->willReturn('dev-token');
+        $this->tokenProvider = $this->createMock(GoogleOAuthTokenProvider::class);
+        $this->tokenProvider->method('getAccessToken')->willReturn('access-123');
+
+        $this->client = new GoogleAdsSyncClient($this->curl, $this->config, $this->tokenProvider);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSyncThrowsWhenExternalAudienceIdMissing(): void
+    {
+        $this->curl->expects(self::never())->method('post');
+
+        $this->expectException(\RuntimeException::class);
+        $this->client->sync(null, ['hash1']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSyncCallsAllThreeRealApiStepsInOrder(): void
+    {
+        $calls = [];
+        $this->curl->method('post')->willReturnCallback(function (string $url, string $body) use (&$calls) {
+            $calls[] = ['url' => $url, 'body' => json_decode($body, true)];
+        });
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->curl->method('getBody')->willReturnOnConsecutiveCalls(
+            json_encode(['resourceName' => 'customers/1234567890/offlineUserDataJobs/999']),
+            json_encode([]),
+            json_encode([])
+        );
+
+        $result = $this->client->sync('customers/1234567890/userLists/555', ['hash1', 'hash2']);
+
+        self::assertNull($result);
+        self::assertCount(3, $calls);
+        self::assertStringEndsWith(':create', $calls[0]['url']);
+        self::assertSame(
+            'customers/1234567890/userLists/555',
+            $calls[0]['body']['job']['customerMatchUserListMetadata']['userList']
+        );
+        self::assertStringEndsWith(':addOperations', $calls[1]['url']);
+        self::assertSame(
+            [['hashedEmail' => 'hash1'], ['hashedEmail' => 'hash2']],
+            $calls[1]['body']['operations'][0]['create']['userIdentifiers']
+        );
+        self::assertStringEndsWith(':run', $calls[2]['url']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSyncThrowsOnNonSuccessHttpStatus(): void
+    {
+        $this->curl->method('getStatus')->willReturn(400);
+        $this->curl->method('getBody')->willReturn('{"error":"bad request"}');
+
+        $this->expectException(\RuntimeException::class);
+        $this->client->sync('customers/1234567890/userLists/555', ['hash1']);
+    }
+}

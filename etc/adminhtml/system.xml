@@ -265,6 +265,37 @@
                     <depends><field id="enabled">1</field></depends>
                 </field>
             </group>
+            <group id="ad_audience_sync" translate="label" type="text" sortOrder="120" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Ad Audience Sync (Google Ads / Meta)</label>
+                <field id="google_ads_client_id" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Ads OAuth Client ID</label>
+                </field>
+                <field id="google_ads_client_secret" translate="label" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Ads OAuth Client Secret</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                </field>
+                <field id="google_ads_refresh_token" translate="label" type="obscure" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Ads OAuth Refresh Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                </field>
+                <field id="google_ads_developer_token" translate="label" type="obscure" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Ads Developer Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                </field>
+                <field id="google_ads_login_customer_id" translate="label comment" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Ads Login Customer ID</label>
+                    <comment>The manager (MCC) account id, digits only, no dashes.</comment>
+                </field>
+                <field id="meta_access_token" translate="label comment" type="obscure" sortOrder="60" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Meta Access Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>A long-lived system-user token with ads_management permission.</comment>
+                </field>
+                <field id="meta_ad_account_id" translate="label comment" type="text" sortOrder="70" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Meta Ad Account ID</label>
+                    <comment>Digits only, without the "act_" prefix.</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>
