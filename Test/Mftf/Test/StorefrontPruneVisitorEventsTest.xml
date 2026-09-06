@@ -31,7 +31,7 @@
         <executeJS function="window.ordoTrack('element_clicked', 'prune-visitor-events-test-key')" stepKey="callOrdoTrackForElementClick"/>
         <wait time="2" stepKey="waitForClickEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertEventLoggedBeforePrune">
-            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="visitorId">"{$grabVisitorId}"</argument>
             <argument name="eventType">element_clicked</argument>
             <argument name="eventKey">prune-visitor-events-test-key</argument>
         </helper>
@@ -46,7 +46,7 @@
         <!-- Step 3: the real, database-observable negative only a genuine deletion could have
              produced. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorEventNotLogged" stepKey="assertEventPrunedAfterCron">
-            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="visitorId">"{$grabVisitorId}"</argument>
             <argument name="eventType">element_clicked</argument>
             <argument name="eventKey">prune-visitor-events-test-key</argument>
         </helper>

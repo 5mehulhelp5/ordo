@@ -21,7 +21,7 @@ class RssCacheTestHelper extends Helper
      * @throws \RuntimeException if no cache row exists, or it doesn't contain $expectedText
      */
     public function assertRssCacheContains(
-        int $contentBlockId,
+        string $contentBlockId,
         string $expectedText,
         string $dbHost = '127.0.0.1',
         string $dbName = 'magento',
@@ -58,7 +58,7 @@ class RssCacheTestHelper extends Helper
     }
 
     public function deleteRssCache(
-        int $contentBlockId,
+        string $contentBlockId,
         string $dbHost = '127.0.0.1',
         string $dbName = 'magento',
         string $dbUser = 'root',

@@ -37,7 +37,7 @@
         <executeJS function="window.ordoTrack('category_view', '$createCategory.id$')" stepKey="callOrdoTrackForCategoryView"/>
         <wait time="2" stepKey="waitForCategoryViewEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertCategoryViewLogged">
-            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="visitorId">"{$grabVisitorId}"</argument>
             <argument name="eventType">category_view</argument>
             <argument name="eventKey">$createCategory.id$</argument>
         </helper>

@@ -76,7 +76,7 @@
         <executeJS function="window.ordoTrack('element_clicked', 'hero-cta-button')" stepKey="callOrdoTrackForElementClick"/>
         <wait time="2" stepKey="waitForClickEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertClickEventLogged">
-            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="visitorId">"{$grabVisitorId}"</argument>
             <argument name="eventType">element_clicked</argument>
             <argument name="eventKey">hero-cta-button</argument>
         </helper>
@@ -94,7 +94,7 @@
         <magentoCLI command="queue:consumers:start ordo.automation.visitor.aggregate --max-messages=50" stepKey="runVisitorAggregationConsumer"/>
 
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorTagAdded" stepKey="assertClickTagAdded">
-            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="visitorId">"{$grabVisitorId}"</argument>
             <argument name="tag">clicked_hero-cta-button</argument>
         </helper>
 
