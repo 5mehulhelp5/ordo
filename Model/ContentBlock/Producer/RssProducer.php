@@ -19,7 +19,7 @@ class RssProducer implements ProducerInterface
     ) {
     }
 
-    public function render(ContentBlock $block): string
+    public function render(ContentBlock $block, array $context = []): string
     {
         $blockId = $block->getEntityId();
         if ($blockId === null) {

@@ -12,7 +12,7 @@ use Ordo\Automation\Model\ContentBlock;
  */
 class SnippetProducer implements ProducerInterface
 {
-    public function render(ContentBlock $block): string
+    public function render(ContentBlock $block, array $context = []): string
     {
         $config = $block->getConfigArray();
         return (string) ($config['html'] ?? '');

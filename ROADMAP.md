@@ -41,14 +41,23 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **On-site product recommendation blocks** — a content-block type/campaign action using existing data
-  (customer/visitor tags, RFM scores, segment membership), not a new recommendation engine.
+- **On-site product recommendation blocks** — a content-block type/campaign action using existing data (customer/visitor
+  tags, RFM scores, segment membership), not a new recommendation engine.
 - **Loyalty tiers on top of lead scoring** — map `ordo_customer_score` ranges to named tiers, as a segment
   condition type + dashboard stat.
 - **Persistent in-site notification action** — non-modal, persists until read or expired, sibling to the
   existing `popup` action.
 - **Single-question satisfaction/NPS survey action** — a 0–10 post-purchase prompt feeding into segment
   conditions the same way tags/scores do. Narrower than a full survey builder.
+- **GDPR/consent manager** — per-customer marketing consent state (opt-in/opt-out per channel: email/SMS/push),
+  with timestamp/source, plus a data-subject export/erase admin action. Every campaign send action should check
+  consent before sending. Compliance gap, not just a feature gap.
+- **Ad-audience sync (Google Ads / Meta)** — export a segment's customer emails/hashes as a Customer Match
+  audience for remarketing, refreshed on a cron. New outbound integration (OAuth, PII hashing), no existing
+  precedent in this module.
+- **Product feed export to shopping channels** — a Google Merchant Center-compatible product feed (and similar
+  comparison-shopping formats) generated from catalog data. Distinct from the existing `product_feed` content
+  block, which renders content inside campaigns/on-site, not an exportable feed file.
 
 ## Localization
 

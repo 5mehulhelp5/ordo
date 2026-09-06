@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Model;
 
 use Ordo\Automation\Model\ResourceModel\ContentBlock as ContentBlockResource;
+use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory as ContentBlockCollectionFactory;
 
 /**
  * Simple direct resource-model persistence, same pattern the campaign engine's own controllers
@@ -15,7 +16,8 @@ class ContentBlockRepository
 {
     public function __construct(
         private readonly ContentBlockFactory $contentBlockFactory,
-        private readonly ContentBlockResource $contentBlockResource
+        private readonly ContentBlockResource $contentBlockResource,
+        private readonly ContentBlockCollectionFactory $contentBlockCollectionFactory
     ) {
     }
 
@@ -31,6 +33,30 @@ class ContentBlockRepository
 
         $block = $this->contentBlockFactory->create();
         $this->contentBlockResource->load($block, $id);
+
+        return $block->getId() ? $block : null;
+    }
+
+    /**
+     * Null-safe, same contract as getById() — used by Block\Frontend\ContentBlock\Render, whose
+     * only handle to a content block is the human-authored "identifier" (CMS block content/
+     * layout XML references it by name, not the numeric entity_id nobody authoring a CMS page
+     * would know or want to type). No unique-index enforcement on `identifier` at the DB level
+     * (see etc/db_schema.xml), so the first match wins if two rows ever share one.
+     */
+    public function getByIdentifier(string $identifier): ?ContentBlock
+    {
+        if ($identifier === '') {
+            return null;
+        }
+
+        $collection = $this->contentBlockCollectionFactory->create();
+        $collection->addFieldToFilter('identifier', $identifier);
+        $collection->setPageSize(1);
+
+        /** @var ContentBlock $block getFirstItem() always returns a model instance - a fresh,
+         *  id-less one when nothing matches, never false/null. */
+        $block = $collection->getFirstItem();
 
         return $block->getId() ? $block : null;
     }

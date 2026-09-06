@@ -82,6 +82,9 @@ class Save extends AbstractContentBlockAction implements HttpPostActionInterface
                 'rule_id' => $data['rule_id'] ?? null,
                 'item_count' => (int) ($data['item_count'] ?? 4),
             ],
+            'recommendations' => [
+                'count' => (int) ($data['count'] ?? 4),
+            ],
             default => [],
         };
     }

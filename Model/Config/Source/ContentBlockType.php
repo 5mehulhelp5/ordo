@@ -15,6 +15,7 @@ class ContentBlockType implements OptionSourceInterface
     public const SNIPPET = 'snippet';
     public const RSS = 'rss';
     public const PRODUCT_FEED = 'product_feed';
+    public const RECOMMENDATIONS = 'recommendations';
 
     /**
      * @return array<int, array{value: string, label: \Magento\Framework\Phrase}>
@@ -25,6 +26,7 @@ class ContentBlockType implements OptionSourceInterface
             ['value' => self::SNIPPET, 'label' => __('HTML Snippet')],
             ['value' => self::RSS, 'label' => __('RSS Feed')],
             ['value' => self::PRODUCT_FEED, 'label' => __('Product Feed')],
+            ['value' => self::RECOMMENDATIONS, 'label' => __('Product Recommendations')],
         ];
     }
 }

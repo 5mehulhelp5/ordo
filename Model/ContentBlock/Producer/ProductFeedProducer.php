@@ -27,7 +27,7 @@ class ProductFeedProducer implements ProducerInterface
     ) {
     }
 
-    public function render(ContentBlock $block): string
+    public function render(ContentBlock $block, array $context = []): string
     {
         $config = $block->getConfigArray();
         $source = (string) ($config['source'] ?? '');

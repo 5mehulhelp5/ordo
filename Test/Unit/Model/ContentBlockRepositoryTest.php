@@ -7,6 +7,8 @@ use Ordo\Automation\Model\ContentBlock;
 use Ordo\Automation\Model\ContentBlockFactory;
 use Ordo\Automation\Model\ContentBlockRepository;
 use Ordo\Automation\Model\ResourceModel\ContentBlock as ContentBlockResource;
+use Ordo\Automation\Model\ResourceModel\ContentBlock\Collection as ContentBlockCollection;
+use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory as ContentBlockCollectionFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
@@ -14,16 +16,22 @@ class ContentBlockRepositoryTest extends TestCase
 {
     private ContentBlockFactory $contentBlockFactory;
     private ContentBlockResource $contentBlockResource;
+    private ContentBlockCollectionFactory $contentBlockCollectionFactory;
 
     protected function setUp(): void
     {
         $this->contentBlockFactory = $this->createMock(ContentBlockFactory::class);
         $this->contentBlockResource = $this->createMock(ContentBlockResource::class);
+        $this->contentBlockCollectionFactory = $this->createStub(ContentBlockCollectionFactory::class);
     }
 
     private function makeRepository(): ContentBlockRepository
     {
-        return new ContentBlockRepository($this->contentBlockFactory, $this->contentBlockResource);
+        return new ContentBlockRepository(
+            $this->contentBlockFactory,
+            $this->contentBlockResource,
+            $this->contentBlockCollectionFactory
+        );
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -63,6 +71,53 @@ class ContentBlockRepositoryTest extends TestCase
 
         self::assertNull($repository->getById(0));
         self::assertNull($repository->getById(-1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetByIdentifierReturnsMatchingEntity(): void
+    {
+        $repository = $this->makeRepository();
+
+        $contentBlock = $this->createStub(ContentBlock::class);
+        $contentBlock->method('getId')->willReturn(7);
+
+        $collection = $this->createMock(ContentBlockCollection::class);
+        $collection->expects(self::once())->method('addFieldToFilter')->with('identifier', 'homepage_recs');
+        $collection->expects(self::once())->method('setPageSize')->with(1);
+        $collection->method('getFirstItem')->willReturn($contentBlock);
+
+        $this->contentBlockCollectionFactory->method('create')->willReturn($collection);
+
+        self::assertSame($contentBlock, $repository->getByIdentifier('homepage_recs'));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetByIdentifierReturnsNullWhenNoMatch(): void
+    {
+        $repository = $this->makeRepository();
+
+        $emptyContentBlock = $this->createStub(ContentBlock::class);
+        $emptyContentBlock->method('getId')->willReturn(null);
+
+        $collection = $this->createStub(ContentBlockCollection::class);
+        $collection->method('getFirstItem')->willReturn($emptyContentBlock);
+
+        $this->contentBlockCollectionFactory->method('create')->willReturn($collection);
+
+        self::assertNull($repository->getByIdentifier('nonexistent'));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetByIdentifierReturnsNullWithoutQueryWhenIdentifierIsEmpty(): void
+    {
+        $repository = $this->makeRepository();
+
+        $factory = $this->createMock(ContentBlockCollectionFactory::class);
+        $factory->expects(self::never())->method('create');
+
+        $repository = new ContentBlockRepository($this->contentBlockFactory, $this->contentBlockResource, $factory);
+
+        self::assertNull($repository->getByIdentifier(''));
     }
 
     #[AllowMockObjectsWithoutExpectations]

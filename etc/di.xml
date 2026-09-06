@@ -194,6 +194,7 @@
                 <item name="snippet" xsi:type="object">Ordo\Automation\Model\ContentBlock\Producer\SnippetProducer</item>
                 <item name="rss" xsi:type="object">Ordo\Automation\Model\ContentBlock\Producer\RssProducer</item>
                 <item name="product_feed" xsi:type="object">Ordo\Automation\Model\ContentBlock\Producer\ProductFeedProducer</item>
+                <item name="recommendations" xsi:type="object">Ordo\Automation\Model\ContentBlock\Producer\RecommendationProducer</item>
             </argument>
         </arguments>
     </type>

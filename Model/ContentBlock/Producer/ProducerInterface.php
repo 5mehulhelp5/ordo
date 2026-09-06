@@ -17,6 +17,12 @@ interface ProducerInterface
      * Never throws — a producer that can't resolve content (bad config, network failure,
      * missing cache row) returns '' so a broken content block degrades to no content rather
      * than breaking the whole email send.
+     *
+     * @param array<string, mixed> $context Whatever the caller already has to hand — a campaign
+     *   dispatch's own context (customer_id, etc.) via AddDynamicContent, or the current
+     *   storefront visitor's identity via Block\Frontend\ContentBlock\Render. Optional and
+     *   ignored by producers that don't need it (snippet/rss/product_feed aren't
+     *   customer-specific); RecommendationProducer reads context['customer_id'] to personalize.
      */
-    public function render(ContentBlock $block): string;
+    public function render(ContentBlock $block, array $context = []): string;
 }

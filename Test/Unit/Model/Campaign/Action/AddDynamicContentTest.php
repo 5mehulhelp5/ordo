@@ -92,13 +92,29 @@ class AddDynamicContentTest extends TestCase
         $this->contentBlockRepository->expects(self::once())->method('getById')->with(5)->willReturn($block);
 
         $producer = $this->createMock(ProducerInterface::class);
-        $producer->expects(self::once())->method('render')->with($block)->willReturn('<p>Hello</p>');
+        $producer->expects(self::once())->method('render')->with($block, [])->willReturn('<p>Hello</p>');
         $this->producerPool->expects(self::once())->method('get')->with('snippet')->willReturn($producer);
 
         $context = [];
         $this->action->execute($context, ['content_block_id' => 5]);
 
         self::assertSame('<p>Hello</p>', $context['dynamic_content_html']);
+    }
+
+    public function testDispatchContextIsForwardedToProducer(): void
+    {
+        $block = $this->makeBlock('recommendations', true);
+        $this->contentBlockRepository->expects(self::once())->method('getById')->with(5)->willReturn($block);
+
+        $producer = $this->createMock(ProducerInterface::class);
+        $producer->expects(self::once())->method('render')->with($block, ['customer_id' => 42])
+            ->willReturn('<p>Recommended</p>');
+        $this->producerPool->expects(self::once())->method('get')->with('recommendations')->willReturn($producer);
+
+        $context = ['customer_id' => 42];
+        $this->action->execute($context, ['content_block_id' => 5]);
+
+        self::assertSame('<p>Recommended</p>', $context['dynamic_content_html']);
     }
 
     public function testMissingProducerForBlockTypeSetsEmptyString(): void

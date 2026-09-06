@@ -8,16 +8,22 @@ use PHPUnit\Framework\TestCase;
 
 class ContentBlockTypeTest extends TestCase
 {
-    public function testToOptionArrayReturnsAllThreeTypes(): void
+    public function testToOptionArrayReturnsAllFourTypes(): void
     {
         $options = (new ContentBlockType())->toOptionArray();
 
         self::assertSame(
-            [ContentBlockType::SNIPPET, ContentBlockType::RSS, ContentBlockType::PRODUCT_FEED],
+            [
+                ContentBlockType::SNIPPET,
+                ContentBlockType::RSS,
+                ContentBlockType::PRODUCT_FEED,
+                ContentBlockType::RECOMMENDATIONS,
+            ],
             array_column($options, 'value')
         );
         self::assertSame('HTML Snippet', (string) $options[0]['label']);
         self::assertSame('RSS Feed', (string) $options[1]['label']);
         self::assertSame('Product Feed', (string) $options[2]['label']);
+        self::assertSame('Product Recommendations', (string) $options[3]['label']);
     }
 }

@@ -43,6 +43,6 @@ class AddDynamicContent implements ActionInterface
         }
 
         $producer = $this->producerPool->get($block->getType());
-        $context[$outputKey] = $producer instanceof ProducerInterface ? $producer->render($block) : '';
+        $context[$outputKey] = $producer instanceof ProducerInterface ? $producer->render($block, $context) : '';
     }
 }

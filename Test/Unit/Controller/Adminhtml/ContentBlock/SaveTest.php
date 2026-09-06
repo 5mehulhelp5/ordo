@@ -146,6 +146,33 @@ class SaveTest extends AbstractAdminActionTestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteBuildsRecommendationsConfig(): void
+    {
+        $controller = $this->makeController();
+        $postData = [
+            'entity_id' => 0,
+            'identifier' => 'homepage_recs',
+            'name' => 'Homepage recommendations',
+            'type' => 'recommendations',
+            'count' => '6',
+        ];
+        $this->request->method('getPostValue')->willReturn($postData);
+        $this->request->method('getParam')->willReturnMap([['back', null]]);
+
+        $contentBlock = $this->createMock(ContentBlock::class);
+        $contentBlock->method('getEntityId')->willReturn(1);
+        $this->contentBlockFactory->method('create')->willReturn($contentBlock);
+
+        $contentBlock->expects(self::once())->method('setConfigArray')->with(['count' => 6]);
+
+        $redirect = $this->createMock(Redirect::class);
+        $redirect->method('setPath')->willReturnSelf();
+        $this->resultRedirectFactory->method('create')->willReturn($redirect);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testExecuteBuildsEmptyConfigForUnknownType(): void
     {
         $controller = $this->makeController();
