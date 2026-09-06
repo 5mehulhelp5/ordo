@@ -60,7 +60,7 @@ cases separately from the type-by-type ones.
 | `recency_days_at_most`                | `{days}` (RFM)                                                    | ⬜                                                                                                     |
 | `order_frequency_at_least`            | `{count}` (RFM)                                                   | ⬜                                                                                                     |
 | `monetary_total_at_least`             | `{amount}` (RFM)                                                  | ⬜                                                                                                     |
-| `recency_percentile_at_least`         | `{percentile}` (RFM, needs `Cron\RecomputeRfmScores` to have run) | ⬜                                                                                                     |
+| `recency_percentile_at_least`         | `{percentile}` (RFM, needs `Cron\RecomputeRfmScores` to have run) | ✅ `AdminRecencyPercentileConditionTest`                                                               |
 | `order_frequency_percentile_at_least` | `{percentile}` (RFM)                                              | ⬜                                                                                                     |
 | `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ⬜                                                                                                     |
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
@@ -109,9 +109,9 @@ cases separately from the type-by-type ones.
 | Scenario                                                                                     | Status |
 |----------------------------------------------------------------------------------------------|--------|
 | Admin RFM report grid (`Controller/Adminhtml/Rfm/Index.php`) renders with real customer data | ✅ `AdminRfmReportGridReflectsRealDataTest` |
-| `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`, report reflects it            | ⬜     |
+| `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`                                | ✅ `AdminRecencyPercentileConditionTest` (populate half only — grid-reflects-it half still ⬜) |
 | RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest` |
-| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ⬜     |
+| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest` |
 
 ## 4. Lead scoring (`Model/ScoreRule.php`, `Controller/Adminhtml/ScoreRule/`)
 

@@ -50,9 +50,15 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   `count`/`percentile` fields plus a switcher rule per type to `ordo_campaign_form.xml` (see
   docs/CHANGELOG.md) — configurable via the raw "Params (JSON)" fallback before, same as every
   other condition type long since got a labeled input for.
-- **Campaign engine** (§1): all 6 RFM-based conditions
-  (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and their 3 percentile
-  variants) are still untested end to end (unit-level only). `add_tag`
+- ~~`recency_percentile_at_least` condition + `Cron\RecomputeRfmScores` reading from the precomputed
+  table, not a live scan~~ — done. `AdminRecencyPercentileConditionTest` seeds a throwaway row via
+  new `Test/Mftf/Helper/RfmTestHelper.php` so the table is already non-empty before the real customer's
+  first order — proving the condition fails closed (not a live-scan fallback) until `CronScheduleHelper`
+  forces the cron to run.
+- **Campaign engine** (§1): the other 5 RFM-based conditions
+  (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and the 2 remaining
+  percentile variants) are still untested end to end (unit-level only) — same technique now applies
+  directly. `add_tag`
   action has never been the thing directly under test (only a side
   effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is
   only incidentally exercised, never asserted; chained delays (an action pauses, resumes, pauses again) aren't
