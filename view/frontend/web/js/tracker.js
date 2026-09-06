@@ -25,6 +25,9 @@
     var ENDPOINT = '/ordo/track/event';
     var POPUP_ENDPOINT = '/ordo/track/popup';
     var POPUP_BANNER_ID = 'ordo-popup-banner';
+    var NOTIFICATION_ENDPOINT = '/ordo/track/notification';
+    var DISMISS_NOTIFICATION_ENDPOINT = '/ordo/track/dismissnotification';
+    var NOTIFICATION_LIST_ID = 'ordo-notification-list';
 
     // Captured synchronously, at the top of this script's own execution — document.currentScript
     // is only reliable for a plain, synchronously-executing <script src> tag like this one; it
@@ -167,7 +170,144 @@
         setInterval(pollForPopup, intervalSeconds * 1000);
     }
 
+    function getNotificationList() {
+        var list = document.getElementById(NOTIFICATION_LIST_ID);
+        if (!list) {
+            list = document.createElement('div');
+            list.id = NOTIFICATION_LIST_ID;
+            list.setAttribute(
+                'style',
+                'position:fixed;left:16px;bottom:16px;max-width:320px;z-index:2147483000;' +
+                'font-family:sans-serif;font-size:14px;line-height:1.4;display:flex;' +
+                'flex-direction:column;gap:8px;'
+            );
+            document.body.appendChild(list);
+        }
+        return list;
+    }
+
+    function dismissNotification(notificationId, el) {
+        var body = new URLSearchParams({
+            visitor_id: getVisitorId(),
+            notification_id: notificationId
+        });
+
+        // Remove from screen immediately — don't make the visitor wait on the round-trip just
+        // to see their own dismiss take effect. If the request fails, the next poll simply
+        // re-adds it (same fail-open-to-"still there" behavior as a missed popup poll).
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+
+        fetch(DISMISS_NOTIFICATION_ENDPOINT, { method: 'POST', body: body, keepalive: true })
+            .catch(function () {});
+    }
+
+    /**
+     * Non-modal, persistent — unlike renderPopup() above, this never replaces an existing
+     * banner; it reconciles the on-screen set against the server's current unread list each
+     * poll, so a notification dismissed from another tab (or expired server-side) disappears
+     * here too, and one dismissed locally never reappears just because the same poll response
+     * is still in flight elsewhere.
+     */
+    function renderNotifications(notifications) {
+        var list = getNotificationList();
+        var seenIds = {};
+
+        notifications.forEach(function (notification) {
+            seenIds[notification.id] = true;
+
+            if (document.getElementById('ordo-notification-' + notification.id)) {
+                return;
+            }
+
+            var card = document.createElement('div');
+            card.id = 'ordo-notification-' + notification.id;
+            card.setAttribute(
+                'style',
+                'position:relative;background:#fff;color:#1a1a1a;border:1px solid #ccc;' +
+                'border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.15);padding:16px;'
+            );
+
+            var headline = document.createElement('div');
+            headline.textContent = notification.headline;
+            headline.setAttribute('style', 'font-weight:bold;margin-bottom:6px;padding-right:20px;');
+            card.appendChild(headline);
+
+            if (notification.body) {
+                var body = document.createElement('div');
+                body.textContent = notification.body;
+                body.setAttribute('style', 'margin-bottom:10px;');
+                card.appendChild(body);
+            }
+
+            if (notification.cta_label && notification.cta_url && /^https?:\/\//i.test(notification.cta_url)) {
+                var cta = document.createElement('a');
+                cta.textContent = notification.cta_label;
+                cta.href = notification.cta_url;
+                cta.setAttribute(
+                    'style',
+                    'display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;' +
+                    'padding:6px 12px;border-radius:4px;'
+                );
+                card.appendChild(cta);
+            }
+
+            var close = document.createElement('button');
+            close.textContent = '×';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.setAttribute(
+                'style',
+                'position:absolute;top:6px;right:8px;border:none;background:none;font-size:18px;' +
+                'line-height:1;cursor:pointer;color:#666;'
+            );
+            close.onclick = function () {
+                dismissNotification(notification.id, card);
+            };
+            card.appendChild(close);
+
+            list.appendChild(card);
+        });
+
+        Array.prototype.slice.call(list.children).forEach(function (child) {
+            var childId = child.id.replace('ordo-notification-', '');
+            if (!seenIds[childId]) {
+                child.parentNode.removeChild(child);
+            }
+        });
+    }
+
+    function pollForNotifications() {
+        var url = NOTIFICATION_ENDPOINT + '?visitor_id=' + encodeURIComponent(getVisitorId());
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (data && data.notifications) {
+                    renderNotifications(data.notifications);
+                }
+            })
+            .catch(function () {});
+    }
+
+    function startNotificationPolling() {
+        if (!currentScript || currentScript.getAttribute('data-notification-enabled') !== '1') {
+            return;
+        }
+
+        var intervalSeconds = parseInt(currentScript.getAttribute('data-notification-poll-interval'), 10);
+        if (!intervalSeconds || intervalSeconds <= 0) {
+            intervalSeconds = 20;
+        }
+
+        setTimeout(pollForNotifications, 2000);
+        setInterval(pollForNotifications, intervalSeconds * 1000);
+    }
+
     window.ordoTrack = track;
     track('page_view');
     startPopupPolling();
+    startNotificationPolling();
 })();

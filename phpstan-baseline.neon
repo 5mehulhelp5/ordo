@@ -478,6 +478,18 @@ parameters:
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
 			count: 1
+			path: Controller/Track/DismissNotification.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: Controller/Track/Notification.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
 			path: Controller/Track/Popup.php
 
 		-
@@ -635,6 +647,18 @@ parameters:
 			identifier: cast.string
 			count: 1
 			path: Model/Campaign/Action/GenerateCoupon.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: Model/Campaign/Action/Notify.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: Model/Campaign/Action/Notify.php
 
 		-
 			message: '#^Cannot cast mixed to int\.$#'
@@ -1535,6 +1559,18 @@ parameters:
 			identifier: cast.string
 			count: 5
 			path: Model/MessageLog.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: Model/Notification.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 6
+			path: Model/Notification.php
 
 		-
 			message: '#^Cannot cast mixed to float\.$#'

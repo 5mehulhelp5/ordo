@@ -329,6 +329,28 @@
         </index>
     </table>
 
+    <table name="ordo_notification" resource="default" engine="innodb" comment="A persistent, non-modal in-site notification a campaign's notify action queued for a visitor or customer — unlike ordo_pending_popup, this is NEVER claimed-and-gone: Controller\Track\Notification returns every unread, unexpired row on EVERY poll, so it survives a page reload and keeps showing until the visitor explicitly dismisses it (Controller\Track\DismissNotification sets read_at) or it expires.">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
+        <column xsi:type="int" name="customer_id" padding="10" unsigned="true" nullable="true" comment="Set when the campaign context that produced this notification had a logged-in customer"/>
+        <column xsi:type="varchar" name="visitor_id" nullable="true" length="64" comment="Set when the campaign context that produced this notification had an anonymous visitor_id — at least one of customer_id/visitor_id is always set"/>
+        <column xsi:type="varchar" name="headline" nullable="false" length="255" comment="Notification headline"/>
+        <column xsi:type="text" name="body" nullable="true" comment="Notification body text"/>
+        <column xsi:type="varchar" name="cta_label" nullable="true" length="128" comment="Call-to-action button label"/>
+        <column xsi:type="varchar" name="cta_url" nullable="true" length="255" comment="Call-to-action button target URL"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
+        <column xsi:type="datetime" name="read_at" nullable="true" comment="Set only when the visitor/customer explicitly dismisses this notification - never set automatically on delivery, unlike ordo_pending_popup.delivered_at"/>
+        <column xsi:type="datetime" name="expires_at" nullable="true" comment="If never read by this time, Cron\PruneNotifications deletes it as stale rather than continuing to show something no longer relevant"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <index referenceId="ORDO_NOTIFICATION_CUSTOMER_ID" indexType="btree">
+            <column name="customer_id"/>
+        </index>
+        <index referenceId="ORDO_NOTIFICATION_VISITOR_ID" indexType="btree">
+            <column name="visitor_id"/>
+        </index>
+    </table>
+
     <table name="ordo_free_gift_offer" resource="default" engine="innodb" comment="Free-gift-above-threshold offer header">
         <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
         <column xsi:type="varchar" name="name" nullable="false" length="255" comment="Admin-facing name"/>

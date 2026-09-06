@@ -20,8 +20,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 - On-site product recommendation content block (`recommendations` type) — reuses the same
   `ProductRecommender`/`ProductRecommendationRenderer` pair `add_product_recommendations` already uses for
   email, embeddable anywhere via a new `Block\Frontend\ContentBlock\Render` (resolves a content block by its
-  `identifier`, usable from any CMS block/page via `{{block class=...}}` or layout XML). `ProducerInterface::
-  render()` gained an optional `$context` parameter so a producer can personalize by `customer_id`.
+  `identifier`), registered as a real Magento widget (`etc/widget.xml`, id `ordo_content_block`) so it's usable
+  from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
+  dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
+  producer can personalize by `customer_id`.
+- Persistent in-site notification action (`notify`) — non-modal, sibling to the existing `popup` action, but
+  never claimed-and-gone: new `ordo_notification` table, `Controller/Track/Notification.php` returns every
+  unread row on every poll (unlike `Popup.php`'s one-shot claim), `Controller/Track/DismissNotification.php` is
+  the only thing that marks one read, and `Cron/PruneNotifications.php` cleans up read/expired rows. Reuses
+  `popup`'s own admin fields (headline/body/cta_label/cta_url) and `tracker.js`'s existing poll-loop pattern.
 - Loyalty tiers on top of lead scoring — `Model/LoyaltyTierCalculator.php` maps the existing `ordo_customer_score`
   running total (the same score `score_at_least` already reads) into Bronze/Silver/Gold, configurable via two new
   `lead_scoring` config thresholds. New `loyalty_tier_at_least` campaign/segment condition (`{tier}`, no dedicated

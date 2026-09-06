@@ -180,6 +180,7 @@
                 <item name="add_product_recommendations" xsi:type="object">Ordo\Automation\Model\Campaign\Action\AddProductRecommendations</item>
                 <item name="add_dynamic_content" xsi:type="object">Ordo\Automation\Model\Campaign\Action\AddDynamicContent</item>
                 <item name="send_sms" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendSms</item>
+                <item name="notify" xsi:type="object">Ordo\Automation\Model\Campaign\Action\Notify</item>
             </argument>
         </arguments>
     </type>

@@ -43,6 +43,9 @@ class Config
     private const string XML_PATH_POPUP_ENABLED = 'ordo_automation/tracking/popup_enabled';
     private const string XML_PATH_POPUP_POLL_INTERVAL_SECONDS = 'ordo_automation/tracking/popup_poll_interval_seconds';
     private const string XML_PATH_POPUP_FREQUENCY_CAP_HOURS = 'ordo_automation/tracking/popup_frequency_cap_hours';
+    private const string XML_PATH_NOTIFICATION_ENABLED = 'ordo_automation/tracking/notification_enabled';
+    private const string XML_PATH_NOTIFICATION_POLL_INTERVAL_SECONDS
+        = 'ordo_automation/tracking/notification_poll_interval_seconds';
 
     private const string XML_PATH_FREE_GIFT_ENABLED = 'ordo_automation/free_gift/enabled';
 
@@ -260,6 +263,20 @@ class Config
     public function getPopupFrequencyCapHours(?int $storeId = null): int
     {
         return $this->intConfig(self::XML_PATH_POPUP_FREQUENCY_CAP_HOURS, 24, $storeId);
+    }
+
+    public function isNotificationEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_NOTIFICATION_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getNotificationPollIntervalSeconds(?int $storeId = null): int
+    {
+        return $this->intConfig(self::XML_PATH_NOTIFICATION_POLL_INTERVAL_SECONDS, 20, $storeId);
     }
 
     public function isFreeGiftEnabled(?int $storeId = null): bool

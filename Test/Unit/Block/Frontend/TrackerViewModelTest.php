@@ -40,4 +40,20 @@ class TrackerViewModelTest extends TestCase
 
         self::assertSame(20, (new TrackerViewModel($config))->getPopupPollIntervalSeconds());
     }
+
+    public function testIsNotificationEnabledReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isNotificationEnabled')->willReturn(true);
+
+        self::assertTrue((new TrackerViewModel($config))->isNotificationEnabled());
+    }
+
+    public function testGetNotificationPollIntervalSecondsReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getNotificationPollIntervalSeconds')->willReturn(25);
+
+        self::assertSame(25, (new TrackerViewModel($config))->getNotificationPollIntervalSeconds());
+    }
 }

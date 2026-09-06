@@ -27,4 +27,14 @@ class TrackerViewModel implements ArgumentInterface
     {
         return $this->config->getPopupPollIntervalSeconds();
     }
+
+    public function isNotificationEnabled(): bool
+    {
+        return $this->config->isNotificationEnabled();
+    }
+
+    public function getNotificationPollIntervalSeconds(): int
+    {
+        return $this->config->getNotificationPollIntervalSeconds();
+    }
 }

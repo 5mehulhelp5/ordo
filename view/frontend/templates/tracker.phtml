@@ -9,5 +9,7 @@ $viewModel = $block->getData('view_model');
     src="<?= $escaper->escapeUrl($block->getViewFileUrl('Ordo_Automation::js/tracker.js')) ?>"
     data-popup-enabled="<?= $viewModel->isPopupEnabled() ? '1' : '0' ?>"
     data-popup-poll-interval="<?= (int) $viewModel->getPopupPollIntervalSeconds() ?>"
+    data-notification-enabled="<?= $viewModel->isNotificationEnabled() ? '1' : '0' ?>"
+    data-notification-poll-interval="<?= (int) $viewModel->getNotificationPollIntervalSeconds() ?>"
 ></script>
 <?php endif; ?>

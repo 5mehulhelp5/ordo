@@ -180,6 +180,20 @@
                         <field id="popup_enabled">1</field>
                     </depends>
                 </field>
+                <field id="notification_enabled" translate="label comment" type="select" sortOrder="70" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable persistent in-site notifications</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Lets a campaign's "Notify" action queue a non-modal banner that stays visible across page loads until the visitor/customer dismisses it or it expires - unlike "Show Popup" above, which is one-shot. Requires tracking to be enabled above.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="notification_poll_interval_seconds" translate="label" type="text" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Notification poll interval (seconds)</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                    <depends>
+                        <field id="enabled">1</field>
+                        <field id="notification_enabled">1</field>
+                    </depends>
+                </field>
             </group>
 
             <group id="free_gift" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">

@@ -6,7 +6,7 @@
             <features value="Ordo Automation"/>
             <stories value="Dynamic content blocks"/>
             <title value="A 'recommendations' content block renders on-site, embedded in a real CMS page, for an anonymous visitor"/>
-            <description value="Closes ROADMAP.md's 'On-site product recommendation blocks' gap: unlike every other content-block type this suite already covers (rss/product_feed/snippet), which only ever reach a customer via a campaign's send_email action, this proves Block/Frontend/ContentBlock/Render.php - a real storefront Block resolving a content block by its human-authored identifier and calling the same ProducerPool a campaign email uses, embedded via the standard {{block class=...}} CMS widget directive with zero new admin UI. A real order (by a throwaway seed customer) makes SimpleProduct2 the store's only best-seller, so ProductRecommender::getRecommendedSkus()'s own store-wide-best-sellers fallback surfaces it even for a completely anonymous, never-logged-in visitor loading a real CMS page afterward - proving the on-site path works independent of any campaign, dispatch, or login."/>
+            <description value="Closes ROADMAP.md's 'On-site product recommendation blocks' gap: unlike every other content-block type this suite already covers (rss/product_feed/snippet), which only ever reach a customer via a campaign's send_email action, this proves Block/Frontend/ContentBlock/Render.php - a real storefront Block resolving a content block by its human-authored identifier and calling the same ProducerPool a campaign email uses, embedded via the real Magento {{widget}} CMS directive (etc/widget.xml registers it as 'ordo_content_block' - there is no generic '{{block class=...}}' directive in this Magento version, {{widget}} is the actual mechanism, confirmed the hard way via a real CI failure: Magento\Widget\Model\Template\Filter::generateWidget() silently returns '' for any type not registered in a widget.xml). A real order (by a throwaway seed customer) makes SimpleProduct2 the store's only best-seller, so ProductRecommender::getRecommendedSkus()'s own store-wide-best-sellers fallback surfaces it even for a completely anonymous, never-logged-in visitor loading a real CMS page afterward - proving the on-site path works independent of any campaign, dispatch, or login."/>
             <severity value="MAJOR"/>
             <group value="ordo_automation"/>
             <group value="campaign2"/>
@@ -39,12 +39,13 @@
         <see selector=".message-success" userInput="The content block has been saved." stepKey="seeContentBlockSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>
 
-        <!-- Step 2: a real CMS page whose own content is the standard Magento widget directive
-             that resolves any block by class - no new admin UI on this module's side needed for
-             "on-site" embedding, this is the same directive a merchant would type themselves. -->
+        <!-- Step 2: a real CMS page whose own content is the real Magento {{widget}} directive
+             (etc/widget.xml registers Block\Frontend\ContentBlock\Render as widget id
+             "ordo_content_block") - the same directive a merchant would insert via the CMS
+             WYSIWYG's own "Insert Widget" dialog, not something invented for this test. -->
         <createData entity="_defaultCmsPage" stepKey="createCmsPage">
             <field key="identifier">e2e-onsite-recommendations-page</field>
-            <field key="content">{{block class="Ordo\Automation\Block\Frontend\ContentBlock\Render" identifier="e2e_onsite_recommendations_block"}}</field>
+            <field key="content">{{widget type="Ordo\Automation\Block\Frontend\ContentBlock\Render" identifier="e2e_onsite_recommendations_block"}}</field>
         </createData>
 
         <!-- Step 3: a REAL order, through REAL storefront checkout, by a throwaway seed

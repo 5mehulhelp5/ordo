@@ -18,14 +18,19 @@ use Ordo\Automation\Model\ContentBlockRepository;
  * empty on any failure" contract, just embedded directly into a storefront page instead.
  *
  * Referenced by "identifier" (the human-authored machine name from the content block form, not
- * the numeric entity_id) - either from a CMS block/page's content via the standard
- * {{block class="..." identifier="..."}} widget directive, or from any layout XML:
+ * the numeric entity_id) - either via the real Magento {{widget}} CMS directive (registered as
+ * widget id "ordo_content_block" in etc/widget.xml, so it also appears in the CMS WYSIWYG's own
+ * "Insert Widget" dialog — there is no generic "{{block class=...}}" directive in this Magento
+ * version, {{widget}} is the actual mechanism):
+ *   {{widget type="Ordo\Automation\Block\Frontend\ContentBlock\Render" identifier="homepage_recommendations"}}
+ * or from any layout XML:
  *   <block class="Ordo\Automation\Block\Frontend\ContentBlock\Render">
  *       <arguments><argument name="identifier" xsi:type="string">homepage_recommendations</argument></arguments>
  *   </block>
- * No new admin UI, no new layout update handle needed — a content block already authored for
- * campaign email (e.g. a "recommendations" or "snippet" type) can be dropped onto the storefront
- * this way with zero extra configuration on the content-block side.
+ * No new admin UI beyond the widget.xml registration, no new layout update handle needed — a
+ * content block already authored for campaign email (e.g. a "recommendations" or "snippet"
+ * type) can be dropped onto the storefront this way with zero extra configuration on the
+ * content-block side.
  */
 class Render extends Template
 {

@@ -46,6 +46,18 @@ Directory/class map for anyone working on the code. Not shipped documentation fo
 - `view/adminhtml/ui_component/` — `ordo_campaign_listing/form`, `ordo_reorder_cycle_listing`,
   `ordo_free_gift_offer_listing/form`
 
+## Content blocks
+
+- `Model/ContentBlock.php`, `Model/ContentBlockRepository.php` — admin-authored reusable content (snippet/rss/
+  product_feed/recommendations), resolved by type via `Model/ContentBlock/ProducerPool`
+- `Model/ContentBlock/Producer/*` — one class per type, registered in `etc/di.xml`
+- `Model/Campaign/Action/AddDynamicContent.php` — resolves a content block into a campaign email's context
+- `Block/Frontend/ContentBlock/Render.php` — the on-site path: resolves a content block by its `identifier` and
+  renders it directly on a storefront page
+- `etc/widget.xml` — registers `Render` as a real Magento widget (`{{widget type=... identifier=...}}` in any
+  CMS block/page, or the CMS WYSIWYG's own "Insert Widget" dialog) — there is no generic "insert any block by
+  class" CMS directive, `{{widget}}` is the actual mechanism
+
 ## Promotion Builder
 
 - `Model/Rule/Action/Discount/` — `CheapestItemFree` (custom SalesRule calculator), `QualifyingSetTracker`

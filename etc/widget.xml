@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widgets xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Widget:etc/widget.xsd">
+    <!--
+        Real Magento embedding mechanism for Block\Frontend\ContentBlock\Render - there is no
+        generic "{{block class=...}}" CMS directive in this Magento version (that syntax doesn't
+        exist; {{widget}} is the real one, resolved via Magento\Widget\Model\Template\Filter::
+        generateWidget(), which looks the type up in exactly this file via
+        Magento\Widget\Model\Widget::getWidgetByClassType() - an unregistered class returns ''
+        silently, no error). Registering it here is what makes {{widget type="..."
+        identifier="..."}} work from any CMS block/page content, and also what makes this
+        content block type selectable through the CMS WYSIWYG's own "Insert Widget" dialog, not
+        just usable if an admin already knows the raw directive syntax.
+    -->
+    <widget id="ordo_content_block" class="Ordo\Automation\Block\Frontend\ContentBlock\Render"
+            is_email_compatible="false">
+        <label translate="true">Ordo Automation Content Block</label>
+        <description translate="true">Renders an Ordo Automation content block (e.g. product recommendations) directly on-site</description>
+        <parameters>
+            <parameter name="identifier" xsi:type="text" required="true" visible="true">
+                <label translate="true">Content Block Identifier</label>
+                <description translate="true">The "Identifier" field from Marketing &gt; Ordo Automation &gt; Content Blocks</description>
+            </parameter>
+        </parameters>
+    </widget>
+</widgets>
