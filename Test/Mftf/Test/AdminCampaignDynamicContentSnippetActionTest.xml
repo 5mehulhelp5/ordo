@@ -9,7 +9,7 @@
             <description value="End-to-end proof for the whole 'Dynamic content blocks' feature, not just the CRUD screen AdminCreateContentBlockSnippetTest already covers: (1) a snippet-type ordo_content_block is created via the admin form, (2) a campaign is wired with two actions in order — add_dynamic_content then send_email — where add_dynamic_content's content_block_id can only be set through the Flow canvas's 'Content block' dropdown (Block/Adminhtml/Campaign/Edit/Flow::getContentBlockOptions()) since the native dynamicRows form has no field for it on a brand-new campaign, (3) 'Apply flow to form &amp; Save' persists that selection through Model/Campaign/CampaignSaveProcessor — this specifically exercises the DEDICATED_PARAM_FIELDS fix (content_block_id/output_key were being silently dropped on save before that fix, so every add_dynamic_content action persisted empty params regardless of what the canvas showed), and (4) a real order_placed event, through real storefront checkout and the real queue consumer, ends with the snippet's actual HTML content present in the customer's real received email (via MailHog), proving Model/Campaign/Action/AddDynamicContent -&gt; Model/ContentBlock/Producer/SnippetProducer -&gt; SendEmail's context-to-templateVars forwarding all actually work together, not just in isolation per-unit-test."/>
             <severity value="CRITICAL"/>
             <group value="ordo_automation"/>
-            <group value="campaign"/>
+            <group value="campaign3"/>
         </annotations>
         <before>
             <magentoCLI command="config:set cms/wysiwyg/enabled disabled" stepKey="disableWysiwyg"/>
