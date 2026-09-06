@@ -14,113 +14,45 @@
 
 *[Czytaj po polsku](README.pl.md)*
 
-Marketing automation that runs *inside* **stock Magento Open Source** — no Adobe Commerce B2B license, no external MA
-subscription. Every trigger is computed from data Magento already has (orders, quotes, customers, carts), or from a
-small first-party data model added alongside it.
+Marketing automation that runs inside stock Magento Open Source — no Adobe Commerce B2B license, no external MA
+subscription. Triggers are computed from data Magento already has (orders, quotes, customers, carts), or from a small
+first-party data model added alongside it.
 
-The goal is for this module to be a genuine substitute for a general-purpose MA platform on a Magento store — not just a
-handful of B2B-flavored add-ons — covering both classic B2C lifecycle automation and the B2B triggers most external MA
-tools structurally can't see.
+Covers both classic B2C lifecycle automation and the B2B triggers most external MA tools can't see.
 
 ## Features
 
 **B2B**
 
-- **Reorder reminders** — reminds a customer before their predicted next order date, based on their own purchase
-  history.
-- **Offer/quote expiry reminders** — proactive "expires in N days" email for the module's own quote entity
-  (`ordo_offer`).
-- **Credit limit alerts** — cron warning at a configurable threshold, plus live status over REST
-  (`GET /V1/ordo/credit-limit/mine`).
-- **Order approval workflow** — orders above a per-customer spend limit are held for a token-based admin approve/reject
+- Reorder reminders based on a customer's own purchase history.
+- Offer/quote expiry reminders (`ordo_offer`).
+- Credit limit alerts (cron + `GET /V1/ordo/credit-limit/mine`), with an optional hard checkout block at 100%
+  utilization.
+- Order approval workflow — orders above a per-customer spend limit are held for a token-based admin approve/reject
   email, with escalation for unresolved approvals.
-- **Free gift above a cart threshold** — admin-defined gift pool with cascading cart-subtotal tiers; the customer
-  selects via REST.
+- Free gift above a cart threshold — admin-defined gift pool with cascading cart-subtotal tiers, selected via REST.
 
 **B2C**
 
-- **Abandoned cart recovery** — recovery email for inactive carts above a configurable subtotal, capped per cart.
-- **Welcome email** — on customer registration.
-- **Win-back / re-engagement email** — one-time email after N days of inactivity, self-clearing once the customer orders
-  again.
-- **SMS recovery (Twilio)** — a `send_sms` campaign action usable on any campaign (including abandoned cart/win-back)
-  alongside or instead of email, with delivery-status tracking and opt-out handling. See ROADMAP.md for WhatsApp/push.
+- Abandoned cart recovery, capped per cart.
+- Welcome email on registration.
+- Win-back / re-engagement email after N days of inactivity, self-clearing once the customer orders again.
+- SMS recovery (Twilio) — a `send_sms` campaign action, with delivery-status tracking and opt-out handling. WhatsApp
+  and push are tracked in ROADMAP.md, not built yet.
 
 **Shared foundation**
 
-- **Behavioral tagging** — the segmentation primitive every trigger above reads or writes.
-- **Sales-rep signature** — automated emails are signed by the customer's assigned rep; a weekly digest groups inactive
-  customers by rep.
-- **Campaign engine** — a configurable "when X happens and Y is true, do Z" rule engine, with conditions/actions as
+- Behavioral tagging — the segmentation primitive every trigger above reads or writes.
+- Sales-rep signature on automated emails; a weekly digest groups inactive customers by rep.
+- Campaign engine — a "when X happens and Y is true, do Z" rule engine, with conditions/actions as
   `di.xml`-registered plug-ins and a full REST service contract.
-- **On-site behavior tracking** — a dependency-free JS snippet turns page/product/category views into campaign-engine
+- On-site behavior tracking — a dependency-free JS snippet turning page/product/category views into campaign-engine
   tags.
-- **Admin UI** — dashboard, campaign builder (with an editable [Drawflow](https://github.com/jerosoler/Drawflow) trigger
-  (s) → conditions → actions canvas — a campaign can have more than one trigger), a campaign calendar view (every
-  campaign's trigger(s) and action-chain timing in one place), free gift offer builder, and a reorder-cycles
-  diagnostic grid.
+- Admin UI — dashboard, campaign builder (editable [Drawflow](https://github.com/jerosoler/Drawflow) trigger(s) →
+  conditions → actions canvas, multiple triggers per campaign), campaign calendar (trigger/action timing across all
+  campaigns), free gift offer builder, reorder-cycles diagnostic grid.
 
-Everything is configurable under **Stores → Configuration → Ordo Automation** (or, for campaigns and free gifts, via
-their REST API), each with its own on/off switch and cron job. Implementation detail and the "why" behind each design
-decision live in [CHANGELOG.md](docs/CHANGELOG.md); what's still in progress lives in [ROADMAP.md](ROADMAP.md).
-
-## Architecture
-
-```
-etc/
-  module.xml, di.xml, crontab.xml, db_schema.xml, events.xml, email_templates.xml, acl.xml, webapi.xml
-  adminhtml/system.xml          — store configuration
-  frontend/routes.xml           — /ordo/approval/* (token-based, no login)
-Api/, Api/Data/                 — service contracts: Offer*, Campaign*, Campaign/ConditionInterface, Campaign/ActionInterface
-Cron/
-  CalculateReorderCycle.php, SendReorderReminders.php
-  SendAbandonedCartReminders.php
-  SendOfferExpiryReminders.php, ExpireOverdueOffers.php
-  SendCreditLimitAlerts.php
-  TagInactiveCustomers.php, SendWinBackEmails.php
-  EscalateStalePendingApprovals.php
-  SendSalesRepDigest.php
-Observer/
-  SendWelcomeEmail.php                        — customer_register_success
-  HoldOrderForApproval.php                    — sales_order_place_after
-  DispatchOrderPlacedCampaigns.php            — sales_order_place_after
-  DispatchCustomerRegisteredCampaigns.php     — customer_register_success
-  DispatchTagAddedCampaigns.php               — ordo_customer_tag_added (custom event)
-Controller/Approval/            — Approve.php, Reject.php (token-based frontend actions)
-Model/, Model/ResourceModel/     — ordo_reorder_cycle, ordo_offer, ordo_customer_tag, ordo_order_approval, ordo_campaign(_condition/_action)
-Model/Campaign/                  — ConditionPool, ActionPool, Condition/*, Action/* (the plug-in registry)
-Model/CampaignDispatcher.php     — "trigger event + context in, matching campaigns run out"
-Model/Rule/Action/Discount/      — CheapestItemFree (custom SalesRule calculator), QualifyingSetTracker
-view/adminhtml/ui_component/sales_rule_form.xml — extends the native Cart Price Rule form with a live "Buy X Get Y" preview field
-view/adminhtml/web/js/buy-x-get-y-calculator.js — the preview's read-only calculator (no new discount logic, mirrors the native one)
-Block/Adminhtml/Campaign/Edit/Flow.php — builds the Drawflow trigger/condition/action graph for the campaign edit page
-view/adminhtml/web/lib/drawflow/     — vendored Drawflow (MIT) — https://github.com/jerosoler/Drawflow
-Controller/Adminhtml/Campaign/, ReorderCycle/, FreeGiftOffer/ — admin grid/form controllers
-Block/Adminhtml/Campaign/Edit/, FreeGiftOffer/Edit/ — toolbar button blocks (Back/Delete/Save & Continue)
-Ui/Component/Listing/Column/     — CampaignActions, FreeGiftOfferActions (Edit/Delete row links)
-view/adminhtml/ui_component/     — ordo_campaign_listing/form, ordo_reorder_cycle_listing, ordo_free_gift_offer_listing/form
-Model/CreditLimitCalculator.php  — used-credit derived from open sales_order.total_due
-Model/CreditLimitManagement.php  — REST-facing wrapper (mine / by customer id) over the calculator above
-Model/FreeGiftOffer(Tier/Product).php, Model/FreeGiftManagement.php — cascading-tier gift offers + selection
-Model/QuoteGiftItem.php          — marker linking a quote_item to the offer it was earned from
-Observer/TrimExcessFreeGifts.php — drops gifts that no longer qualify when subtotal falls
-Model/CustomerTagManager.php     — add/remove/check/list-by-tag; fires ordo_customer_tag_added
-Model/CouponGenerator.php        — mints a single-use SalesRule coupon code
-Model/SalesRepEmailContext.php   — shared email signature block
-Setup/Patch/Data/                — customer attributes (credit/spend limit, approval admin email, sales rep), Pending Approval order status
-Helper/Config.php                — typed access to system.xml values
-view/frontend/email/             — email templates
-Controller/Track/Event.php       — public, CSRF-exempt tracking endpoint
-Model/VisitorEventLogger.php     — writes ordo_visitor_event, triggers aggregation when identity is known
-Model/VisitorAggregator.php      — raw events → ordo_customer_tag threshold-crossing tags
-view/frontend/web/js/tracker.js  — dependency-free visitor cookie + event snippet
-Model/Sms/                       — SmsSenderInterface, TwilioSmsSender, CallbackUrlBuilder, MessageLogWriter
-Controller/Sms/StatusCallback.php — signature-verified Twilio delivery-status webhook (public, CSRF-exempt)
-Model/MessageLog.php             — ordo_message_log — channel-generic delivery tracking (sms today, email later)
-Controller/Adminhtml/MessageLog/Index.php — read-only admin grid over ordo_message_log
-Test/Unit/                       — PHPUnit tests (see ROADMAP.md Phase 6 for current coverage state)
-i18n/                            — translation CSVs (en_US, pl_PL, + 10 machine-translated locales)
-```
+Every feature has its own config toggle under **Stores → Configuration → Ordo Automation** and its own cron job.
 
 ## Install
 
@@ -131,63 +63,22 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-## Quality & Testing Standards
-
-These are binding rules for this repository, not aspirational targets. Every new class is expected to meet them, and
-existing code is being brought up to the same bar incrementally (tracked in `ROADMAP.md` Phase 6):
-
-- **Static analysis: PHPStan at `level: max`**, configured in `phpstan.neon` with
-  the [bitexpert/phpstan-magento](https://github.com/bitexpert/phpstan-magento) extension so Magento's magic (factories,
-  proxies, `__()` translation, EAV magic getters) doesn't produce false positives. Runs as `require-dev` only — never
-  ships to a production install.
-- **Unit tests (PHPUnit)** for every class with non-trivial logic — `Model/`, `Cron/`, `Helper/`, `Controller/`.
-  `Test/Unit/Model/SalesRepEmailContextTest.php` is the seed test establishing the mocking pattern (`createMock` on
-  interfaces, no real Magento bootstrap).
-- **MFTF (Magento Functional Testing Framework)** end-to-end coverage for every customer- and admin-facing flow: placing
-  an order over the spend limit → email → approve/reject link → order status change; a customer self-extending an
-  expiring offer; etc. Per
-  Adobe's [MFTF getting-started guide](https://developer.adobe.com/commerce/testing/functional-testing-framework/getting-started).
-- **API tests** for every service contract in `Api/` — see `API.md` and `Test/Api/README.md`.
-- **Target: ~100% code coverage.** See `ROADMAP.md` Phase 6 for the current measured/stale state and `VERIFICATION.md`
-  for what's covered today vs. the handful of genuinely unreachable lines still outstanding.
-
 ## Localization
 
-Admin-facing labels (`system.xml`, customer attribute labels) are translatable via standard Magento i18n CSV files in
-`i18n/`, keyed off `en_US.csv` as the source. Currently shipped: `en_US`, `pl_PL` (both human-reviewed), plus 10
-machine-translated locales (`de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`,
-`nl_NL`) awaiting native-speaker review — see `ROADMAP.md`.
+`i18n/` CSVs, keyed off `en_US.csv`. Shipped: `en_US`, `pl_PL` (native-reviewed), `de_DE`, `fr_FR`, `es_ES`, `it_IT`,
+`pt_BR`, `zh_Hans_CN`, `ja_JP`, `ru_RU`, `uk_UA`, `nl_NL` (machine-translated, pending native review).
 
-## Roadmap
+## Documentation
 
-Shipped-feature history and everything still open (in-progress phases, known gaps, "not yet built" items) lives in
-**[ROADMAP.md](ROADMAP.md)**, not here — this README only describes the stable, current state of the module.
-
-## Verification
-
-Verified end to end against a real Magento Open Source 2.4.7 instance (Docker, cloned from GitHub — no Adobe
-Marketplace credentials required) on 2026-08-26. Every checklist item in `VERIFICATION.md` (sections 1–7) passed
-against that live instance, covering installation, static analysis, the full admin UI, every B2B trigger cron, the
-campaign engine (including the `generate_coupon` → `send_email` action chain and the `tag_added` trigger), the
-`CheapestItemFree` promotion calculator, on-site tracking in a real browser, and a complete order-approval flow — an
-order placed over the spend limit through storefront checkout, held, approved via the real email link, and released.
-
-That pass surfaced and fixed 20 real defects (incorrect DI extension points, silently dropped EAV attribute values, a
-recurring config-default mistake present in 12 places, and others) — see `VERIFICATION.md` for the full list and how
-each one was found.
-
-Outstanding work is tracked in [ROADMAP.md](ROADMAP.md); nothing there reflects a failed or abandoned attempt, only
-scope not yet built.
-
-For the complete, step-by-step checklist — installation, static analysis, and a manual walkthrough of every feature in
-this README — see [VERIFICATION.md](VERIFICATION.md).
-
-## Changelog
-
-See [CHANGELOG.md](docs/CHANGELOG.md).
+- [ROADMAP.md](ROADMAP.md) — what's still open.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — implementation history.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — directory/class map.
+- [VERIFICATION.md](VERIFICATION.md) — install/test checklist run against a real Magento instance.
+- [API.md](API.md) — REST service contract reference.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — quality/testing requirements for changes.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Contributions welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+MIT — see [LICENSE](LICENSE).
 
 Copyright (c) 2026 Michał Per.
