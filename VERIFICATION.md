@@ -1,9 +1,12 @@
 # Verification checklist
 
-Run against a real Magento Open Source 2.4.7 instance (Docker: PHP 8.2-FPM, MySQL 8.0,
-OpenSearch 2.12), 2026-08-25.
+Last run against a real Magento Open Source 2.4.7 instance (Docker: PHP 8.2-FPM, MySQL 8.0,
+OpenSearch 2.12), 2026-08-25. `composer.json` now requires PHP >=8.4 <8.6 and targets Magento
+2.4.8/2.4.9 (`magento/framework ^103.0.8`) — this checklist has not been re-run against that
+combination yet; treat it as historical evidence for the 2.4.7/PHP 8.2 pass, not a current
+verification. Re-running it against 2.4.8 or 2.4.9 is tracked in ROADMAP.md.
 
-## 0. Prerequisites
+## 0. Prerequisites (as last run)
 
 - [x] PHP 8.2, Composer 2.x, MySQL 8.0, OpenSearch 2.12
 - [x] Magento Open Source 2.4.7 installed

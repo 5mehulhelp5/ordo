@@ -9,6 +9,11 @@ scoped from real hands-on marketing automation experience.
 
 ## Test coverage
 
+- **`VERIFICATION.md`'s manual checklist was last run against Magento 2.4.7 / PHP 8.2.**
+  `composer.json` now requires PHP >=8.4 <8.6 and targets Magento 2.4.8/2.4.9 — the checklist
+  needs a fresh manual pass against that combination; CI's own MFTF/PHPUnit/PHPStan lanes
+  already run on the current versions, so this is specifically about the manual walkthrough
+  going stale, not a sign the module itself is untested on 2.4.8/2.4.9.
 - **`send_sms` has no test against a real Twilio account.** Unit tests (`TwilioSmsSenderTest`) drive the real SDK
   request-building/error-parsing logic via a fake `Twilio\Http\Client`, and the integration test
   (`CampaignSendSmsActionTest`) uses real DI/database but swaps out `SmsSenderInterface` for a
