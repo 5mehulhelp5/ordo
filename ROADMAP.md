@@ -9,22 +9,6 @@ scoped from real hands-on marketing automation experience.
 
 ## Test coverage
 
-- ~~Load/soak test for Phase 7's dispatch performance work~~ — done.
-  `Test/Integration/CampaignDispatchLoadTest.php` puts real numbers on both fixes: 200 campaigns
-  matched to one trigger dispatch in ~1.05s (~191 campaigns/sec, batched condition/action loading,
-  not one query per campaign), and a 600-row `ordo_campaign_scheduled_action` backlog (deliberately
-  over `RunScheduledCampaignActions::BATCH_SIZE`, 500) is fully claimed and resumed in ~1.36s (~440 rows/sec) across two
-  batches within one cron tick. Asserted bounds are deliberately generous (15s / 60s) — the point is catching a
-  regression back to O (n) query behavior, not
-  micro-benchmarking a specific number that would make CI flaky on a slower runner. Running this
-  against a real install caught a real, separate bug along the way: the shared
-  `AbstractCustomerAttributePatch` base class (extracted for the Setup-patch dedup, see
-  docs/CHANGELOG.md) lived in `Setup/Patch/Data/` alongside its concrete subclasses — harmless for
-  unit tests, but Magento's `PatchReader` globs every `*.php` directly under that folder and treats
-  each one as a real patch class with no abstract-class check, so `setup:install`/`setup:upgrade`
-  crashed calling the abstract class's unimplemented `getDependencies()`. Fixed by moving the base
-  class to `Setup/Patch/AbstractCustomerAttributePatch.php`, one directory above where Magento's
-  patch discovery looks.
 - **`send_sms` has no test against a real Twilio account.** Unit tests (`TwilioSmsSenderTest`) drive the real SDK
   request-building/error-parsing logic via a fake `Twilio\Http\Client`, and the integration test
   (`CampaignSendSmsActionTest`) uses real DI/database but swaps out `SmsSenderInterface` for a
@@ -34,91 +18,11 @@ scoped from real hands-on marketing automation experience.
   `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
   mocked, so a real DB round trip (write on send → status update on callback) is untested.
 
-### MFTF/scenario coverage gaps
+### MFTF/scenario coverage
 
-Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. The real gaps (⬜ rows there), grouped:
-
-- **Found via a direct re-audit against `di.xml`/`Controller/Adminhtml/*`, not by trusting SCENARIOS.md's own
-  prior scope check** (which undercounted admin areas as 7 instead of 9, and campaign actions as 5 instead of 8):
-  ~~`add_product_recommendations` action, Message Log admin grid~~ — done (`AdminAddProductRecommendationsActionTest`,
-  `AdminMessageLogGridReflectsRealDataTest`). Still open: `rss`/`product_feed` content-block types
-  (`Model/ContentBlock/Producer/{Rss,ProductFeed}Producer.php`), `Cron\RefreshRssContentBlocks`, and the admin
-  "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`) — genuinely more setup than the
-  rest of this list (`rss` needs a real, fetchable feed URL past `RssFetcher`'s SSRF hardening; `product_feed`
-  needs a real category-product fixture), deliberately left for a dedicated pass rather than rushed.
-
-- ~~`cart_abandoned` trigger / `Cron\SendAbandonedCartReminders`~~ — done.
-  `AdminSendAbandonedCartReminderAndTriggerTest`: a real cart abandoned for real (added to, then
-  left — no synthetic dispatch call), `ordo_automation/abandoned_cart/delay_minutes` set to 0 so
-  it already qualifies (real default is 120 minutes), `CronScheduleHelper` forces the cron to run
-  now instead of waiting out its real every-30-minutes schedule. Asserts both real outputs: the
-  cron's own fixed reminder email AND the campaign the `cart_abandoned` trigger dispatched —
-  `MailHogHelper::seeTextInAnyRecentEmail()` (new, alongside the existing `seeTextInLatestEmail()`)
-  since this one cron tick genuinely sends both emails to the same address in sequence.
-- ~~The 6 RFM-based campaign conditions had no dedicated admin field~~ — done. Added `days`/
-  `count`/`percentile` fields plus a switcher rule per type to `ordo_campaign_form.xml` (see
-  docs/CHANGELOG.md) — configurable via the raw "Params (JSON)" fallback before, same as every
-  other condition type long since got a labeled input for.
-- ~~`recency_percentile_at_least` condition + `Cron\RecomputeRfmScores` reading from the precomputed
-  table, not a live scan~~ — done. `AdminRecencyPercentileConditionTest` seeds a throwaway row via
-  new `Test/Mftf/Helper/RfmTestHelper.php` so the table is already non-empty before the real customer's
-  first order — proving the condition fails closed (not a live-scan fallback) until `CronScheduleHelper`
-  forces the cron to run.
-- ~~The other 5 RFM-based conditions~~ — done. `AdminRecencyDaysAtMostConditionTest`,
-  `AdminOrderFrequencyAtLeastConditionTest`, `AdminMonetaryTotalAtLeastConditionTest` (all three read
-  `RfmCalculator` live, no cron involved) and `AdminOrderFrequencyPercentileConditionTest`/
-  `AdminMonetaryPercentileConditionTest` (same `RfmTestHelper` poison-row technique as the recency
-  percentile test). All 6 RFM-based conditions now have MFTF coverage.
-- ~~`add_tag` action, multi-campaign partial match, chained delays~~ — done.
-  `AdminCampaignAddTagActionTest` (real `ordo_customer_tag` row via `VisitorEventHelper`, not
-  just "no exception"), `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest` (two campaigns,
-  one real order, one positive + one negative tag assertion in the same dispatch pass),
-  `AdminChainedDelayedActionsTest` (three actions, two separate delays — extended
-  `CronScheduleHelper` with `backdateMostRecentScheduledAction()` since forcing the cron JOB
-  alone isn't enough here: `CampaignDispatcher` writes each scheduled row's own real
-  `run_at = NOW() + delay_minutes`, a second, separate "is this due" check the job's own
-  `addDueFilter()` reads).
-- **RFM** (§3): `Cron\RecomputeRfmScores` populating `ordo_customer_rfm_score` and the RFM report reflecting it,
-  and the percentile-based campaign conditions actually reading that precomputed table (rather than a live scan),
-  are both untested.
-- ~~Free gift offers / storefront offers (§5): self-extension, "My Offers", `SendOfferExpiryReminders`,
-  `ExpireOverdueOffers`~~ — done. `Offer` is a REST-only entity with no admin CRUD UI at all, so new
-  `Test/Mftf/Helper/OfferTestHelper.php` inserts real rows directly via SQL (same reasoning as
-  OrderBackdateHelper/CronScheduleHelper for their own UI-less tables) — but `Controller/Offer/Index.php`
-  ("My Offers") and `Controller/Offer/Extend.php` (self-extend) ARE real storefront pages, driven for
-  real by `StorefrontMyOffersSelfExtendTest`. `AdminOfferExpiryReminderAndExpirationTest` covers both
-  crons: one offer expiring exactly on the lead-day boundary (`addExpiringOnFilter()`'s exact-date
-  match) and one already past expiry (`addPastExpiryFilter()`), asserting the still-`sent` offer was
-  correctly left alone by the expiry cron.
-- ~~Order approval (§6): `Cron\EscalateStalePendingApprovals`~~ — done. `AdminEscalateStalePendingApprovalTest`
-  reuses `AdminApproveOrderViaEmailTest`'s exact fixture (`OrdoApprovalCustomer`, spend limit 10.00), but never
-  follows the approve/reject link, leaving the approval genuinely pending; `ordo_automation/order_approval/
-  escalation_days` set to 0 (real default 2) so it's already stale, `CronScheduleHelper` forces the cron to run
-  now. ~~"No spend limit / no approval email configured → never held"~~ — done.
-  `AdminOrderNeverHeldWithoutSpendLimitConfiguredTest` (plain `Simple_US_Customer`, no spend-limit
-  attributes at all, a real 123.00 order still completes with the ordinary `Pending` status).
-- ~~Tracking & popups (§7): view-threshold crossing, `Cron\PrunePendingPopups`, `Cron\PruneVisitorEvents`~~ — done.
-  `StorefrontTrackerViewThresholdTagsVisitorTest` (same mechanism as the existing click-threshold test, the
-  `viewed_TYPE_KEY` tag shape instead of `clicked_X`), `AdminPrunePendingPopupsTest` (new
-  `PendingPopupTestHelper` backdates a real delivered popup past the 24h grace window — the
-  expired-undelivered half is dead code in production, nothing ever sets `expires_at`, so only
-  the delivered half is meaningfully testable), `StorefrontPruneVisitorEventsTest`.
-- ~~Reorder cycles (§8): `Cron\CalculateReorderCycle`, `Cron\SendReorderReminders`~~ — done.
-  `AdminReorderCycleAndReminderTest`: three real storefront checkouts of the same SKU (
-  `CalculateReorderCycle` requires >= 3 real orders and explicitly skips same-day repeats), backdated
-  to a real, even 10-day spacing (30/20/10 days ago) via new `Test/Mftf/Helper/OrderBackdateHelper.php`
-  — no MFTF-reachable UI/API sets `sales_order.created_at` directly. `CronScheduleHelper` forces both
-  crons to run now instead of waiting out their real nightly schedules.
-- ~~Reminder/alert crons (§10): `SendCreditLimitAlerts`, `SendSalesRepDigest`, `SendWinBackEmails`,
-  `TagInactiveCustomers`~~ — done. New `lifecycle` MFTF group (`.github/workflows/mftf.yml` matrix):
-  `AdminTagInactiveCustomersAndWinBackEmailTest` (covers the tightly-coupled
-  `TagInactiveCustomers`/`SendWinBackEmails` pair in one test), `AdminSendCreditLimitAlertTest`,
-  `AdminSendSalesRepDigestTest`. All four crons fire once a day/week at a fixed time no CI run can
-  wait out — `Test/Mftf/Helper/CronScheduleHelper.php` forces the next `cron:run` to execute a
-  specific job by inserting its `cron_schedule` row directly, verified for real against a live
-  Magento install (confirmed the forced job actually reaches `status=success`, not just that the
-  insert didn't error). `SendAbandonedCartReminders`/`cart_abandoned` (same family) still ⬜, see
-  SCENARIOS.md §10.
+Full inventory with what's covered and why: `Test/Mftf/SCENARIOS.md`. Every row there is currently ✅ — no open
+gaps. Kept as the standing scope check for anything newly added to the module (new trigger/condition/action/
+controller/cron gets a row there before it's considered done).
 
 ## Code quality
 

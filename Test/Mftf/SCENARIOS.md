@@ -10,6 +10,11 @@ jobs — not guessed from memory. Each scenario is marked:
 Cross-reference: `Test/Mftf/README.md` for what already passed and why; `ROADMAP.md`'s
 "Test coverage" section for the standing priority list this feeds.
 
+**Status: every row below is ✅.** No ⬜ rows remain as of the `AdminCampaignUnknownActionTypeFailsClosedTest` /
+`AdminContentBlockProductFeedCategorySourceTest` pass — this document is kept going forward so any newly added
+trigger/condition/action/controller/cron gets a row added here (⬜) before it's considered done, not as an
+open-gap tracker right now.
+
 **Scope check, done against the actual codebase, not memory** — asked directly: do we have every API endpoint, every
 admin form/grid, every real MA scenario, the whole module? Verified:
 
@@ -85,20 +90,20 @@ cases separately from the type-by-type ones.
 
 ### 1d. Structural cases (not type-specific)
 
-| Scenario                                                                                                      | Status                                                       |
-|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| Single trigger/condition/action, save + grid appearance                                                       | ✅ `AdminCreateCampaignTest`                                 |
-| Multiple triggers on one campaign (fan-out to the same chain)                                                 | ✅ `AdminCreateMultiTriggerCampaignTest`                     |
-| Condition + action together via the dynamicRows form (UI only, no live dispatch)                              | ✅ `AdminCreateCampaignWithConditionsAndActionsTest`         |
-| Multiple conditions AND'd together — all pass                                                                 | ✅ `AdminCampaignMultipleConditionsAndTest`                  |
-| Multiple conditions AND'd together — one fails, action must NOT run                                           | ✅ `AdminCampaignMultipleConditionsAndTest`                  |
-| Multiple campaigns matching the same trigger, only some satisfy their conditions                              | ✅ `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest`  |
-| Delayed action (`delay_minutes > 0`) — chain pauses, `Cron\RunScheduledCampaignActions` resumes it later      | ✅ `AdminCampaignDelayedActionTest`                          |
-| Chained delays (action pauses, resumes, pauses again)                                                         | ✅ `AdminChainedDelayedActionsTest`                          |
-| Disabled campaign — trigger fires, nothing happens                                                            | ✅ `AdminCampaignDisabledNoDispatchTest`                     |
-| Campaign edited after creation (trigger/condition/action changed, re-saved, old rows replaced not duplicated) | ✅ `AdminEditCampaignConditionReplacesNotDuplicatesTest`     |
-| Campaign deleted — grid no longer lists it, dispatch no longer matches its old triggers                       | ✅ `AdminDeleteCampaignStopsDispatchTest`                    |
-| Unknown/removed condition or action type on a campaign (fails closed, logs, doesn't crash the whole dispatch) | ✅ `AdminCampaignUnknownActionTypeFailsClosedTest` |
+| Scenario                                                                                                      | Status                                                      |
+|---------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| Single trigger/condition/action, save + grid appearance                                                       | ✅ `AdminCreateCampaignTest`                                |
+| Multiple triggers on one campaign (fan-out to the same chain)                                                 | ✅ `AdminCreateMultiTriggerCampaignTest`                    |
+| Condition + action together via the dynamicRows form (UI only, no live dispatch)                              | ✅ `AdminCreateCampaignWithConditionsAndActionsTest`        |
+| Multiple conditions AND'd together — all pass                                                                 | ✅ `AdminCampaignMultipleConditionsAndTest`                 |
+| Multiple conditions AND'd together — one fails, action must NOT run                                           | ✅ `AdminCampaignMultipleConditionsAndTest`                 |
+| Multiple campaigns matching the same trigger, only some satisfy their conditions                              | ✅ `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest` |
+| Delayed action (`delay_minutes > 0`) — chain pauses, `Cron\RunScheduledCampaignActions` resumes it later      | ✅ `AdminCampaignDelayedActionTest`                         |
+| Chained delays (action pauses, resumes, pauses again)                                                         | ✅ `AdminChainedDelayedActionsTest`                         |
+| Disabled campaign — trigger fires, nothing happens                                                            | ✅ `AdminCampaignDisabledNoDispatchTest`                    |
+| Campaign edited after creation (trigger/condition/action changed, re-saved, old rows replaced not duplicated) | ✅ `AdminEditCampaignConditionReplacesNotDuplicatesTest`    |
+| Campaign deleted — grid no longer lists it, dispatch no longer matches its old triggers                       | ✅ `AdminDeleteCampaignStopsDispatchTest`                   |
+| Unknown/removed condition or action type on a campaign (fails closed, logs, doesn't crash the whole dispatch) | ✅ `AdminCampaignUnknownActionTypeFailsClosedTest`          |
 
 ## 2. Segments (`Model/Segment.php`, `Controller/Adminhtml/Segment/`)
 
@@ -114,12 +119,12 @@ cases separately from the type-by-type ones.
 
 ## 3. RFM (`Model/Rfm/`, `Cron/RecomputeRfmScores.php`, `ordo/rfm/index`)
 
-| Scenario                                                                                     | Status                                                                                         |
-|----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| Admin RFM report grid (`Controller/Adminhtml/Rfm/Index.php`) renders with real customer data | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                    |
-| `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`                                | ✅ `AdminRecencyPercentileConditionTest` (populate half only — grid-reflects-it half still ⬜) |
-| RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                    |
-| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest`                                                       |
+| Scenario                                                                                     | Status                                                                                                                 |
+|----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| Admin RFM report grid (`Controller/Adminhtml/Rfm/Index.php`) renders with real customer data | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                                            |
+| `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`                                | ✅ `AdminRecencyPercentileConditionTest` (populate half) / `AdminRfmReportGridReflectsRealDataTest` (grid reflects it) |
+| RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                                            |
+| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest`                                                                               |
 
 ## 4. Lead scoring (`Model/ScoreRule.php`, `Controller/Adminhtml/ScoreRule/`)
 
@@ -199,6 +204,7 @@ through. `Controller/Offer/*` (self-extend,
 | Stat cards reflect real data (e.g. campaign count, trigger performance) after creating fixtures | ✅ `AdminDashboardReflectsRealDataTest` |
 
 ## 10. Content blocks (`Model/ContentBlock/`, `Controller/Adminhtml/ContentBlock/`) and Message Log (
+
 `Controller/Adminhtml/MessageLog/`)
 
 Both missing from this document's original scope check (see the note at the top of this file) — added here rather
@@ -234,52 +240,5 @@ module's.
 
 ## Suggested next batch (highest signal per test written)
 
-1. ~~`score_threshold_crossed` end to end~~ (§4 + §1a) — done: `AdminScoreThresholdCampaignTest.xml` (`campaign`
-   group). Deliberately no condition on the campaign (an empty conditions list is vacuously satisfied), so the coupon
-   appearing is entirely down to the score-rule → threshold → dispatch chain actually working.
-2. ~~`send_email` action + MailHog~~ (§1c) — done: `AdminCampaignSendEmailActionTest.xml` (`campaign` group). Reused the
-   exact MailHog wiring `AdminApproveOrderViaEmailTest`/`MailHogHelper` already established (added a new
-   `seeTextInLatestEmail` helper method); closes the last uncovered action type.
-3. ~~Free gift eligibility/select/trim flow~~ (§5) — done: `FreeGiftManagementScenarioTest.php` (`Test/Integration`, not
-   MFTF — see §5's own note on why). Caught and fixed a real bug along the way:
-   `Observer/TrimExcessFreeGifts.php` read a stale `$quote->getSubtotal()`, so a dropped-below-threshold gift was never
-   actually being trimmed from the cart.
-4. ~~In-segment condition chained with a real campaign dispatch~~ (§1b + §2) — done:
-   `AdminCampaignInSegmentConditionTest.xml`
-   (`campaign` group). Two real orders: the first fires a tag-only campaign (`add_tag`), the second's `in_segment`
-   condition live-queries `SegmentMatcher` against a segment whose own condition is that same tag.
-5. ~~Reject link~~ (§6) — done: `AdminRejectOrderViaEmailTest.xml` (`campaign` group).
-6. ~~Segment with multiple AND'd conditions~~ (§2) — done: `AdminCreateSegmentWithMultipleConditionsTest.xml`
-   (`segment` group).
-7. ~~Click-threshold crossing tags the visitor~~ (§7) — done: `StorefrontTrackerClickThresholdTagsVisitorTest.xml`
-   (`tracking` group).
-8. ~~`category_view` event posted and persisted~~ (§7) — done: `StorefrontTrackerCategoryViewEventTest.xml`
-   (`tracking` group).
-9. ~~Dashboard stat cards reflect real data~~ (§9) — done: `AdminDashboardReflectsRealDataTest.xml` (`dashboard`
-   group).
-10. ~~Order under spend limit never held~~ (§6) — done: `AdminOrderUnderSpendLimitNotHeldTest.xml` (`campaign` group).
-11. ~~Popup action + storefront poll renders the banner~~ (§7) — done: `AdminCampaignPopupActionTest.xml`
-    (`tracking` group). Needed a new config flag (`ordo_automation/tracking/popup_enabled`) turned on in `mftf.yml`.
-12. ~~`customer_registered` trigger~~ (§1a) — done: `AdminCampaignCustomerRegisteredTriggerTest.xml` (`campaign`
-    group). Real storefront registration form (`SignUpNewUserFromStorefrontActionGroup`), not `<createData>` — the
-    latter hits `POST /V1/customers` directly, which never fires `customer_register_success`.
-13. ~~`visitor_tag` condition + `visitor_tag_added` trigger~~ (§1a + §1b) — done:
-    `AdminCampaignVisitorTagConditionTest.xml` (`tracking` group). Chains two async queues
-    (`ordo.automation.visitor.aggregate` → `ordo.automation.campaign.dispatch`); action is `popup` since
-    `generate_coupon`/most actions need a `customer_id` a never-logged-in visitor doesn't have.
-14. ~~`score_at_least` condition~~ (§1b) — done: `AdminCampaignScoreAtLeastConditionTest.xml` (`campaign` group).
-15. ~~`add_points` action~~ (§1c) — done: `AdminCampaignAddPointsActionTest.xml` (`campaign` group). Found along the
-    way: `add_points` does NOT itself chain into `score_threshold_crossed` — only `EvaluateCustomerScoreRules`'s own
-    `customer_save_after` handling dispatches that event, so this test instead proves two campaigns on the same trigger
-    chain within one `dispatch()` pass (Campaign A's `add_points` → Campaign B's `score_at_least` gate).
-16. ~~Multiple conditions AND'd together, both halves~~ (§1d) — done: `AdminCampaignMultipleConditionsAndTest.xml`
-    (`campaign` group). One campaign, two condition rows; two real orders from the same customer, one before and one
-    after a tag makes the second condition pass — proves genuine AND, not just UI persistence.
-17. ~~Delayed action, `Cron\RunScheduledCampaignActions` resumes it~~ (§1d) — done:
-    `AdminCampaignDelayedActionTest.xml` (`campaign` group). Genuinely waits out a real 1-minute delay (no way to fake
-    elapsed time — the due-check is wall-clock `run_at <= NOW()`) rather than asserting something fake.
-18. ~~Disabled campaign — trigger fires, nothing happens~~ (§1d) — done: `AdminCampaignDisabledNoDispatchTest.xml`
-    (`campaign` group).
-19. ~~Segment bulk action — add tag~~ (§2) — done: `AdminSegmentBulkActionAddTagTest.xml` (`segment` group). The admin
-    trigger turned out to be a plain HTML form on the segment edit page (`BulkActions.php`/`bulkactions.phtml`), not a
-    UI-component grid mass-action.
+Empty — every scenario this list ever tracked is now ✅ (see the sections above). Re-populate this when a new
+gap is found (a newly added trigger/condition/action/controller/cron, or a re-audit catching something missed).

@@ -21,8 +21,8 @@ exact error before moving on.
 - [x] MySQL 8.0
 - [x] OpenSearch 2.12 (required by Magento itself, not this module)
 - [x] Magento Open Source 2.4.7, installed from the public GitHub mirror — `composer install`
-      needed zero repo.magento.com credentials; only the PHP `sockets` extension had to be
-      added to the toolbox image (`php-amqplib` requires it).
+  needed zero repo.magento.com credentials; only the PHP `sockets` extension had to be
+  added to the toolbox image (`php-amqplib` requires it).
 
 ## 1. Install the module
 
@@ -35,18 +35,17 @@ bin/magento setup:di:compile
 bin/magento cache:flush
 ```
 
-- [x] `setup:upgrade` completes without errors — all 12 `ordo_*` tables created
-      (`ordo_campaign`, `ordo_campaign_action`, `ordo_campaign_condition`,
-      `ordo_customer_tag`, `ordo_offer`, `ordo_offer_reminder_log`,
-      `ordo_order_approval`, `ordo_reorder_cycle`, `ordo_reorder_reminder_log`,
-      `ordo_abandoned_cart_reminder_log`, `ordo_credit_limit_alert_log`,
-      `ordo_visitor_event`). First run surfaced a WebAPI reflection error, fixed
-      (see bug list below).
+- [x] `setup:upgrade` completes without errors — all 12 `ordo_*` tables created (`ordo_campaign`,
+  `ordo_campaign_action`, `ordo_campaign_condition`,
+  `ordo_customer_tag`, `ordo_offer`, `ordo_offer_reminder_log`,
+  `ordo_order_approval`, `ordo_reorder_cycle`, `ordo_reorder_reminder_log`,
+  `ordo_abandoned_cart_reminder_log`, `ordo_credit_limit_alert_log`,
+  `ordo_visitor_event`). First run surfaced a WebAPI reflection error, fixed (see bug list below).
 - [x] `bin/magento module:status Ordo_Automation` shows it enabled
 - [x] Admin panel loads without a white screen / 500 — this caught 3 separate
-      DI-compile fatals and one ACL merge conflict (see bug list). All fixed;
-      `setup:di:compile` now completes clean and the Dashboard loads with zero
-      browser console errors after login.
+  DI-compile fatals and one ACL merge conflict (see bug list). All fixed;
+  `setup:di:compile` now completes clean and the Dashboard loads with zero
+  browser console errors after login.
 
 **Environment note (not a module bug):** using a Composer path repository with
 `"options": {"symlink": false}` (mirror/copy mode) — required here because
@@ -65,53 +64,53 @@ vendor/bin/phpunit vendor/ordo/module-automation/Test/Unit
 ```
 
 - [x] PHPStan run completes — it never actually ran before this pass; the shipped
-      `phpstan.neon` was missing `includes:` for the bitexpert extension's own
-      `extension.neon` and used the wrong parameter key (`magento_root` instead of
-      `magentoRoot`), so PHPStan refused to start at all. Fixed. It now reports
-      **183 real level-max findings**, overwhelmingly missing iterable value types
-      on `array` params/returns (e.g. `array $data` → `array<string, mixed> $data`).
-      Not fixed in this pass — real backlog, tracked separately, not a correctness
-      bug class.
-- [x] All 6 unit test files pass for real, against actual Magento classes —
-      **24/24 passing**, but not on the first run: 5 tests failed with
-      `MethodCannotBeConfiguredException` (PHPUnit refusing to mock a method that
-      doesn't exist on the real class), which is exactly what this pass is for —
-      see bug list below.
+  `phpstan.neon` was missing `includes:` for the bitexpert extension's own
+  `extension.neon` and used the wrong parameter key (`magento_root` instead of
+  `magentoRoot`), so PHPStan refused to start at all. Fixed. It now reports **183 real level-max findings**,
+  overwhelmingly missing iterable value types
+  on `array` params/returns (e.g. `array $data` → `array<string, mixed> $data`).
+  Not fixed in this pass — real backlog, tracked separately, not a correctness
+  bug class.
+- [x] All 6 unit test files pass for real, against actual Magento classes — **24/24 passing**, but not on the first run:
+  5 tests failed with
+  `MethodCannotBeConfiguredException` (PHPUnit refusing to mock a method that
+  doesn't exist on the real class), which is exactly what this pass is for —
+  see bug list below.
 
 ## 3. Admin UI sanity
 
 - [x] "Ordo Automation" menu appears in the admin sidebar
 - [x] **Campaigns** grid loads (empty, first time) — first attempt fatal'd with
-      `Missing required argument $mainTable of ...\Grid\Collection`, fixed (see below)
+  `Missing required argument $mainTable of ...\Grid\Collection`, fixed (see below)
 - [x] "Add New Campaign" opens the form without a fatal/500 (three real bugs found
-      and fixed along the way — bogus toolbar button class, undeclared dynamic
-      property, dynamicRows record config in the wrong XML node — see bug list)
+  and fixed along the way — bogus toolbar button class, undeclared dynamic
+  property, dynamicRows record config in the wrong XML node — see bug list)
 - [x] Conditions/actions `dynamicRows` sections actually render fields and
-      "Add Condition"/"Add Action" work — confirmed visually (screenshot) after
-      fixing the root cause: the form's knockout template resolved to
-      `templates/form/default.xhtml`, which binds to a `{{name}}.areas` scope that
-      nothing in a plain (non-`<layout>`) form ever creates — a permanent,
-      silent hang with zero console/server errors. Fixed by setting
-      `<item name="template">templates/form/collapsible</item>`, whose template
-      binds to `{{name}}.{{name}}`, matching this form's actual component tree.
-      Also required fixing all `Controller/Adminhtml/Campaign/*` and
-      `Controller/Adminhtml/ReorderCycle/Index` to implement
-      `HttpGetActionInterface`/`HttpPostActionInterface` — without it, Magento's
-      `BackendValidator` silently rejected the requests before `execute()` ran.
+  "Add Condition"/"Add Action" work — confirmed visually (screenshot) after
+  fixing the root cause: the form's knockout template resolved to
+  `templates/form/default.xhtml`, which binds to a `{{name}}.areas` scope that
+  nothing in a plain (non-`<layout>`) form ever creates — a permanent,
+  silent hang with zero console/server errors. Fixed by setting
+  `<item name="template">templates/form/collapsible</item>`, whose template
+  binds to `{{name}}.{{name}}`, matching this form's actual component tree.
+  Also required fixing all `Controller/Adminhtml/Campaign/*` and
+  `Controller/Adminhtml/ReorderCycle/Index` to implement
+  `HttpGetActionInterface`/`HttpPostActionInterface` — without it, Magento's
+  `BackendValidator` silently rejected the requests before `execute()` ran.
 - [x] Create one campaign, confirm it saves and appears in the grid — confirmed
-      via screenshot (Name, Trigger Event, Enabled, Conditions/Actions rows all
-      editable)
+  via screenshot (Name, Trigger Event, Enabled, Conditions/Actions rows all
+  editable)
 - [x] **Reorder Cycles** grid loads — same `mainTable` fix as Campaigns grid,
-      confirmed via the object manager (`getSize()` succeeds on both collections)
+  confirmed via the object manager (`getSize()` succeeds on both collections)
 - [x] **Stores → Configuration → Ordo Automation** — all 8 sections render (Reorder,
-      Abandoned Cart, Offer, Credit Limit, Lifecycle, Order Approval, Sales Rep,
-      Tracking), no missing source-model errors, confirmed via full page screenshot
+  Abandoned Cart, Offer, Credit Limit, Lifecycle, Order Approval, Sales Rep,
+  Tracking), no missing source-model errors, confirmed via full page screenshot
 
 ### Known open issue — not yet root-caused
 
 `Uncaught TypeError: $(...).filter(...).collapse is not a function` at
-`theme.js:629`, seen on the New/Edit Campaign page in a real browser tab
-(not reproduced in the headless devtools session used for most of this
+`theme.js:629`, seen on the New/Edit Campaign page in a real browser tab (not reproduced in the headless devtools
+session used for most of this
 verification pass). Looks like a jQuery/bootstrap `collapse` plugin
 load-order race in Magento core's `theme.js` during RequireJS bootstrap —
 nothing in this module touches `theme.js` or bootstrap loading, so it's
@@ -130,185 +129,184 @@ to this module.
 ## 4. B2B triggers, one at a time
 
 - [x] **Offer expiry reminder:** inserted a real `ordo_offer` row (`status=sent`,
-      `expires_at` = today+2, matching the default `lead_days` config), enabled
-      `ordo_automation/offer/enabled` via `config:set`, ran
-      `SendOfferExpiryReminders::execute()` directly (real object manager, no
-      mocks). It correctly found the matching offer, built the email
-      (customer/template/vars), and attempted delivery — failed only because
-      this container has no `sendmail`/SMTP configured (`Unable to send mail.
+  `expires_at` = today+2, matching the default `lead_days` config), enabled
+  `ordo_automation/offer/enabled` via `config:set`, ran
+  `SendOfferExpiryReminders::execute()` directly (real object manager, no
+  mocks). It correctly found the matching offer, built the email (customer/template/vars), and attempted delivery —
+  failed only because
+  this container has no `sendmail`/SMTP configured (`Unable to send mail.
       Please try again later.`), an environment limitation, not a code bug. The
-      failure was handled correctly: caught, logged (`main.ERROR: ... failed to
+  failure was handled correctly: caught, logged (`main.ERROR: ... failed to
       send offer expiry reminder for offer #1: ...`), didn't crash the cron
-      (`main.INFO: sent 0 offer expiry reminders.`), and — importantly —
-      `ordo_offer_reminder_log` stayed empty, meaning a failed send is *not*
-      marked as sent and will be retried next run rather than silently
-      swallowed. Matching/building logic confirmed correct; actual delivery is
-      untestable without a real SMTP relay in this sandbox.
+  (`main.INFO: sent 0 offer expiry reminders.`), and — importantly —
+  `ordo_offer_reminder_log` stayed empty, meaning a failed send is *not*
+  marked as sent and will be retried next run rather than silently
+  swallowed. Matching/building logic confirmed correct; actual delivery is
+  untestable without a real SMTP relay in this sandbox.
 - [x] **Credit limit alert:** with the EAV fix below applied, set
-      `ordo_credit_limit=1000` on the test customer, inserted a `sales_order`
-      row with `total_due=800` (80% utilization — exactly the default warning
-      threshold), enabled `ordo_automation/credit_limit/enabled`, ran
-      `SendCreditLimitAlerts::execute()` directly. Correctly found the
-      customer, computed 80% utilization, attempted the alert email — failed
-      delivery only on the same "no sendmail in this container" limitation as
-      the offer expiry reminder (section above), handled the same way
-      (logged, not silently swallowed).
+  `ordo_credit_limit=1000` on the test customer, inserted a `sales_order`
+  row with `total_due=800` (80% utilization — exactly the default warning
+  threshold), enabled `ordo_automation/credit_limit/enabled`, ran
+  `SendCreditLimitAlerts::execute()` directly. Correctly found the
+  customer, computed 80% utilization, attempted the alert email — failed
+  delivery only on the same "no sendmail in this container" limitation as
+  the offer expiry reminder (section above), handled the same way (logged, not silently swallowed).
 - [x] **Order approval:** called `HoldOrderForApproval::execute()` directly
-      against a real `sales_order` row (`grand_total=800`) for a customer with
-      `ordo_order_spend_limit=100` and `ordo_approval_admin_email` set.
-      Confirmed a real `ordo_order_approval` row was created with a token and
-      the correct admin email. The subsequent order-status-update step then
-      hit "Please provide payment for the order" — expected, since this test
-      order was inserted directly via SQL with no `sales_order_payment` row; a
-      real order placed through checkout has one. Core hold/approval logic
-      confirmed correct.
+  against a real `sales_order` row (`grand_total=800`) for a customer with
+  `ordo_order_spend_limit=100` and `ordo_approval_admin_email` set.
+  Confirmed a real `ordo_order_approval` row was created with a token and
+  the correct admin email. The subsequent order-status-update step then
+  hit "Please provide payment for the order" — expected, since this test
+  order was inserted directly via SQL with no `sales_order_payment` row; a
+  real order placed through checkout has one. Core hold/approval logic
+  confirmed correct.
 - [x] **Reorder reminders:** inserted 3 real `sales_order`/`sales_order_item` rows
-      for the same customer/SKU, 30 days apart. `CalculateReorderCycle` correctly
-      computed `avg_interval_days=30`, `next_expected_date` = last order + 30
-      days, `orders_considered=3`. Moved `next_expected_date` to within the
-      lead window and ran `SendReorderReminders` — correctly found the cycle,
-      built the email, attempted delivery (failed only on this sandbox's
-      missing SMTP, same as every other reminder cron tested).
+  for the same customer/SKU, 30 days apart. `CalculateReorderCycle` correctly
+  computed `avg_interval_days=30`, `next_expected_date` = last order + 30
+  days, `orders_considered=3`. Moved `next_expected_date` to within the
+  lead window and ran `SendReorderReminders` — correctly found the cycle,
+  built the email, attempted delivery (failed only on this sandbox's
+  missing SMTP, same as every other reminder cron tested).
 - [x] **Abandoned cart:** inserted a real `quote` row (`is_active=1`,
-      `items_count=1`, `subtotal=250`, `customer_email` set, `updated_at`
-      outside the delay window). `SendAbandonedCartReminders` correctly found
-      it and attempted delivery (same SMTP limitation). Also calls
-      `CampaignDispatcher::dispatch('cart_abandoned', ...)` for registered
-      customers — not separately re-verified with a live `cart_abandoned`
-      campaign this pass, but the dispatcher itself was already proven correct
-      end-to-end in section 5 with a different trigger.
+  `items_count=1`, `subtotal=250`, `customer_email` set, `updated_at`
+  outside the delay window). `SendAbandonedCartReminders` correctly found
+  it and attempted delivery (same SMTP limitation). Also calls
+  `CampaignDispatcher::dispatch('cart_abandoned', ...)` for registered
+  customers — not separately re-verified with a live `cart_abandoned`
+  campaign this pass, but the dispatcher itself was already proven correct
+  end-to-end in section 5 with a different trigger.
 - [x] **A real order placed through full checkout — done, and it found a real
-      bug.** The two earlier blockers were both test-script mistakes, not
-      Magento or module bugs: `AllowedCountryValidationRule` rejected the
-      address because `addData(['countryId' => 'US', ...])` uses the array
-      key *literally* — `Address` model's real field is `country_id`
-      (snake_case); `addData` doesn't go through the `setCountryId()` magic
-      setter, so the country silently never got set. Fixed the test script,
-      not any module code, and a real order placed via `QuoteManagement::submit()`
-      went through cleanly (`sales_order_place_after` fired for real).
-      **Real bug found along the way:** `HoldOrderForApproval` read
-      `$order->getEntityId()` to build the `ordo_order_approval` row *before*
-      calling `$this->orderResource->save($order)` — but at the point this
-      observer runs (mid-way through the order's own save process), the
-      entity id is reliably still null. The approval row was silently being
-      saved with `order_id = 0` (the column is `NOT NULL`, so the null
-      coerced to 0) — the order itself still got held correctly (status
-      change), but its approval record pointed at nothing. Fixed by saving
-      the order status update first (which is what actually assigns the id
-      in this flow) and only then building the approval row. Re-verified
-      against two more real checkout-placed orders: `order_id` matches the
-      real order every time now. Also walked the approve link's business
-      logic directly (not through this sandbox's flaky hand-rolled
-      `router.php` HTTP layer, which redirect-looped for unrelated reasons):
-      order status flips from `ordo_pending_approval` to the real default
-      `pending` status, and the approval row flips to `approved` with a
-      `decided_at` timestamp — the full chain works end to end.
+  bug.** The two earlier blockers were both test-script mistakes, not
+  Magento or module bugs: `AllowedCountryValidationRule` rejected the
+  address because `addData(['countryId' => 'US', ...])` uses the array
+  key *literally* — `Address` model's real field is `country_id`
+  (snake_case); `addData` doesn't go through the `setCountryId()` magic
+  setter, so the country silently never got set. Fixed the test script,
+  not any module code, and a real order placed via `QuoteManagement::submit()`
+  went through cleanly (`sales_order_place_after` fired for real). **Real bug found along the way:**
+  `HoldOrderForApproval` read
+  `$order->getEntityId()` to build the `ordo_order_approval` row *before*
+  calling `$this->orderResource->save($order)` — but at the point this
+  observer runs (mid-way through the order's own save process), the
+  entity id is reliably still null. The approval row was silently being
+  saved with `order_id = 0` (the column is `NOT NULL`, so the null
+  coerced to 0) — the order itself still got held correctly (status
+  change), but its approval record pointed at nothing. Fixed by saving
+  the order status update first (which is what actually assigns the id
+  in this flow) and only then building the approval row. Re-verified
+  against two more real checkout-placed orders: `order_id` matches the
+  real order every time now. Also walked the approve link's business
+  logic directly (not through this sandbox's flaky hand-rolled
+  `router.php` HTTP layer, which redirect-looped for unrelated reasons):
+  order status flips from `ordo_pending_approval` to the real default
+  `pending` status, and the approval row flips to `approved` with a
+  `decided_at` timestamp — the full chain works end to end.
 
 ## 5. Campaign engine end-to-end
 
 - [x] The campaign created through the admin UI (`order_placed` → `order_total_gte`
-      amount=1 → `add_tag` tag=engine_e2e_test, dedicated fields, real save) actually
-      fires: called `CampaignDispatcher::dispatch('order_placed', ['order_total' =>
+  amount=1 → `add_tag` tag=engine_e2e_test, dedicated fields, real save) actually
+  fires: called `CampaignDispatcher::dispatch('order_placed', ['order_total' =>
       100.0, 'customer_id' => 1])` directly (real object manager, real customer row,
-      real DB) — confirmed `ordo_customer_tag` gained the row
-      `customer_id=1, tag=engine_e2e_test`. This exercises the full chain: campaign
-      row → condition/action rows → `ConditionPool`/`ActionPool` resolution →
-      `AddTag` action → `CustomerTagManager`.
+  real DB) — confirmed `ordo_customer_tag` gained the row
+  `customer_id=1, tag=engine_e2e_test`. This exercises the full chain: campaign
+  row → condition/action rows → `ConditionPool`/`ActionPool` resolution →
+  `AddTag` action → `CustomerTagManager`.
 - [x] `generate_coupon` → `send_email` chaining: created a campaign with a real
-      cart price rule (`COUPON_TYPE_SPECIFIC`) and dispatched `order_placed`.
-      `generate_coupon` correctly minted a real `salesrule_coupon` row
-      (`CHAIN-VEBDM3SSQS`); `send_email` ran immediately after (proving the
-      by-reference context — `{{var coupon_code}}` — carried across actions in
-      the same dispatch) and attempted delivery, failing only on this
-      sandbox's missing SMTP like every other email test this session.
+  cart price rule (`COUPON_TYPE_SPECIFIC`) and dispatched `order_placed`.
+  `generate_coupon` correctly minted a real `salesrule_coupon` row (`CHAIN-VEBDM3SSQS`); `send_email` ran immediately
+  after (proving the
+  by-reference context — `{{var coupon_code}}` — carried across actions in
+  the same dispatch) and attempted delivery, failing only on this
+  sandbox's missing SMTP like every other email test this session.
 - [x] `tag_added` trigger firing a second campaign: created a campaign on
-      `tag_added` with a `HasTag` condition matching a specific tag, then
-      called `CustomerTagManager::addTag()` for real — confirmed the tag
-      landed in `ordo_customer_tag`, and the campaign's `send_email` action
-      fired in the same request (real `ordo_customer_tag_added` event →
-      `DispatchTagAddedCampaigns` observer → dispatcher), again only blocked
-      on SMTP for actual delivery.
+  `tag_added` with a `HasTag` condition matching a specific tag, then
+  called `CustomerTagManager::addTag()` for real — confirmed the tag
+  landed in `ordo_customer_tag`, and the campaign's `send_email` action
+  fired in the same request (real `ordo_customer_tag_added` event →
+  `DispatchTagAddedCampaigns` observer → dispatcher), again only blocked
+  on SMTP for actual delivery.
 - [x] A real order placed through full checkout, exercising the whole chain
-      via genuine Magento events rather than direct dispatcher calls — see
-      section 4's "real order placed through full checkout" entry.
+  via genuine Magento events rather than direct dispatcher calls — see
+  section 4's "real order placed through full checkout" entry.
 
 ## 6. Promotion Builder (Phase 3)
 
 - [x] **CheapestItemFree — two real bugs found and fixed, then verified correct.**
-      Created 3 real products (50/150/300), a real cart price rule
-      (`simple_action=ordo_cheapest_item_free`), and a real quote with all three
-      items, then ran `collectTotals()` for real (no mocks).
-      1. First run: `ordo_cheapest_item_free is unknown type`. Our `di.xml`
-         registered the calculator against `Magento\SalesRule\Model\Validator`'s
-         `calculators` argument — that argument doesn't exist on that class in
-         Magento 2.4.x. The real extension point is
-         `Magento\SalesRule\Model\Rule\Action\Discount\CalculatorFactory`'s
-         `discountRules` argument (a flat `simple_action => calculator class`
-         map). Fixed the `di.xml` wiring.
-      2. Second run: **every** item got 100% off, not just the cheapest — grand
-         total dropped to 0 on a 500-total cart. Traced into
-         `QualifyingSetTracker`: `calculate()` receives a `Quote\Address\Item`,
-         whose `getItemId()` is reliably `null` (its `importQuoteItem()` copies
-         the source id into `quote_item_id`, not `item_id`) — and casting that
-         null to `(int)` silently produced `0` for every item, so they all
-         "matched" each other. Tried `quote_item_id` as a fallback next, but
-         even the underlying `Quote\Item` objects reached via
-         `$item->getQuote()->getAllItems()` had a null id at this point in the
-         request (the quote hadn't fully round-tripped through the DB in a way
-         that populated it yet) — so that fallback was null too. **Fixed by
-         switching identity from item id to SKU** (stable in both contexts,
-         and Magento merges repeat `addProduct()` calls for the same SKU into
-         one line item by default, so it's a safe stand-in here).
-      3. Re-verified after the SKU fix: 3-item cart (50/150/300) → only the
-         50 item discounted, grand total 450. Re-ran with items in a
-         different order and qty=2 each → still only the cheapest item
-         discounted, and only 1 unit of it (qty=2 at 50 → discount=50, not
-         100) — confirms both the "which item" and "only one unit" logic are
-         correct.
-      - **Still not covered:** the native admin "Apply" dropdown doesn't show
-        a friendly label for this simple_action (documented limitation,
-        unchanged) — has to be set via direct DB/API. "Free gift above cart
-        threshold" remains unbuilt (different technique, tracked in README).
+  Created 3 real products (50/150/300), a real cart price rule (`simple_action=ordo_cheapest_item_free`), and a real
+  quote with all three
+  items, then ran `collectTotals()` for real (no mocks).
+  1. First run: `ordo_cheapest_item_free is unknown type`. Our `di.xml`
+  registered the calculator against `Magento\SalesRule\Model\Validator`'s
+  `calculators` argument — that argument doesn't exist on that class in
+  Magento 2.4.x. The real extension point is
+  `Magento\SalesRule\Model\Rule\Action\Discount\CalculatorFactory`'s
+  `discountRules` argument (a flat `simple_action => calculator class`
+  map). Fixed the `di.xml` wiring.
+  2. Second run: **every** item got 100% off, not just the cheapest — grand
+  total dropped to 0 on a 500-total cart. Traced into
+  `QualifyingSetTracker`: `calculate()` receives a `Quote\Address\Item`,
+  whose `getItemId()` is reliably `null` (its `importQuoteItem()` copies
+  the source id into `quote_item_id`, not `item_id`) — and casting that
+  null to `(int)` silently produced `0` for every item, so they all
+  "matched" each other. Tried `quote_item_id` as a fallback next, but
+  even the underlying `Quote\Item` objects reached via
+  `$item->getQuote()->getAllItems()` had a null id at this point in the
+  request (the quote hadn't fully round-tripped through the DB in a way
+  that populated it yet) — so that fallback was null too. **Fixed by
+  switching identity from item id to SKU** (stable in both contexts,
+  and Magento merges repeat `addProduct()` calls for the same SKU into
+  one line item by default, so it's a safe stand-in here).
+  3. Re-verified after the SKU fix: 3-item cart (50/150/300) → only the
+  50 item discounted, grand total 450. Re-ran with items in a
+  different order and qty=2 each → still only the cheapest item
+  discounted, and only 1 unit of it (qty=2 at 50 → discount=50, not
+  100) — confirms both the "which item" and "only one unit" logic are
+  correct.
+  - **Still not covered:** the native admin "Apply" dropdown doesn't show
+  a friendly label for this simple_action (documented limitation,
+  unchanged) — has to be set via direct DB/API. "Free gift above cart
+  threshold" remains unbuilt (different technique, tracked in README).
 
 ## 7. On-site tracking (Phase 5)
 
 - [x] **Tracking endpoint:** `POST /ordo/track/event` — first call used a raw JSON
-      body and got `invalid_payload`; the controller reads `getParam()` (form
-      data), matching what `tracker.js` actually sends via `URLSearchParams`,
-      not JSON — a test-script mistake, not a bug. Retried with form-encoded
-      data: `{"ok":true}`, confirmed real rows in `ordo_visitor_event`
-      (`product_view`/`cheap-a` × 2, `page_view` × 1), `customer_id` correctly
-      `NULL` for an anonymous visitor.
+  body and got `invalid_payload`; the controller reads `getParam()` (form
+  data), matching what `tracker.js` actually sends via `URLSearchParams`,
+  not JSON — a test-script mistake, not a bug. Retried with form-encoded
+  data: `{"ok":true}`, confirmed real rows in `ordo_visitor_event`
+  (`product_view`/`cheap-a` × 2, `page_view` × 1), `customer_id` correctly
+  `NULL` for an anonymous visitor.
 - [x] **Identity stitching — real bug found and fixed.** Called
-      `VisitorEventLogger::attributeVisitorToCustomer()` directly (the method
-      `StitchVisitorIdentity` calls on `customer_login`) to backfill the
-      anonymous visitor's events to a real customer. The backfill itself
-      worked (`customer_id` updated on all 3 events), but **no tag was
-      created** despite crossing the configured threshold (2) — contradicting
-      both the README ("immediately re-runs aggregation") and this method's
-      own docblock. `attributeVisitorToCustomer()` never actually called
-      `VisitorAggregator::aggregateForCustomer()` after the backfill UPDATE.
-      Fixed (one line); re-verified with a fresh visitor: tag
-      `viewed_product_view_cheap-a` now created immediately on stitching, not
-      just on the next scheduled aggregation.
+  `VisitorEventLogger::attributeVisitorToCustomer()` directly (the method
+  `StitchVisitorIdentity` calls on `customer_login`) to backfill the
+  anonymous visitor's events to a real customer. The backfill itself
+  worked (`customer_id` updated on all 3 events), but **no tag was
+  created** despite crossing the configured threshold (2) — contradicting
+  both the README ("immediately re-runs aggregation") and this method's
+  own docblock. `attributeVisitorToCustomer()` never actually called
+  `VisitorAggregator::aggregateForCustomer()` after the backfill UPDATE.
+  Fixed (one line); re-verified with a fresh visitor: tag
+  `viewed_product_view_cheap-a` now created immediately on stitching, not
+  just on the next scheduled aggregation.
 - [x] **Retention pruning — real bug found and fixed.** Set
-      `tracking/retention_days = 0` (meaning "don't keep raw events at all")
-      and ran `PruneVisitorEvents` — nothing was deleted. Traced to
-      `Config::getTrackingRetentionDays()` using `?: 7`, which treats a
-      legitimate `0` as falsy and silently falls back to the 7-day default —
-      the same class of bug as the other `?:`-based config defaults in this
-      module, just caught here because 0 is a meaningful value for this
-      particular setting. Fixed with an explicit `!== null && !== ''` check.
-      Re-verified: `getTrackingRetentionDays()` returns `0`, `PruneVisitorEvents`
-      deleted all rows, and — importantly — the tag derived from those events
-      was untouched, confirming the "prune raw evidence, keep the conclusion"
-      design actually holds.
+  `tracking/retention_days = 0` (meaning "don't keep raw events at all")
+  and ran `PruneVisitorEvents` — nothing was deleted. Traced to
+  `Config::getTrackingRetentionDays()` using `?: 7`, which treats a
+  legitimate `0` as falsy and silently falls back to the 7-day default —
+  the same class of bug as the other `?:`-based config defaults in this
+  module, just caught here because 0 is a meaningful value for this
+  particular setting. Fixed with an explicit `!== null && !== ''` check.
+  Re-verified: `getTrackingRetentionDays()` returns `0`, `PruneVisitorEvents`
+  deleted all rows, and — importantly — the tag derived from those events
+  was untouched, confirming the "prune raw evidence, keep the conclusion"
+  design actually holds.
 - [x] **tracker.js in a real browser** — loaded a real storefront page,
-      confirmed the `ordo_visitor_id` cookie was issued automatically and
-      `window.ordoTrack` is defined; a `page_view` event landed in
-      `ordo_visitor_event` without any explicit call (the automatic-on-load
-      behavior works). Called `window.ordoTrack('product_view', '...')` from
-      the browser console — confirmed a second, correctly-typed row.
+  confirmed the `ordo_visitor_id` cookie was issued automatically and
+  `window.ordoTrack` is defined; a `page_view` event landed in
+  `ordo_visitor_event` without any explicit call (the automatic-on-load
+  behavior works). Called `window.ordoTrack('product_view', '...')` from
+  the browser console — confirmed a second, correctly-typed row.
 
 ## 8. Real bugs found and fixed in this pass
 
@@ -405,8 +403,8 @@ shapes or the real Magento UI-component runtime.
     `'group'`** — so the auto-attach-to-set step is skipped entirely for
     every custom attribute this module defines. This is a real bug, not
     environment/config: any Magento module using this exact (`user_defined:
-    true`, no `group`) combination has this same silent-drop problem.
-    **Fixed:** added `'group' => 'General'` to all 6 attribute definitions
+    true`, no `group`) combination has this same silent-drop problem. **Fixed:** added `'group' => 'General'` to all 6
+    attribute definitions
     across `AddCustomerCreditLimitAttribute.php`,
     `AddCustomerSpendLimitAttributes.php`, `AddSalesRepAttributes.php`. Since
     the patches had already run once against this test database, also
@@ -467,6 +465,7 @@ shapes or the real Magento UI-component runtime.
 **Also found and fixed during this pass:** two apparent "checkout is broken"
 blockers turned out to be test-script bugs, not Magento or module bugs —
 worth noting since they cost real time chasing the wrong thing:
+
 - `Quote\Address::addData(['countryId' => 'US'])` — the array key must be
   `country_id` (the model's real, snake_case data key); `addData()` doesn't
   route through `setCountryId()`. Using the wrong key leaves the field
@@ -485,6 +484,7 @@ none of them cosmetic.** `README.md` has been updated accordingly.
 
 Genuinely still open, not because of failures but because they weren't
 attempted:
+
 - MFTF scenario coverage beyond the one written (`AdminCreateCampaignTest.xml`)
   — no MFTF runtime available in this sandbox to actually execute any of them.
 - Code coverage percentage — no coverage tool was run against the full suite
