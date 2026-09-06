@@ -31,6 +31,15 @@
     <preference for="Ordo\Automation\Api\CreditLimitManagementInterface" type="Ordo\Automation\Model\CreditLimitManagement"/>
     <preference for="Ordo\Automation\Model\Sms\SmsSenderInterface" type="Ordo\Automation\Model\Sms\TwilioSmsSender"/>
 
+    <type name="Ordo\Automation\Model\AdAudience\SyncClientPool">
+        <arguments>
+            <argument name="clients" xsi:type="array">
+                <item name="google_ads" xsi:type="object">Ordo\Automation\Model\AdAudience\GoogleAdsSyncClient</item>
+                <item name="meta" xsi:type="object">Ordo\Automation\Model\AdAudience\MetaSyncClient</item>
+            </argument>
+        </arguments>
+    </type>
+
     <!-- Dedicated SearchResults types so the WebAPI output processor knows what's inside each
          list endpoint's "items" array (the generic SearchResultsInterface can't express this —
          see Api/Data/CampaignSearchResultsInterface.php for why). Bound to a trivial concrete
@@ -182,6 +191,7 @@
                 <item name="add_dynamic_content" xsi:type="object">Ordo\Automation\Model\Campaign\Action\AddDynamicContent</item>
                 <item name="send_sms" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendSms</item>
                 <item name="notify" xsi:type="object">Ordo\Automation\Model\Campaign\Action\Notify</item>
+                <item name="nps_survey" xsi:type="object">Ordo\Automation\Model\Campaign\Action\NpsSurvey</item>
             </argument>
         </arguments>
     </type>
