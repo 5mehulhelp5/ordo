@@ -45,4 +45,34 @@ class CronScheduleHelper extends Helper
         );
         $statement->execute(['job_code' => $jobCode]);
     }
+
+    /**
+     * Backdates the most recently written ordo_campaign_scheduled_action row's run_at into the
+     * past, so Cron\RunScheduledCampaignActions' own addDueFilter() (run_at <= NOW()) finds it
+     * as due immediately - forcing the CRON JOB to run via scheduleJobNow() alone isn't enough
+     * here, unlike every other cron this helper targets: this one cron doesn't just check
+     * "is it my turn on the clock", it separately checks whether the specific DATA row it reads
+     * is due, which CampaignDispatcher wrote with a real run_at = NOW() + delay_minutes at
+     * dispatch time. Safe to key off "most recent row" because MFTF tests run sequentially in
+     * one browser session against one Magento install - by the time this is called, the row
+     * this same test's own dispatch just wrote is unambiguously the latest one.
+     */
+    public function backdateMostRecentScheduledAction(
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $pdo->exec(
+            'UPDATE ordo_campaign_scheduled_action SET run_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) '
+            . 'ORDER BY entity_id DESC LIMIT 1'
+        );
+    }
 }

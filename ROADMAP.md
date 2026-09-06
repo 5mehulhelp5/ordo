@@ -60,11 +60,15 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   `RfmCalculator` live, no cron involved) and `AdminOrderFrequencyPercentileConditionTest`/
   `AdminMonetaryPercentileConditionTest` (same `RfmTestHelper` poison-row technique as the recency
   percentile test). All 6 RFM-based conditions now have MFTF coverage.
-- **Campaign engine** (§1): `add_tag`
-  action has never been the thing directly under test (only a side
-  effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is
-  only incidentally exercised, never asserted; chained delays (an action pauses, resumes, pauses again) aren't
-  covered.
+- ~~`add_tag` action, multi-campaign partial match, chained delays~~ — done.
+  `AdminCampaignAddTagActionTest` (real `ordo_customer_tag` row via `VisitorEventHelper`, not
+  just "no exception"), `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest` (two campaigns,
+  one real order, one positive + one negative tag assertion in the same dispatch pass),
+  `AdminChainedDelayedActionsTest` (three actions, two separate delays — extended
+  `CronScheduleHelper` with `backdateMostRecentScheduledAction()` since forcing the cron JOB
+  alone isn't enough here: `CampaignDispatcher` writes each scheduled row's own real
+  `run_at = NOW() + delay_minutes`, a second, separate "is this due" check the job's own
+  `addDueFilter()` reads).
 - **RFM** (§3): `Cron\RecomputeRfmScores` populating `ordo_customer_rfm_score` and the RFM report reflecting it,
   and the percentile-based campaign conditions actually reading that precomputed table (rather than a live scan),
   are both untested.
