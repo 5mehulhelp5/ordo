@@ -52,6 +52,14 @@
         <waitForPageLoad stepKey="waitForContentBlockEditPage"/>
         <waitForElementVisible selector="//button[contains(., 'Refresh Feed Now')]" stepKey="waitForRefreshButton"/>
         <click selector="//button[contains(., 'Refresh Feed Now')]" stepKey="clickRefreshButton"/>
+        <!-- The alert only appears once the on_click handler's jQuery.post() round-trip
+             actually resolves (a real HTTP fetch of the RSS feed, not instant) - a real CI run
+             caught acceptPopup() racing ahead of that and finding no alert yet, which then left
+             it popping up later and blocking the NEXT unrelated WebDriver command (this test's
+             own after-hook logout navigation failed with "unexpected alert open"). A short wait
+             here is cheaper and more reliable than teaching every subsequent step to tolerate a
+             stray alert. -->
+        <wait time="2" stepKey="waitForRefreshAjaxToResolve"/>
         <acceptPopup stepKey="acceptRefreshAlert"/>
 
         <!-- Step 3: the real, database-observable output only a genuine fetch of the real feed

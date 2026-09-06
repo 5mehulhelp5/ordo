@@ -61,7 +61,7 @@
              with - the state a live campaign can genuinely end up in, but that the admin form
              itself can never produce, since its Action Type <select> only ever lists
              ActionPool::getAvailableTypes(). -->
-        <helper class="\Ordo\Automation\Test\Mftf\Helper\CampaignActionCorruptorHelper" method="corruptMostRecentActionType" stepKey="corruptFirstActionType">
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CampaignActionCorruptorHelper" method="corruptFirstActionType" stepKey="corruptFirstActionType">
             <argument name="campaignId">{$grabCampaignId}</argument>
         </helper>
 

@@ -18,7 +18,16 @@ use Magento\FunctionalTestingFramework\Helper\Helper;
  */
 class CampaignActionCorruptorHelper extends Helper
 {
-    public function corruptMostRecentActionType(
+    /**
+     * ORDER BY entity_id ASC — the FIRST action added to the campaign, not the most recent one:
+     * a real CI run caught this the hard way. Actions are persisted in sort_order (first added
+     * gets the LOWEST entity_id), so an earlier version of this method ordered DESC ("most
+     * recent") and actually grabbed the LAST action in the chain instead — silently corrupting
+     * AdminCampaignUnknownActionTypeFailsClosedTest's own second, "should still fire" send_email
+     * action instead of the first add_tag one, the exact opposite of the scenario it's meant to
+     * prove, which is why its own email assertion then failed for real.
+     */
+    public function corruptFirstActionType(
         string $campaignId,
         string $bogusType = 'no_such_action_type',
         string $dbHost = '127.0.0.1',
@@ -35,7 +44,7 @@ class CampaignActionCorruptorHelper extends Helper
 
         $statement = $pdo->prepare(
             'UPDATE ordo_campaign_action SET type = :type '
-            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id DESC LIMIT 1'
+            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id ASC LIMIT 1'
         );
         $statement->execute(['type' => $bogusType, 'campaign_id' => $campaignId]);
     }
