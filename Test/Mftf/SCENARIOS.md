@@ -194,11 +194,20 @@ through. `Controller/Offer/*` (self-extend,
 
 | Job                          | What it does                                                 | Status |
 |------------------------------|--------------------------------------------------------------|--------|
-| `SendCreditLimitAlerts`      | Emails when a customer's credit exposure crosses a threshold | ⬜     |
-| `SendSalesRepDigest`         | Digest email to a sales rep                                  | ⬜     |
-| `SendWinBackEmails`          | Emails customers `TagInactiveCustomers` tagged inactive      | ⬜     |
-| `TagInactiveCustomers`       | Tags customers inactive past the configured window           | ⬜     |
+| `SendCreditLimitAlerts`      | Emails when a customer's credit exposure crosses a threshold | ✅ `AdminSendCreditLimitAlertTest` |
+| `SendSalesRepDigest`         | Digest email to a sales rep                                  | ✅ `AdminSendSalesRepDigestTest` |
+| `SendWinBackEmails`          | Emails customers `TagInactiveCustomers` tagged inactive      | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` |
+| `TagInactiveCustomers`       | Tags customers inactive past the configured window           | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` (same test — the two crons are tightly coupled, see its own description) |
 | `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ⬜     |
+
+All four crons above only fire once a day (or, for `SendSalesRepDigest`, once a week) at a fixed
+wall-clock time (`etc/crontab.xml`) — no MFTF test can wait that out. `Test/Mftf/Helper/CronScheduleHelper.php`
+inserts a `cron_schedule` row directly (status `pending`, `scheduled_at` = now) so the next
+`cron:run --group=default` executes the job regardless of its own cron expression — Magento's
+`ProcessCronQueueObserver::shouldRunJob()` only checks whether an existing row is due, it never
+re-validates the job's schedule at execution time. Same idea as `AdminCampaignDelayedActionTest`'s
+`ordo_campaign_scheduled_action` row, just against Magento's own cron table instead of this
+module's.
 
 ## Suggested next batch (highest signal per test written)
 

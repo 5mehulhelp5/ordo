@@ -23,6 +23,16 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **MFTF coverage for the reminder/alert crons.** New `lifecycle` MFTF group:
+  `AdminTagInactiveCustomersAndWinBackEmailTest` (covers `Cron\TagInactiveCustomers` and
+  `Cron\SendWinBackEmails` together, since the latter depends on the tag the former writes),
+  `AdminSendCreditLimitAlertTest`, `AdminSendSalesRepDigestTest`. All four crons only fire once a
+  day (or, for the sales rep digest, once a week) at a fixed time — no CI run can wait that out —
+  so `Test/Mftf/Helper/CronScheduleHelper.php` inserts a `cron_schedule` row directly
+  (`status='pending'`, `scheduled_at`=now) to force the next `cron:run` to execute a specific job
+  regardless of its own `etc/crontab.xml` schedule; confirmed for real against a live Magento
+  install that the forced row reaches `status=success`, the same technique
+  `AdminCampaignDelayedActionTest` already used against this module's own scheduled-action table.
 - **Load/soak test for the campaign dispatch engine.** `Test/Integration/CampaignDispatchLoadTest.php`
   puts a concrete number on Phase 7's dispatch performance work (ROADMAP.md): 200 campaigns matched
   to one trigger dispatch in ~1.05s (~191 campaigns/sec, proving the batched condition/action

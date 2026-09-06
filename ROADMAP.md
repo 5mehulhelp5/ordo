@@ -59,9 +59,16 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
 - **Reorder cycles** (§8): `Cron\CalculateReorderCycle` detecting a recurring purchase pattern from real order
   history, and `Cron\SendReorderReminders` emailing a customer whose predicted next-order date arrived, are both
   uncovered.
-- **Reminder/alert crons** (§10): `SendCreditLimitAlerts`, `SendSalesRepDigest`, `SendWinBackEmails`, and
-  `TagInactiveCustomers` have no MFTF equivalent (unit-tested only) — same underlying gap as the
-  `cart_abandoned` trigger above, since `SendAbandonedCartReminders` is the same family.
+- ~~Reminder/alert crons (§10): `SendCreditLimitAlerts`, `SendSalesRepDigest`, `SendWinBackEmails`,
+  `TagInactiveCustomers`~~ — done. New `lifecycle` MFTF group (`.github/workflows/mftf.yml` matrix):
+  `AdminTagInactiveCustomersAndWinBackEmailTest` (covers the tightly-coupled
+  `TagInactiveCustomers`/`SendWinBackEmails` pair in one test), `AdminSendCreditLimitAlertTest`,
+  `AdminSendSalesRepDigestTest`. All four crons fire once a day/week at a fixed time no CI run can
+  wait out — `Test/Mftf/Helper/CronScheduleHelper.php` forces the next `cron:run` to execute a
+  specific job by inserting its `cron_schedule` row directly, verified for real against a live
+  Magento install (confirmed the forced job actually reaches `status=success`, not just that the
+  insert didn't error). `SendAbandonedCartReminders`/`cart_abandoned` (same family) still ⬜, see
+  SCENARIOS.md §10.
 
 ## Code quality
 
