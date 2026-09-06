@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminOfferExpiryReminderAndExpirationTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Free gift offers"/>
+            <title value="Cron\SendOfferExpiryReminders emails before expiry, Cron\ExpireOverdueOffers expires an overdue offer"/>
+            <description value="Closes the last two of §5's four gaps in SCENARIOS.md. Offer is a REST-only entity with no admin CRUD UI (see StorefrontMyOffersSelfExtendTest's own note), so OfferTestHelper inserts two real rows directly via SQL: one expiring exactly on the lead-day boundary Model/ResourceModel/Offer/Collection.php's addExpiringOnFilter() checks (status=sent, expires_at = today + lead_days, an EXACT date match - not a range), one already past expiry for addPastExpiryFilter() (status=sent, expires_at = yesterday). ordo_automation/offer/lead_days is set to 0 so 'today' satisfies the exact-match filter without needing a real multi-day wait. CronScheduleHelper forces both crons to run now instead of waiting out their real daily schedules (08:00 and 08:30)."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <!-- Off by default (Helper/Config.php's isSetFlag-backed getter) and the lead time is
+                 cut from the real default (2 days) to 0, so "expires today" is what the exact-match
+                 addExpiringOnFilter() needs. Both restored in <after> so they don't linger for
+                 whatever other dashboard-group test runs next in this same install. -->
+            <magentoCLI command="config:set ordo_automation/offer/enabled 1" stepKey="enableOffer"/>
+            <magentoCLI command="config:set ordo_automation/offer/lead_days 0" stepKey="setLeadDaysToZero"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\OfferTestHelper" method="insertOfferWithRelativeExpiry" stepKey="insertExpiringOffer">
+                <argument name="customerId">$createCustomer.id$</argument>
+                <argument name="reference">OFR-EXPIRING-TEST</argument>
+                <argument name="status">sent</argument>
+                <argument name="daysFromToday">0</argument>
+            </helper>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\OfferTestHelper" method="insertOfferWithRelativeExpiry" stepKey="insertOverdueOffer">
+                <argument name="customerId">$createCustomer.id$</argument>
+                <argument name="reference">OFR-OVERDUE-TEST</argument>
+                <argument name="status">sent</argument>
+                <argument name="daysFromToday">-1</argument>
+            </helper>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/offer/enabled 0" stepKey="disableOffer"/>
+            <magentoCLI command="config:set ordo_automation/offer/lead_days 2" stepKey="restoreLeadDaysDefault"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+        </after>
+
+        <!-- Step 1: force SendOfferExpiryReminders to run now (real schedule 08:00 daily, see
+             etc/crontab.xml). -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSendOfferExpiryRemindersJob">
+            <argument name="jobCode">ordo_automation_send_offer_expiry_reminders</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runSendOfferExpiryRemindersCron"/>
+
+        <!-- Step 2: the real, merchant-visible output only the exact-match "expires today" offer
+             could have produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeOfferReferenceInEmail">
+            <argument name="expectedText">OFR-EXPIRING-TEST</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeExpiresSoonCopyInEmail">
+            <argument name="expectedText">expires soon</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+
+        <!-- Step 3: force ExpireOverdueOffers to run now (real schedule 08:30 daily). The
+             expiring-today offer above must NOT be touched by this cron - its filter is strictly
+             "expires_at < today", not "<=". -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleExpireOverdueOffersJob">
+            <argument name="jobCode">ordo_automation_expire_overdue_offers</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runExpireOverdueOffersCron"/>
+
+        <!-- Step 4: the real, database-observable status change only a genuinely-overdue offer
+             could have produced - and proof the still-"sent" offer above was correctly left
+             alone. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\OfferTestHelper" method="assertOfferStatus" stepKey="assertOverdueOfferExpired">
+            <argument name="reference">OFR-OVERDUE-TEST</argument>
+            <argument name="expectedStatus">expired</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\OfferTestHelper" method="assertOfferStatus" stepKey="assertExpiringOfferStillSent">
+            <argument name="reference">OFR-EXPIRING-TEST</argument>
+            <argument name="expectedStatus">sent</argument>
+        </helper>
+    </test>
+</tests>

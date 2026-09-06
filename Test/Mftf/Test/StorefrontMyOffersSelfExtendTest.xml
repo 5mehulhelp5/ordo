@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontMyOffersSelfExtendTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Free gift offers"/>
+            <title value="The storefront 'My Offers' page lists a real offer, and self-extending it actually works"/>
+            <description value="Closes two of §5's four gaps in SCENARIOS.md at once - Offer is a REST-only entity (no admin CRUD UI at all, see Api/OfferRepositoryInterface and this doc's own scope check), so OfferTestHelper inserts a real row directly via SQL, the same reasoning OrderBackdateHelper/CronScheduleHelper already established for their own UI-less tables. Controller/Offer/Index.php ('My Offers') and Controller/Offer/Extend.php ARE real storefront pages/actions though, and this test drives both for real: the page must list the real offer's reference/status/total/expiry, the Extend button must be present (extension_count=0 &lt; the default max of 1, per Offer::canSelfExtend()), and clicking it must both show the real success message and make the button disappear on reload - proving OfferManagement::selfExtend() actually incremented extension_count past the cap, not just that no exception was thrown."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\OfferTestHelper" method="insertOffer" stepKey="insertOffer">
+                <argument name="customerId">$createCustomer.id$</argument>
+                <argument name="reference">OFR-SELFEXTEND-TEST</argument>
+                <argument name="status">sent</argument>
+                <argument name="expiresAt">2099-12-31</argument>
+                <argument name="extensionCount">0</argument>
+            </helper>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+        </after>
+
+        <!-- Step 1: the real "My Offers" page must list this real offer with its real data. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="ordo/offer/index" stepKey="goToMyOffersPage"/>
+        <waitForPageLoad stepKey="waitForMyOffersPage"/>
+        <see selector="#ordo-offers-table" userInput="OFR-SELFEXTEND-TEST" stepKey="seeOfferReference"/>
+        <see selector="#ordo-offers-table" userInput="sent" stepKey="seeOfferStatus"/>
+        <see selector="#ordo-offers-table" userInput="USD 100.00" stepKey="seeOfferTotal"/>
+
+        <!-- Step 2: extension_count=0 is below the default max (1), so the Extend button must be
+             rendered - real proof Offer::canSelfExtend() actually gates this, not that the
+             button always shows. -->
+        <seeElement selector="#ordo-offers-table button.action.extend" stepKey="seeExtendButton"/>
+        <click selector="#ordo-offers-table button.action.extend" stepKey="clickExtendButton"/>
+        <waitForPageLoad stepKey="waitForExtendRedirect"/>
+        <see selector=".message-success" userInput="has been extended" stepKey="seeExtendSuccessMessage"/>
+
+        <!-- Step 3: reloading the page proves the extension genuinely persisted -
+             extension_count is now 1, at the cap, so the button must be gone, replaced by the
+             "Not eligible" copy - not just that clicking it once didn't error. -->
+        <amOnPage url="ordo/offer/index" stepKey="goToMyOffersPageAfterExtend"/>
+        <waitForPageLoad stepKey="waitForMyOffersPageAfterExtend"/>
+        <dontSeeElement selector="#ordo-offers-table button.action.extend" stepKey="dontSeeExtendButtonAfterCap"/>
+        <see selector="#ordo-offers-table" userInput="Not eligible for extension" stepKey="seeNotEligibleCopy"/>
+    </test>
+</tests>

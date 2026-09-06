@@ -72,10 +72,15 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
 - **RFM** (§3): `Cron\RecomputeRfmScores` populating `ordo_customer_rfm_score` and the RFM report reflecting it,
   and the percentile-based campaign conditions actually reading that precomputed table (rather than a live scan),
   are both untested.
-- **Free gift offers / storefront offers** (§5): offer self-extension (`Controller/Offer/Extend.php`,
-  `Offer::canSelfExtend()`), the "My Offers" storefront account page (`Controller/Offer/Index.php`),
-  `Cron\SendOfferExpiryReminders`'s reminder email, and `Cron\ExpireOverdueOffers` marking a lapsed offer expired
-  are all uncovered.
+- ~~Free gift offers / storefront offers (§5): self-extension, "My Offers", `SendOfferExpiryReminders`,
+  `ExpireOverdueOffers`~~ — done. `Offer` is a REST-only entity with no admin CRUD UI at all, so new
+  `Test/Mftf/Helper/OfferTestHelper.php` inserts real rows directly via SQL (same reasoning as
+  OrderBackdateHelper/CronScheduleHelper for their own UI-less tables) — but `Controller/Offer/Index.php`
+  ("My Offers") and `Controller/Offer/Extend.php` (self-extend) ARE real storefront pages, driven for
+  real by `StorefrontMyOffersSelfExtendTest`. `AdminOfferExpiryReminderAndExpirationTest` covers both
+  crons: one offer expiring exactly on the lead-day boundary (`addExpiringOnFilter()`'s exact-date
+  match) and one already past expiry (`addPastExpiryFilter()`), asserting the still-`sent` offer was
+  correctly left alone by the expiry cron.
 - ~~Order approval (§6): `Cron\EscalateStalePendingApprovals`~~ — done. `AdminEscalateStalePendingApprovalTest`
   reuses `AdminApproveOrderViaEmailTest`'s exact fixture (`OrdoApprovalCustomer`, spend limit 10.00), but never
   follows the approve/reject link, leaving the approval genuinely pending; `ordo_automation/order_approval/
