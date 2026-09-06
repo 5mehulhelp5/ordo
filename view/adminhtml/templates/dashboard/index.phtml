@@ -91,6 +91,25 @@ $segmentNavDesc = __(
         </div>
     </div>
 
+    <div class="ordo-dashboard-triggers">
+        <div class="ordo-section-head">
+            <h2><?= $escaper->escapeHtml(__('Shopping feed')) ?></h2>
+        </div>
+        <?php if ($viewModel->isShoppingFeedEnabled()): ?>
+            <p>
+                <?= $escaper->escapeHtml(__('Google Merchant Center feed URL:')) ?>
+                <code><?= $escaper->escapeHtml($viewModel->getShoppingFeedUrl()) ?></code>
+            </p>
+            <a class="ordo-btn" href="<?= $escaper->escapeUrl($block->getUrl('ordo/productfeed/refreshnow')) ?>">
+                <?= $escaper->escapeHtml(__('Refresh Now')) ?>
+            </a>
+        <?php else: ?>
+            <p><?= $escaper->escapeHtml(__(
+                'Disabled — enable "Shopping Feed" in Configuration to publish a Google Merchant Center feed.'
+            )) ?></p>
+        <?php endif; ?>
+    </div>
+
     <div class="ordo-dashboard-nav">
         <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/index')) ?>">
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaigns')) ?></span>

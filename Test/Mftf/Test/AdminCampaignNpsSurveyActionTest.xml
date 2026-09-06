@@ -138,7 +138,15 @@
         <fillField selector="#ordo-segment-bulk-tag" userInput="triggered-for-nps-check" stepKey="fillBulkTag"/>
         <click selector="//button[contains(., 'Run Bulk Action')]" stepKey="clickRunBulkAction"/>
         <waitForPageLoad stepKey="waitForBulkActionRedirect"/>
-        <see selector=".message-success" userInput="Queued &quot;Add Tag&quot; for 1 matching customer(s)." stepKey="seeQueuedMessage"/>
+        <!-- Substring only, not the exact count: this "tracking" group's CI job also runs
+             other real-order tests that can leave their own group_id=1 customers with an
+             unrelated ordo_customer_score >= 40 (add_points/demographic score rules are a
+             single shared running total, not scoped per test) - the count can legitimately be
+             more than 1. The tag_added trigger firing at all is what this test proves, not an
+             exact membership count (unlike AdminSegmentBulkActionAddTagTest/
+             AdminCampaignTagAddedTriggerTest, which live in less order-heavy groups where an
+             exact count is safe). -->
+        <see selector=".message-success" userInput="Queued &quot;Add Tag&quot;" stepKey="seeQueuedMessage"/>
 
         <!-- Step 6: drain both queues in order, same reasoning as AdminCampaignTagAddedTriggerTest.xml. -->
         <magentoCLI command="queue:consumers:start ordo.automation.segment.bulk_action --max-messages=50" stepKey="runSegmentBulkActionConsumer"/>

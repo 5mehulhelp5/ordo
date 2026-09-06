@@ -22,6 +22,15 @@ scoped from real hands-on marketing automation experience.
   against a live/trial Twilio account. `StatusCallbackTest` is unit-level too: it uses a real
   `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
   mocked, so a real DB round trip (write on send → status update on callback) is untested.
+- **`AdminContentBlockRecommendationsOnSiteTest` is currently failing in real CI, reproducibly.** The `{{widget}}`
+  directive fix (`etc/widget.xml`) is confirmed correct and in place, but `.recommended-products` still isn't
+  found on the CMS page across multiple real CI runs — meaning `Model\Recommendation\ProductRecommender::
+  getRecommendedSkus()`'s best-seller fallback is returning empty for the anonymous visitor in this specific
+  flow, not a selector/widget-registration problem. Not yet root-caused: `ProductRecommender::
+  rankedBestSellerSkus()`'s in-instance 60-second cache (shared across requests if the object is DI-shared and
+  the test web server process persists across requests within a CI run) is the leading suspect — a request
+  landing within that window right after the order is placed could plausibly get a best-seller list computed
+  before this test's own order existed. Needs a real CI screenshot/DB check to confirm, not more guessing.
 - **Ad-audience sync (`Cron\SyncAdAudiences`) has no test against a real Google Ads/Meta account.** Same shape
   as `send_sms` above: unit tests (`GoogleAdsSyncClientTest`/`MetaSyncClientTest`/`GoogleOAuthTokenProviderTest`)
   drive the real request-building/response-parsing logic via a fake `Curl`, and the integration test
@@ -48,9 +57,6 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **Product feed export to shopping channels** — a Google Merchant Center-compatible product feed (and similar
-  comparison-shopping formats) generated from catalog data. Distinct from the existing `product_feed` content
-  block, which renders content inside campaigns/on-site, not an exportable feed file.
 
 ## Localization
 

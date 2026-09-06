@@ -16,7 +16,9 @@ use Ordo\Automation\Model\LoyaltyTierCalculator;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle\Collection as ReorderCycleCollection;
 use Ordo\Automation\Model\ResourceModel\ReorderCycle\CollectionFactory as ReorderCycleCollectionFactory;
 use Ordo\Automation\Model\TriggerOutcomeLogger;
+use Ordo\Automation\Helper\Config;
 use Magento\Framework\Pricing\Helper\Data as PricingHelper;
+use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 
@@ -29,7 +31,9 @@ class DashboardViewModelTest extends TestCase
         ?CampaignTriggerCollectionFactory $campaignTriggerCollectionFactory = null,
         ?TriggerOutcomeLogger $triggerOutcomeLogger = null,
         ?PricingHelper $pricingHelper = null,
-        ?LoyaltyTierCalculator $loyaltyTierCalculator = null
+        ?LoyaltyTierCalculator $loyaltyTierCalculator = null,
+        ?Config $config = null,
+        ?StoreManagerInterface $storeManager = null
     ): DashboardViewModel {
         $pricingHelper ??= $this->createStub(PricingHelper::class);
         $pricingHelper->method('currency')->willReturnCallback(
@@ -43,7 +47,9 @@ class DashboardViewModelTest extends TestCase
             $freeGiftOfferCollectionFactory ?? $this->createStub(FreeGiftOfferCollectionFactory::class),
             $triggerOutcomeLogger ?? $this->createStub(TriggerOutcomeLogger::class),
             $pricingHelper,
-            $loyaltyTierCalculator ?? $this->createStub(LoyaltyTierCalculator::class)
+            $loyaltyTierCalculator ?? $this->createStub(LoyaltyTierCalculator::class),
+            $config ?? $this->createStub(Config::class),
+            $storeManager ?? $this->createStub(StoreManagerInterface::class)
         );
     }
 
@@ -355,5 +361,37 @@ class DashboardViewModelTest extends TestCase
             ],
             $viewModel->getLoyaltyTierDistribution()
         );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testIsShoppingFeedEnabledReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isShoppingFeedEnabled')->willReturn(true);
+
+        self::assertTrue($this->makeViewModel(config: $config)->isShoppingFeedEnabled());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetShoppingFeedUrlBuildsFromStoreBaseUrl(): void
+    {
+        $store = $this->createStub(\Magento\Store\Model\Store::class);
+        $store->method('getBaseUrl')->willReturn('https://example.test/');
+        $storeManager = $this->createStub(StoreManagerInterface::class);
+        $storeManager->method('getStore')->willReturn($store);
+
+        self::assertSame(
+            'https://example.test/ordo/productfeed/index',
+            $this->makeViewModel(storeManager: $storeManager)->getShoppingFeedUrl()
+        );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetShoppingFeedUrlReturnsEmptyStringWhenStoreResolutionFails(): void
+    {
+        $storeManager = $this->createStub(StoreManagerInterface::class);
+        $storeManager->method('getStore')->willThrowException(new \RuntimeException('no store'));
+
+        self::assertSame('', $this->makeViewModel(storeManager: $storeManager)->getShoppingFeedUrl());
     }
 }

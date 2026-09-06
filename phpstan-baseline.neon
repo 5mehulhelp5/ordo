@@ -699,7 +699,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 10
+			count: 12
 			path: Helper/Config.php
 
 		-
@@ -1901,6 +1901,12 @@ parameters:
 			identifier: cast.string
 			count: 6
 			path: Model/PendingPopup.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: Model/ProductFeed/GoogleMerchantFeedGenerator.php
 
 		-
 			message: '#^Cannot cast mixed to string\.$#'

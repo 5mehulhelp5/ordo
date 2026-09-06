@@ -24,6 +24,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
   dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
   producer can personalize by `customer_id`.
+- Product feed export to shopping channels — a real, standalone Google Merchant Center-compatible
+  XML feed (`Model/ProductFeed/GoogleMerchantFeedGenerator.php`), distinct from the existing
+  `product_feed` content block (a small curated HTML grid inside campaigns/on-site, not an
+  exportable file). `Cron/RefreshProductFeed.php` regenerates a cached copy every 6 hours
+  (`ordo_product_feed_cache`, same "generate on a schedule, serve the cache" split as the RSS
+  content-block cache); `Controller/ProductFeed/Index.php` (public, unauthenticated) serves it at
+  `/ordo/productfeed/index`; an admin "Refresh Now" link on the dashboard
+  (`Controller/Adminhtml/ProductFeed/RefreshNow.php`) regenerates it synchronously. Config under
+  "Shopping Feed" (enabled/title/description).
 - Ad-audience sync (Google Ads / Meta) — new `ordo_ad_audience` admin CRUD entity (segment +
   platform + external audience id), `Cron\SyncAdAudiences` resolves a segment's real current
   members (`Model\Segment\SegmentMemberResolver`, the same resolver `in_segment`/segment bulk

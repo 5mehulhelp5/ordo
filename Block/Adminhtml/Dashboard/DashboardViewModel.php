@@ -5,8 +5,10 @@ namespace Ordo\Automation\Block\Adminhtml\Dashboard;
 
 use Magento\Framework\Pricing\Helper\Data as PricingHelper;
 use Magento\Framework\View\Element\Block\ArgumentInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Api\Data\CampaignInterface;
 use Ordo\Automation\Api\Data\CampaignTriggerInterface;
+use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\Campaign;
 use Ordo\Automation\Model\CampaignTrigger;
 use Ordo\Automation\Model\LoyaltyTierCalculator;
@@ -74,8 +76,32 @@ class DashboardViewModel implements ArgumentInterface
         private readonly FreeGiftOfferCollectionFactory $freeGiftOfferCollectionFactory,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
         private readonly PricingHelper $pricingHelper,
-        private readonly LoyaltyTierCalculator $loyaltyTierCalculator
+        private readonly LoyaltyTierCalculator $loyaltyTierCalculator,
+        private readonly Config $config,
+        private readonly StoreManagerInterface $storeManager
     ) {
+    }
+
+    public function isShoppingFeedEnabled(): bool
+    {
+        return $this->config->isShoppingFeedEnabled();
+    }
+
+    /**
+     * The real, public URL a shopping-channel platform would be given — built from the store's
+     * own base URL, not a hardcoded frontName guess, so it's correct in every environment
+     * (custom domain, subfolder store, https).
+     */
+    public function getShoppingFeedUrl(): string
+    {
+        try {
+            /** @var \Magento\Store\Model\Store $store getBaseUrl() isn't declared on
+             *  StoreInterface, only the concrete Store model. */
+            $store = $this->storeManager->getStore();
+            return rtrim((string) $store->getBaseUrl(), '/') . '/ordo/productfeed/index';
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     public function formatCurrency(float $amount): string

@@ -70,6 +70,12 @@
         <click selector="#ordo-notification-list button[aria-label='Dismiss']" stepKey="clickDismissButton"/>
         <dontSeeElement selector="#ordo-notification-list div[id^='ordo-notification-']" stepKey="dontSeeNotificationAfterDismiss"/>
 
+        <!-- The dismiss click's own POST is deliberately fire-and-forget (tracker.js removes the
+             element from the DOM immediately, keepalive:true, never awaited) - dontSeeElement
+             above only proves the CLIENT side, not that the server has actually written read_at
+             yet. A short settle wait closes that race before the next step reads the DB directly. -->
+        <wait time="2" stepKey="waitForDismissPostToLand"/>
+
         <!-- Step 4: backdate the now-read row past the 24h grace window, then force
              PruneNotifications to run now (real schedule 04:35 daily, see etc/crontab.xml). -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\NotificationTestHelper" method="backdateReadNotificationForCustomer" stepKey="backdateReadNotification">

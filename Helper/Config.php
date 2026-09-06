@@ -74,6 +74,10 @@ class Config
     private const string XML_PATH_META_ACCESS_TOKEN = 'ordo_automation/ad_audience_sync/meta_access_token';
     private const string XML_PATH_META_AD_ACCOUNT_ID = 'ordo_automation/ad_audience_sync/meta_ad_account_id';
 
+    private const string XML_PATH_SHOPPING_FEED_ENABLED = 'ordo_automation/shopping_feed/enabled';
+    private const string XML_PATH_SHOPPING_FEED_TITLE = 'ordo_automation/shopping_feed/title';
+    private const string XML_PATH_SHOPPING_FEED_DESCRIPTION = 'ordo_automation/shopping_feed/description';
+
     public function __construct(private readonly ScopeConfigInterface $scopeConfig)
     {
     }
@@ -448,6 +452,33 @@ class Config
     {
         return (string) $this->scopeConfig->getValue(
             self::XML_PATH_META_AD_ACCOUNT_ID,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function isShoppingFeedEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_SHOPPING_FEED_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getShoppingFeedTitle(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_SHOPPING_FEED_TITLE,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getShoppingFeedDescription(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_SHOPPING_FEED_DESCRIPTION,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );

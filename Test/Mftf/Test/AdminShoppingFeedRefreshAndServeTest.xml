@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminShoppingFeedRefreshAndServeTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Dynamic content blocks"/>
+            <title value="Admin can refresh the shopping feed, and the public feed URL serves a real product"/>
+            <description value="Closes ROADMAP.md's 'Product feed export to shopping channels' gap - distinct from the existing product_feed content block (renders a small curated HTML grid inside emails/on-site), this is a real, standalone, Google Merchant Center-compatible XML feed file. Model/ProductFeed/GoogleMerchantFeedGenerator.php builds it from the real catalog; Controller/Adminhtml/ProductFeed/RefreshNow.php regenerates the cache synchronously; Controller/ProductFeed/Index.php (public, unauthenticated) serves the cached row. Asserts the real product's SKU/name appear in the served XML, not just that the admin refresh didn't error."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set ordo_automation/shopping_feed/enabled 1" stepKey="enableShoppingFeed"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/shopping_feed/enabled 0" stepKey="disableShoppingFeed"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the real, on-demand admin refresh - synchronous, unlike Cron\RefreshProductFeed's
+             own 6-hour schedule. -->
+        <amOnPage url="admin/ordo/productfeed/refreshnow" stepKey="clickRefreshNow"/>
+        <waitForPageLoad stepKey="waitForRefresh"/>
+        <see selector=".message-success" userInput="Shopping feed refreshed" stepKey="seeRefreshSuccessMessage"/>
+
+        <!-- Step 2: the real, public feed URL - the actual proof this test exists for. A real
+             catalog product's SKU and name must appear in the served XML, not just that the
+             endpoint returns something. -->
+        <!-- seeInPageSource (Codeception's seeInSource), not see() - this response is raw XML,
+             which some browsers render as an interactive DOM tree rather than literal visible
+             text, so a plain text-content assertion can't reliably match it. -->
+        <amOnPage url="ordo/productfeed/index" stepKey="goToPublicFeedUrl"/>
+        <waitForPageLoad stepKey="waitForFeedPage"/>
+        <seeInPageSource userInput="&lt;g:id&gt;$createProduct.sku$&lt;/g:id&gt;" stepKey="seeProductSkuInFeed"/>
+        <seeInPageSource userInput="&lt;title&gt;$createProduct.name$&lt;/title&gt;" stepKey="seeProductNameInFeed"/>
+        <seeInPageSource userInput="xmlns:g=&quot;http://base.google.com/ns/1.0&quot;" stepKey="seeGoogleNamespaceInFeed"/>
+    </test>
+</tests>

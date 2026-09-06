@@ -70,6 +70,13 @@
         <click selector="#ordo-survey-prompt button:nth-of-type(10)" stepKey="clickScoreNine"/>
         <dontSeeElement selector="#ordo-survey-prompt" stepKey="dontSeeSurveyPromptAfterAnswering"/>
 
+        <!-- The answer click's own POST is deliberately fire-and-forget (tracker.js removes the
+             widget from the DOM immediately, keepalive:true, never awaited) - dontSeeElement
+             above only proves the CLIENT side, not that the server has actually written
+             score/responded_at yet. A short settle wait closes that race before the next step
+             reads the DB directly. -->
+        <wait time="2" stepKey="waitForResponsePostToLand"/>
+
         <!-- Step 4: backdate the now-responded row past the 24h grace window, then force
              PruneSurveyPrompts to run now (real schedule 04:40 daily, see etc/crontab.xml). -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\SurveyPromptTestHelper" method="backdateRespondedSurveyPromptForCustomer" stepKey="backdateRespondedSurveyPrompt">

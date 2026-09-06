@@ -296,6 +296,22 @@
                     <comment>Digits only, without the "act_" prefix.</comment>
                 </field>
             </group>
+            <group id="shopping_feed" translate="label" type="text" sortOrder="130" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Shopping Feed</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable Google Merchant Center feed</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Publishes a public, unauthenticated Google Merchant Center-compatible XML feed at "/ordo/productfeed/index", refreshed every 6 hours by Cron\RefreshProductFeed. Distinct from a campaign's "product_feed" content block, which renders a small curated HTML product grid inside emails/on-site, not an exportable feed file.</comment>
+                </field>
+                <field id="title" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Feed Title</label>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="description" translate="label" type="textarea" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Feed Description</label>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+            </group>
         </section>
     </system>
 </config>

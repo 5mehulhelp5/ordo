@@ -34,6 +34,7 @@ class ConfigTest extends TestCase
         self::assertTrue($this->config->isPopupEnabled());
         self::assertTrue($this->config->isNotificationEnabled());
         self::assertTrue($this->config->isNpsSurveyEnabled());
+        self::assertTrue($this->config->isShoppingFeedEnabled());
         self::assertTrue($this->config->isFreeGiftEnabled());
         self::assertTrue($this->config->isCreditLimitCheckoutBlockEnabled());
         self::assertTrue($this->config->isLeadScoringEnabled());
@@ -60,6 +61,31 @@ class ConfigTest extends TestCase
         self::assertSame('', $this->config->getTwilioAccountSid());
         self::assertSame('', $this->config->getTwilioAuthToken());
         self::assertSame('', $this->config->getTwilioFromNumber());
+    }
+
+    public function testAdAudienceAndShoppingFeedGettersDelegateToScopeConfig(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturnMap([
+            ['ordo_automation/ad_audience_sync/google_ads_client_id', 'store', null, 'gid'],
+            ['ordo_automation/ad_audience_sync/google_ads_client_secret', 'store', null, 'gsecret'],
+            ['ordo_automation/ad_audience_sync/google_ads_refresh_token', 'store', null, 'grefresh'],
+            ['ordo_automation/ad_audience_sync/google_ads_developer_token', 'store', null, 'gdev'],
+            ['ordo_automation/ad_audience_sync/google_ads_login_customer_id', 'store', null, '1234567890'],
+            ['ordo_automation/ad_audience_sync/meta_access_token', 'store', null, 'mtoken'],
+            ['ordo_automation/ad_audience_sync/meta_ad_account_id', 'store', null, '9999'],
+            ['ordo_automation/shopping_feed/title', 'store', null, 'My Feed'],
+            ['ordo_automation/shopping_feed/description', 'store', null, 'My Feed Description'],
+        ]);
+
+        self::assertSame('gid', $this->config->getGoogleAdsClientId());
+        self::assertSame('gsecret', $this->config->getGoogleAdsClientSecret());
+        self::assertSame('grefresh', $this->config->getGoogleAdsRefreshToken());
+        self::assertSame('gdev', $this->config->getGoogleAdsDeveloperToken());
+        self::assertSame('1234567890', $this->config->getGoogleAdsLoginCustomerId());
+        self::assertSame('mtoken', $this->config->getMetaAccessToken());
+        self::assertSame('9999', $this->config->getMetaAdAccountId());
+        self::assertSame('My Feed', $this->config->getShoppingFeedTitle());
+        self::assertSame('My Feed Description', $this->config->getShoppingFeedDescription());
     }
 
     public function testIntGettersUseDefaultWhenUnset(): void

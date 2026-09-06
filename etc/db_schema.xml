@@ -548,6 +548,15 @@
                     referenceTable="ordo_content_block" referenceColumn="entity_id" onDelete="CASCADE"/>
     </table>
 
+    <table name="ordo_product_feed_cache" resource="default" engine="innodb" comment="Last successfully generated shopping feed XML, refreshed by Cron\RefreshProductFeed - Controller\ProductFeed\Index serves this cached row on every public request, never generating on demand. One row per feed_code (only google_merchant today, kept per-code rather than a singleton row so a second feed format can be added without a schema change).">
+        <column xsi:type="varchar" name="feed_code" nullable="false" length="32" comment="google_merchant today"/>
+        <column xsi:type="text" name="xml" nullable="false" comment="The full, ready-to-serve feed XML"/>
+        <column xsi:type="int" name="product_count" padding="10" unsigned="true" nullable="false" default="0" comment="How many items the last successful generation produced"/>
+        <column xsi:type="timestamp" name="generated_at" nullable="false" default="CURRENT_TIMESTAMP" comment="When this feed was last successfully generated"/>
+        <column xsi:type="varchar" name="generation_error" nullable="true" length="255" comment="Last generation error message, kept for admin diagnostics even though stale xml is still served"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY"><column name="feed_code"/></constraint>
+    </table>
+
     <table name="ordo_message_log" resource="default" engine="innodb" comment="One row per individual outbound message a campaign action dispatched — deliberately channel-generic (not sms-specific) so a future SendGrid-backed send_email delivery-tracking slice can reuse the same table/webhook shape instead of a second one-off design">
         <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
         <column xsi:type="varchar" name="channel" nullable="false" length="16" comment="Delivery channel: sms today, email reserved for a future SendGrid-backed slice"/>

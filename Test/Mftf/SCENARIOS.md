@@ -6,12 +6,14 @@ jobs — not guessed from memory. Each scenario is marked:
 
 - ✅ **covered** — an existing MFTF test exercises this path end to end (file named).
 - ⬜ **not covered** — a real gap, candidate for a new test.
+- 🔴 **covered but currently failing** — a test exists and used to (or should) pass, but is reproducibly red in
+  real CI right now; see the linked ROADMAP.md note for what's actually wrong.
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅.** Re-audit this against `etc/di.xml`/`Controller/Adminhtml/*`/`etc/events.xml`
-periodically rather than trusting it at face value — add a row (⬜) for anything newly added before considering
-it done.
+**Status: every row below is ✅ except one 🔴 (see §10).** Re-audit this against `etc/di.xml`/
+`Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
+for anything newly added before considering it done.
 
 **Scope, verified against the codebase:**
 
@@ -209,11 +211,12 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | Create a `snippet` content block, resolved by a real `add_dynamic_content` campaign action                              | ✅ `AdminCreateContentBlockSnippetTest` / `AdminCampaignDynamicContentSnippetActionTest`                                         |
 | `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                                  | ✅ `AdminContentBlockRssTest`                                                                                                    |
 | `product_feed` content block type, `source: category` (`CategoryProductLister`) or `source: rule` (`RuleProductLister`) | ✅ `AdminContentBlockProductFeedTest` (`source: rule`) and `AdminContentBlockProductFeedCategorySourceTest` (`source: category`) |
-| `recommendations` content block type (`Model/ContentBlock/Producer/RecommendationProducer.php`)                        | ✅ `AdminContentBlockRecommendationsOnSiteTest`                                                                                  |
+| `recommendations` content block type (`Model/ContentBlock/Producer/RecommendationProducer.php`)                        | 🔴 `AdminContentBlockRecommendationsOnSiteTest` — currently failing in real CI, see ROADMAP.md's own note                                                                                  |
 | `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                               | ✅ `AdminContentBlockRssTest`                                                                                                    |
 | Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                                    | ✅ `AdminContentBlockRssTest`                                                                                                    |
-| A content block rendered directly on-site (not via a campaign action) — `Block/Frontend/ContentBlock/Render.php`, registered as a real Magento widget (`etc/widget.xml`) and embedded in a real CMS page via the `{{widget}}` directive, for an anonymous visitor | ✅ `AdminContentBlockRecommendationsOnSiteTest` |
+| A content block rendered directly on-site (not via a campaign action) — `Block/Frontend/ContentBlock/Render.php`, registered as a real Magento widget (`etc/widget.xml`) and embedded in a real CMS page via the `{{widget}}` directive, for an anonymous visitor | 🔴 `AdminContentBlockRecommendationsOnSiteTest` — currently failing in real CI, see ROADMAP.md's own note |
 | Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row                | ✅ `AdminMessageLogGridReflectsRealDataTest`                                                                                     |
+| Standalone Google Merchant Center shopping feed (`Model/ProductFeed/`, distinct from the `product_feed` content block) — admin refresh + public feed URL serves a real product | ✅ `AdminShoppingFeedRefreshAndServeTest`                                                       |
 
 ## 11. Cron jobs not otherwise covered above
 
