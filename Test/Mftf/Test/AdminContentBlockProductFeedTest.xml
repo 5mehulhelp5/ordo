@@ -41,9 +41,15 @@
         <selectOption selector="[name='source']" userInput="rule" stepKey="selectRuleSource"/>
         <waitForElementVisible selector="[name='rule_id']" stepKey="waitForRuleIdField"/>
         <fillField selector="[name='rule_id']" userInput="$createRule.rule_id$" stepKey="fillRuleId"/>
-        <fillField selector="[name='item_count']" userInput="4" stepKey="fillItemCount"/>
+        <!-- item_count is deliberately left at its own default (4) rather than filled here:
+             this field and rss_item_count share the same underlying dataScope (see
+             ordo_contentblock_form.xml), so a plain [name='item_count'] selector can't reliably
+             distinguish which of the two DOM nodes is the currently-visible one to fill - and
+             this test doesn't assert on the exact count, only that the one real product shows up. -->
 
-        <click selector="#save" stepKey="clickSaveContentBlock"/>
+        <!-- "Save & Continue Edit" (not plain "Save", which redirects to the grid with no
+             entity_id in the URL for grabFromCurrentUrl to capture). -->
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveContentBlock"/>
         <waitForPageLoad stepKey="waitForContentBlockSave"/>
         <see selector=".message-success" userInput="The content block has been saved." stepKey="seeContentBlockSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>

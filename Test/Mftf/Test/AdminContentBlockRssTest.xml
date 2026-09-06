@@ -30,9 +30,15 @@
         <selectOption selector="[name='type']" userInput="rss" stepKey="selectRssType"/>
         <waitForElementVisible selector="[name='feed_url']" stepKey="waitForFeedUrlField"/>
         <fillField selector="[name='feed_url']" userInput="https://raw.githubusercontent.com/michalper/ordo/main/Test/Mftf/Fixture/rss_test_feed.xml" stepKey="fillFeedUrl"/>
-        <fillField selector="[name='item_count']" userInput="5" stepKey="fillItemCount"/>
+        <!-- item_count is deliberately left at its own default (5, more than the fixture's 2
+             items) rather than filled here: product_feed_item_count and this field
+             (rss_item_count) share the same underlying dataScope (see ordo_contentblock_form.xml),
+             so a plain [name='item_count'] selector can't reliably distinguish which of the two
+             DOM nodes is the currently-visible one to fill. -->
 
-        <click selector="#save" stepKey="clickSave"/>
+        <!-- "Save & Continue Edit" (not plain "Save", which redirects to the grid with no
+             entity_id in the URL for grabFromCurrentUrl to capture). -->
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The content block has been saved." stepKey="seeSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabContentBlockId"/>
