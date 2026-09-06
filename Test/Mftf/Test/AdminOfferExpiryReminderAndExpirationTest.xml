@@ -47,11 +47,16 @@
 
         <!-- Step 2: the real, merchant-visible output only the exact-match "expires today" offer
              could have produced. -->
-        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeOfferReferenceInEmail">
+        <!-- seeTextInAnyRecentEmail, not seeTextInLatestEmail: these are two independent MailHog
+             lookups against the same address, each fetching whatever is "latest" at that exact
+             moment - if anything else emails this customer between the two calls, "latest" could
+             point at a different message for the second check even though the first one found
+             the real offer-expiry email correctly. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInAnyRecentEmail" stepKey="seeOfferReferenceInEmail">
             <argument name="expectedText">OFR-EXPIRING-TEST</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
-        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeExpiresSoonCopyInEmail">
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInAnyRecentEmail" stepKey="seeExpiresSoonCopyInEmail">
             <argument name="expectedText">expires soon</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
         </helper>
