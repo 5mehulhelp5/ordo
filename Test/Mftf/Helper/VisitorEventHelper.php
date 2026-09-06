@@ -272,4 +272,47 @@ class VisitorEventHelper extends Helper
             ));
         }
     }
+
+    /**
+     * Negative counterpart to assertEventLogged() above — confirms a real ordo_visitor_event row
+     * is genuinely gone, for Cron\PruneVisitorEvents. Same out-of-band PDO pattern.
+     *
+     * @throws \RuntimeException if a matching row still exists
+     */
+    public function assertVisitorEventNotLogged(
+        string $visitorId,
+        string $eventType,
+        string $eventKey = '',
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $sql = 'SELECT COUNT(*) FROM ordo_visitor_event WHERE visitor_id = :visitor_id AND event_type = :event_type';
+        $params = ['visitor_id' => $visitorId, 'event_type' => $eventType];
+        if ($eventKey !== '') {
+            $sql .= ' AND event_key = :event_key';
+            $params['event_key'] = $eventKey;
+        }
+
+        $statement = $pdo->prepare($sql);
+        $statement->execute($params);
+        $count = (int) $statement->fetchColumn();
+
+        if ($count > 0) {
+            throw new \RuntimeException(sprintf(
+                'Unexpected ordo_visitor_event row still found for visitor_id="%s" event_type="%s"%s.',
+                $visitorId,
+                $eventType,
+                $eventKey !== '' ? sprintf(' event_key="%s"', $eventKey) : ''
+            ));
+        }
+    }
 }

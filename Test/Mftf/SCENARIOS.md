@@ -167,12 +167,12 @@ through. `Controller/Offer/*` (self-extend,
 | `product_view` event posted and persisted (scripted stand-in for a theme PDP hook)                                                    | ✅ `StorefrontTrackerPostsEventsTest`               |
 | `category_view` event posted and persisted                                                                                            | ✅ `StorefrontTrackerCategoryViewEventTest`         |
 | `element_clicked` event posted and persisted (popup-targeting click threshold)                                                        | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest` |
-| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                           | ⬜                                                  |
+| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                           | ✅ `StorefrontTrackerViewThresholdTagsVisitorTest` |
 | Click-threshold crossing (default 1) tags the visitor via `element_clicked`                                                           | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest` |
 | A campaign's `popup` action writes a pending popup, storefront poll (`Controller/Track/Popup.php`) picks it up and renders the banner | ✅ `AdminCampaignPopupActionTest`                   |
 | Popup dismissed / closed client-side, doesn't reappear on next poll                                                                   | ✅ `AdminCampaignPopupClaimedOnceTest`             |
-| `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                       | ⬜                                                  |
-| `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ⬜                                                  |
+| `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                       | ✅ `AdminPrunePendingPopupsTest` (delivered half only — expired-undelivered half is dead code in production, nothing ever sets `expires_at`) |
+| `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ✅ `StorefrontPruneVisitorEventsTest` |
 | Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                       | ✅ `StorefrontTrackingDisabledConfigTest`          |
 
 ## 8. Reorder cycles (`Model/ReorderCycle.php`, `Cron/CalculateReorderCycle.php`, `Cron/SendReorderReminders.php`)

@@ -81,8 +81,12 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   follows the approve/reject link, leaving the approval genuinely pending; `ordo_automation/order_approval/
   escalation_days` set to 0 (real default 2) so it's already stale, `CronScheduleHelper` forces the cron to run
   now. "No spend limit / no approval email configured → never held" is still unit-tested only.
-- **Tracking & popups** (§7): view-threshold crossing tagging the visitor (chaining into `visitor_tag_added`,
-  §1a) isn't covered; neither is `Cron\PrunePendingPopups` or `Cron\PruneVisitorEvents`.
+- ~~Tracking & popups (§7): view-threshold crossing, `Cron\PrunePendingPopups`, `Cron\PruneVisitorEvents`~~ — done.
+  `StorefrontTrackerViewThresholdTagsVisitorTest` (same mechanism as the existing click-threshold test, the
+  `viewed_TYPE_KEY` tag shape instead of `clicked_X`), `AdminPrunePendingPopupsTest` (new
+  `PendingPopupTestHelper` backdates a real delivered popup past the 24h grace window — the
+  expired-undelivered half is dead code in production, nothing ever sets `expires_at`, so only
+  the delivered half is meaningfully testable), `StorefrontPruneVisitorEventsTest`.
 - ~~Reorder cycles (§8): `Cron\CalculateReorderCycle`, `Cron\SendReorderReminders`~~ — done.
   `AdminReorderCycleAndReminderTest`: three real storefront checkouts of the same SKU (
   `CalculateReorderCycle` requires >= 3 real orders and explicitly skips same-day repeats), backdated

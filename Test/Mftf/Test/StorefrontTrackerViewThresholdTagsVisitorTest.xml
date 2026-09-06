@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontTrackerViewThresholdTagsVisitorTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="On-site behavior tracking"/>
+            <title value="Crossing the view threshold for product_view events actually tags the anonymous visitor"/>
+            <description value="Same mechanism as StorefrontTrackerClickThresholdTagsVisitorTest, the VIEW-event half of the same gap (see SCENARIOS.md §7): view events use VisitorAggregator::VIEW_EVENT_TYPES' default tag shape 'viewed_&lt;event_type&gt;_&lt;event_key&gt;' (not the 'clicked_X' shape click events get), and default view_threshold is 3 (Helper/Config::getTrackingViewThreshold(), XML path ordo_automation/tracking/view_threshold) - not 1 like clicks - so this fires the same product_view call three times before running the real 'ordo.automation.visitor.aggregate' consumer and asserting the resulting ordo_visitor_tag row directly."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="tracking"/>
+        </annotations>
+
+        <!-- Step 1: a real anonymous visitor_id cookie, same as every other tracker.js-driven
+             test. -->
+        <amOnPage url="/" stepKey="goToStorefrontHome"/>
+        <waitForPageLoad stepKey="waitForHomePage"/>
+        <wait time="1" stepKey="waitForCookieToBeSet"/>
+        <grabCookie userInput="ordo_visitor_id" stepKey="grabVisitorId"/>
+
+        <!-- Step 2: three product_view calls for the SAME event_key - the default view_threshold
+             (3) must genuinely be crossed, not just touched once. Same scripted stand-in as the
+             click-threshold test: no theme wiring calls window.ordoTrack('product_view', ...)
+             automatically. -->
+        <executeJS function="window.ordoTrack('product_view', 'view-threshold-test-sku')" stepKey="callOrdoTrackForProductView1"/>
+        <executeJS function="window.ordoTrack('product_view', 'view-threshold-test-sku')" stepKey="callOrdoTrackForProductView2"/>
+        <executeJS function="window.ordoTrack('product_view', 'view-threshold-test-sku')" stepKey="callOrdoTrackForProductView3"/>
+        <wait time="2" stepKey="waitForViewEventsToLand"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertViewEventLogged">
+            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="eventType">product_view</argument>
+            <argument name="eventKey">view-threshold-test-sku</argument>
+        </helper>
+
+        <!-- Step 3: aggregation is async - run the real consumer directly, same over-ask
+             reasoning as StorefrontTrackerClickThresholdTagsVisitorTest (tracker.js's automatic
+             page_view on every load leaves plenty of unrelated messages queued ahead of ours in
+             this same tracking-group CI job). -->
+        <magentoCLI command="queue:consumers:start ordo.automation.visitor.aggregate --max-messages=50" stepKey="runVisitorAggregationConsumer"/>
+
+        <!-- Step 4: the real, DB-observable effect only a genuinely-crossed view threshold could
+             have produced - VisitorAggregator::buildTag()'s 'viewed_<event_type>_<event_key>'
+             shape, distinct from the 'clicked_X' shape click events get. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorTagAdded" stepKey="assertViewTagAdded">
+            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="tag">viewed_product_view_view-threshold-test-sku</argument>
+        </helper>
+    </test>
+</tests>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontPruneVisitorEventsTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="On-site behavior tracking"/>
+            <title value="Cron\PruneVisitorEvents deletes a real, genuinely-past-retention visitor event"/>
+            <description value="Closes the last of §7's two prune-cron gaps in SCENARIOS.md. A real event is logged the normal way (window.ordoTrack(), same as every other tracker.js-driven test), then ordo_automation/tracking/retention_days is set to 0 (real default 7) so the event - logged moments ago - already counts as past retention the instant the cron runs (real schedule 04:00 daily, see etc/crontab.xml, forced via CronScheduleHelper). Asserts the row is genuinely gone via VisitorEventHelper::assertVisitorEventNotLogged(), not just that the cron didn't throw."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <!-- Restored to the real default (7) in <after> so it doesn't linger for whatever
+                 other tracking-group test runs next in this same install and logs an event of
+                 its own. -->
+            <magentoCLI command="config:set ordo_automation/tracking/retention_days 0" stepKey="setRetentionDaysToZero"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/tracking/retention_days 7" stepKey="restoreRetentionDaysDefault"/>
+        </after>
+
+        <!-- Step 1: a real anonymous visitor_id cookie and a real logged event - same mechanism
+             as StorefrontTrackerClickThresholdTagsVisitorTest. -->
+        <amOnPage url="/" stepKey="goToStorefrontHome"/>
+        <waitForPageLoad stepKey="waitForHomePage"/>
+        <wait time="1" stepKey="waitForCookieToBeSet"/>
+        <grabCookie userInput="ordo_visitor_id" stepKey="grabVisitorId"/>
+
+        <executeJS function="window.ordoTrack('element_clicked', 'prune-visitor-events-test-key')" stepKey="callOrdoTrackForElementClick"/>
+        <wait time="2" stepKey="waitForClickEventToLand"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertEventLoggedBeforePrune">
+            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="eventType">element_clicked</argument>
+            <argument name="eventKey">prune-visitor-events-test-key</argument>
+        </helper>
+
+        <!-- Step 2: force PruneVisitorEvents to run now - its real schedule is 04:00 daily
+             (etc/crontab.xml), which a CI run can't wait out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="schedulePruneVisitorEventsJob">
+            <argument name="jobCode">ordo_automation_prune_visitor_events</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runPruneVisitorEventsCron"/>
+
+        <!-- Step 3: the real, database-observable negative only a genuine deletion could have
+             produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorEventNotLogged" stepKey="assertEventPrunedAfterCron">
+            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="eventType">element_clicked</argument>
+            <argument name="eventKey">prune-visitor-events-test-key</argument>
+        </helper>
+    </test>
+</tests>
