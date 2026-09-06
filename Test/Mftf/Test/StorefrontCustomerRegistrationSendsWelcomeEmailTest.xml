@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontCustomerRegistrationSendsWelcomeEmailTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Lifecycle emails"/>
+            <title value="A real storefront customer registration tags the customer and sends a real welcome email, independent of the customer_registered campaign trigger"/>
+            <description value="Closes a real gap: Observer/SendWelcomeEmail.php also fires on the native customer_register_success event (same event AdminCampaignCustomerRegisteredTriggerTest already proves for the CAMPAIGN trigger side), but it's a separate, always-on lifecycle observer with its own tag (TAG_NEW_CUSTOMER = 'new_customer') and its own template (ordo_welcome_email/welcome_email.html), gated only by Helper\Config::isLifecycleEmailsEnabled() - never mentioned anywhere in SCENARIOS.md and never exercised end to end before this. Reuses the exact same registration mechanics as AdminCampaignCustomerRegisteredTriggerTest (Magento's own SignUpNewUserFromStorefrontActionGroup against customer/account/create - createData's POST /V1/customers never dispatches customer_register_success at all), but asserts the tag AND the real delivered email, with no campaign involved."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="lifecycle"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real anonymous storefront visitor registers via Magento's own real
+             registration form - the only path that dispatches customer_register_success (see
+             AdminCampaignCustomerRegisteredTriggerTest's own note on why createData can't be used
+             here). No campaign involved this time - SendWelcomeEmail is a plain observer, not
+             something a campaign wires up. -->
+        <actionGroup ref="SignUpNewUserFromStorefrontActionGroup" stepKey="registerCustomerFromStorefront">
+            <argument name="Customer" value="CustomerEntityOne"/>
+        </actionGroup>
+
+        <!-- Step 2: the real, DB-observable tag SendWelcomeEmail itself applies - not the
+             'new-registrant' tag AdminCampaignCustomerRegisteredTriggerTest's own campaign adds,
+             a completely separate 'new_customer' tag from this always-on observer, proving this
+             ran independent of any campaign existing at all. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertCustomerTagAddedByEmail" stepKey="assertNewCustomerTagAdded">
+            <argument name="email">{{CustomerEntityOne.email}}</argument>
+            <argument name="tag">new_customer</argument>
+        </helper>
+
+        <!-- Step 3: the real welcome email itself - welcome_email.html's own greeting line,
+             which only a real TransportBuilder send from inside SendWelcomeEmail could have
+             delivered to this exact address. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeWelcomeEmailGreeting">
+            <argument name="expectedText">Thanks for creating an account</argument>
+            <argument name="toAddress">{{CustomerEntityOne.email}}</argument>
+        </helper>
+    </test>
+</tests>

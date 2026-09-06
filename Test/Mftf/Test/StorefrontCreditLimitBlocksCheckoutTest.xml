@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontCreditLimitBlocksCheckoutTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Credit limit"/>
+            <title value="A customer already over their credit limit is blocked from placing a second real order at checkout"/>
+            <description value="Closes a real gap SCENARIOS.md's own scope-check got wrong: it claims credit limit 'has no storefront UI at all', but Plugin/Quote/BlockOverLimitCheckout.php is a real, storefront-visible checkout failure - a before-plugin on CartManagementInterface::placeOrder() that hard-throws once CreditLimitCalculator::getUtilizationPercent() reaches 100%, independent of the REST API and of SendCreditLimitAlerts' own cron-driven email (already covered by AdminSendCreditLimitAlertTest). Only unit-tested before this (Test/Unit/Plugin/Quote/BlockOverLimitCheckoutTest.php) - never proven against a real checkout. A real low credit limit, a first real order that itself pushes utilization over 100% (its own unpaid total_due IS the 'used credit', no separate ledger), then a second real checkout attempt that must fail with the plugin's own error text instead of reaching the success page."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="lifecycle"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set ordo_automation/credit_limit/block_checkout_enabled 1" stepKey="enableCreditLimitBlock"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/credit_limit/block_checkout_enabled 0" stepKey="disableCreditLimitBlock"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real, low credit limit - same admin form field/tab as AdminSendCreditLimitAlertTest.
+             SimpleProduct2's fixture price (123.00) comfortably exceeds it once the FIRST order is
+             placed (utilization was still 0% at that moment, so it goes through normally). -->
+        <amOnPage url="{{AdminEditCustomerPage.url($$createCustomer.id$$)}}" stepKey="goToCustomerEditPage"/>
+        <waitForPageLoad stepKey="waitForCustomerEditPage"/>
+        <actionGroup ref="AdminOpenAccountInformationTabFromCustomerEditPageActionGroup" stepKey="openAccountInformationTab"/>
+        <waitForElementVisible selector="[name='customer[ordo_credit_limit]']" stepKey="waitForCreditLimitField"/>
+        <fillField selector="[name='customer[ordo_credit_limit]']" userInput="50" stepKey="fillCreditLimit"/>
+        <click selector="{{AdminCustomerMainActionsSection.saveButton}}" stepKey="saveCustomer"/>
+        <see selector="{{AdminCustomerMessagesSection.successMessage}}" userInput="You saved the customer" stepKey="seeCustomerSavedMessage"/>
+
+        <!-- Step 2: the FIRST real order - placed normally, since the plugin only checks
+             utilization as it stands BEFORE this order (0%, nothing on the account yet). Its own
+             total_due (unpaid, no invoice) becomes the "used credit" for every check from here on. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageFirstOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageFirstOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartFirstOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartFirstOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageFirstOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+
+        <!-- Step 3: the SECOND real checkout attempt - utilization is now 123.00/50.00 = 246%,
+             well past the plugin's >= 100% threshold, so this one must be blocked before the
+             order is ever created. Built manually (not PlaceOrderWithLoggedUserActionGroup,
+             which asserts the SUCCESS page) since the point here is the FAILURE path. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageSecondOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageSecondOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartSecondOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartSecondOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageSecondOrder"/>
+        <waitForLoadingMaskToDisappear stepKey="waitForCartTotalsLoaded"/>
+        <waitForElementVisible selector="{{CheckoutCartSummarySection.proceedToCheckout}}" stepKey="waitProceedToCheckout"/>
+        <click selector="{{CheckoutCartSummarySection.proceedToCheckout}}" stepKey="clickProceedToCheckout"/>
+        <click selector="{{CheckoutShippingMethodsSection.checkShippingMethodByName('')}}" stepKey="selectShippingMethod"/>
+        <waitForElement selector="{{CheckoutShippingSection.next}}" stepKey="waitForNextButton"/>
+        <click selector="{{CheckoutShippingSection.next}}" stepKey="clickNext"/>
+        <waitForElement selector="{{CheckoutPaymentSection.paymentSectionTitle}}" stepKey="waitForPaymentSectionLoaded"/>
+        <waitForElementVisible selector="{{CheckoutPaymentSection.placeOrder}}" stepKey="waitForPlaceOrderButton"/>
+        <click selector="{{CheckoutPaymentSection.placeOrder}}" stepKey="clickPlaceOrder"/>
+
+        <!-- Step 4: the actual proof - the plugin's OWN error text, which only a real
+             beforePlaceOrder() throw could have surfaced here, and the checkout page NOT
+             advancing to the success page. -->
+        <waitForElementVisible selector="{{CheckoutPaymentSection.errormessage}}" stepKey="waitForCheckoutError"/>
+        <see selector="{{CheckoutPaymentSection.errormessage}}" userInput="reached its credit limit" stepKey="seeCreditLimitErrorMessage"/>
+        <dontSeeElement selector="{{CheckoutSuccessMainSection.successTitle}}" stepKey="dontSeeSuccessPage"/>
+    </test>
+</tests>

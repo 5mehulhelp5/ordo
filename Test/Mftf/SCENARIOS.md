@@ -10,10 +10,12 @@ jobs — not guessed from memory. Each scenario is marked:
 Cross-reference: `Test/Mftf/README.md` for what already passed and why; `ROADMAP.md`'s
 "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅.** No ⬜ rows remain as of the `AdminCampaignUnknownActionTypeFailsClosedTest` /
-`AdminContentBlockProductFeedCategorySourceTest` pass — this document is kept going forward so any newly added
-trigger/condition/action/controller/cron gets a row added here (⬜) before it's considered done, not as an
-open-gap tracker right now.
+**Status: every row below is ✅.** A later independent re-audit against the actual code (not against this
+document's own prior claims) found 3 more real gaps this document had missed entirely — `Plugin/Quote/
+BlockOverLimitCheckout.php`, `Observer/SendWelcomeEmail.php`, `Observer/StitchVisitorIdentity.php` — now closed
+(§12, §7). This document is kept going forward so any newly added trigger/condition/action/controller/cron/
+observer/plugin gets a row added here (⬜) before it's considered done, not as an open-gap tracker right now —
+and is worth re-auditing against code periodically rather than trusted at face value, per this exact miss.
 
 **Scope check, done against the actual codebase, not memory** — asked directly: do we have every API endpoint, every
 admin form/grid, every real MA scenario, the whole module? Verified:
@@ -37,9 +39,9 @@ admin form/grid, every real MA scenario, the whole module? Verified:
   added to §5.
 - **Credit limit** (`Model/CreditLimitCalculator.php`, `Model/CreditLimitStatus.php`,
   `/V1/ordo/credit-limit/*`) has a REST API (covered by `Test/Api/CreditLimitApiTest.php`) and a cron-driven warning
-  email, but **no storefront UI at all** — confirmed by grepping
-  `view/frontend/` for any credit-limit block/template and finding only the email. Correctly out of this MFTF document's
-  scope (there's no browser page to drive); not a documentation gap.
+  email. This document previously claimed "no storefront UI at all" — **wrong**, caught during a later re-audit:
+  `Plugin/Quote/BlockOverLimitCheckout.php` is a real, browser-visible checkout failure (a `beforePlaceOrder` plugin
+  throwing a `LocalizedException` once utilization reaches 100%), independent of the email/REST surfaces. Now in §12.
 
 ## 1. Campaign engine
 
@@ -187,6 +189,7 @@ through. `Controller/Offer/*` (self-extend,
 | `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                       | ✅ `AdminPrunePendingPopupsTest` (delivered half only — expired-undelivered half is dead code in production, nothing ever sets `expires_at`) |
 | `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ✅ `StorefrontPruneVisitorEventsTest`                                                                                                        |
 | Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                       | ✅ `StorefrontTrackingDisabledConfigTest`                                                                                                    |
+| `Observer/StitchVisitorIdentity.php` — pre-login anonymous events attributed to the customer on login, still counting toward a threshold crossed after login | ✅ `StorefrontVisitorIdentityStitchedOnLoginTest`                                                                            |
 
 ## 8. Reorder cycles (`Model/ReorderCycle.php`, `Cron/CalculateReorderCycle.php`, `Cron/SendReorderReminders.php`)
 
@@ -237,6 +240,17 @@ inserts a `cron_schedule` row directly (status `pending`, `scheduled_at` = now) 
 re-validates the job's schedule at execution time. Same idea as `AdminCampaignDelayedActionTest`'s
 `ordo_campaign_scheduled_action` row, just against Magento's own cron table instead of this
 module's.
+
+## 12. Lifecycle & identity events not otherwise covered above
+
+Caught during a later re-audit against code directly (not against this document's own prior claims) — see the
+corrected scope-check note at the top of this file for the credit-limit row, which this document previously and
+wrongly said had no storefront surface at all.
+
+| Scenario                                                                                                          | Status                                             |
+|--------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| `Plugin/Quote/BlockOverLimitCheckout.php` — real checkout blocked once credit utilization reaches 100%             | ✅ `StorefrontCreditLimitBlocksCheckoutTest`       |
+| `Observer/SendWelcomeEmail.php` — new-customer tag + welcome email on `customer_register_success`, independent of any `customer_registered` campaign | ✅ `StorefrontCustomerRegistrationSendsWelcomeEmailTest` |
 
 ## Suggested next batch (highest signal per test written)
 

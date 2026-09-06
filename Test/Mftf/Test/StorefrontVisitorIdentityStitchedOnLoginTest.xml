@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="StorefrontVisitorIdentityStitchedOnLoginTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="On-site behavior tracking"/>
+            <title value="Pre-login anonymous events are attributed to the customer on login and still count toward a threshold crossed after login"/>
+            <description value="Closes a real gap: StorefrontTrackerViewThresholdTagsVisitorTest already proves view-threshold crossing purely anonymously, and other tests prove it purely as an already-logged-in customer, but neither exercises Observer/StitchVisitorIdentity.php - the identity-merge path for someone who browses anonymously, THEN logs in, where a threshold is only crossed by combining events from both halves of the session. On customer_login, StitchVisitorIdentity reads the real ordo_visitor_id cookie and calls VisitorEventLogger::attributeVisitorToCustomer(), which backfills the anonymous events' customer_id (previously NULL) and republishes an aggregation check for the customer - proving that a threshold-adjacent anonymous browsing history is not silently lost at login. Two product_view events fired anonymously (below the default view_threshold of 3), then login, then a third product_view as the now-identified customer - VisitorAggregator::aggregateForCustomer() only crosses 3 once the stitched-in anonymous two are counted alongside the new one, which is the actual proof this ran, not just that tagging works at all."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="tracking"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="_defaultCategory" stepKey="createCategory"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <createData entity="AssignProductToCategory" stepKey="assignProductToCategory">
+                <requiredEntity createDataKey="createCategory"/>
+                <requiredEntity createDataKey="createProduct"/>
+            </createData>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createCategory" stepKey="deleteCategory"/>
+        </after>
+
+        <!-- Step 1: browse the real product page ANONYMOUSLY (no login yet) and fire product_view
+             TWICE via the same scripted stand-in StorefrontTrackerPostsEventsTest uses (tracker.js
+             does no automatic page-type detection on a PDP) - deliberately one short of the
+             default view_threshold (3), so these two events alone could never cross it on their
+             own, anonymously or otherwise. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageAnonymousFirstView"/>
+        <waitForPageLoad stepKey="waitForProductPageAnonymousFirstView"/>
+        <wait time="1" stepKey="waitForCookieToBeSet"/>
+        <grabCookie userInput="ordo_visitor_id" stepKey="grabVisitorId"/>
+        <executeJS function="window.ordoTrack('product_view', '$createProduct.id$')" stepKey="callOrdoTrackFirstAnonymousView"/>
+        <wait time="1" stepKey="waitForFirstEventToLand"/>
+
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageAnonymousSecondView"/>
+        <waitForPageLoad stepKey="waitForProductPageAnonymousSecondView"/>
+        <executeJS function="window.ordoTrack('product_view', '$createProduct.id$')" stepKey="callOrdoTrackSecondAnonymousView"/>
+        <wait time="1" stepKey="waitForSecondEventToLand"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertBothAnonymousEventsLogged">
+            <argument name="visitorId">{$grabVisitorId}</argument>
+            <argument name="eventType">product_view</argument>
+            <argument name="eventKey">$createProduct.id$</argument>
+        </helper>
+
+        <!-- Step 2: log in AS the real customer, in the SAME browser session, so the real
+             ordo_visitor_id cookie set above is still present for StitchVisitorIdentity to read
+             on the native customer_login event. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+
+        <!-- Step 3: a THIRD product_view, now genuinely logged in - Controller/Track/Event.php
+             resolves customer_id straight from the session for this one, no stitching needed for
+             it specifically. This is the event that only crosses the threshold if StitchVisitorIdentity
+             already backfilled the first two onto this same customer_id. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageLoggedInView"/>
+        <waitForPageLoad stepKey="waitForProductPageLoggedInView"/>
+        <executeJS function="window.ordoTrack('product_view', '$createProduct.id$')" stepKey="callOrdoTrackLoggedInView"/>
+        <wait time="1" stepKey="waitForLoggedInEventToLand"/>
+
+        <!-- Step 4: run the real visitor-aggregation consumer - this is where
+             VisitorAggregator::aggregateForCustomer() actually counts all 3 now-customer_id-tagged
+             rows and, only because the count reaches 3, calls CustomerTagManager::addTag(). -->
+        <magentoCLI command="queue:consumers:start ordo.automation.visitor.aggregate --max-messages=50" stepKey="runVisitorAggregationConsumer"/>
+
+        <!-- Step 5: the actual proof - the real ordo_customer_tag row, keyed to the customer this
+             module attributed the anonymous browsing to, which could only exist if the two
+             pre-login events were successfully stitched onto this customer_id before aggregation
+             ran; two views alone (anonymous OR post-login) can never reach the threshold of 3. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertCustomerTagAddedByEmail" stepKey="assertViewThresholdTagAdded">
+            <argument name="email">$createCustomer.email$</argument>
+            <argument name="tag">viewed_product_view_$createProduct.id$</argument>
+        </helper>
+    </test>
+</tests>
