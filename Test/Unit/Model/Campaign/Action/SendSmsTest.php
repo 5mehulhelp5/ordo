@@ -154,6 +154,19 @@ class SendSmsTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteLogsErrorAndRecordsFailedWhenPhoneIsNotValidE164(): void
+    {
+        $this->customerRepository->method('getById')->willReturn($this->customerWithPhone('0123456789'));
+        $this->smsSender->expects(self::never())->method('send');
+        $this->logger->expects(self::once())->method('error');
+        $this->messageLogWriter->expects(self::once())->method('recordFailed')
+            ->with('sms', 42, '0123456789');
+
+        $context = ['customer_id' => 42];
+        $this->makeAction()->execute($context, ['message' => 'hello']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testExecuteLogsErrorWhenMessageMissing(): void
     {
         $this->customerRepository->method('getById')->willReturn($this->customerWithPhone('+15551234567'));
