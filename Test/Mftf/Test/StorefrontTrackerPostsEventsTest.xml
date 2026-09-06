@@ -27,7 +27,7 @@
         <grabCookie userInput="ordo_visitor_id" stepKey="grabVisitorId"/>
         <wait time="2" stepKey="waitForPageViewEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertPageViewLogged">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="eventType">page_view</argument>
         </helper>
 
@@ -39,7 +39,7 @@
         <executeJS function="window.ordoTrack('product_view', '$createProduct.sku$')" stepKey="callOrdoTrackForProductView"/>
         <wait time="2" stepKey="waitForProductViewEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertProductViewLogged">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="eventType">product_view</argument>
             <argument name="eventKey">$createProduct.sku$</argument>
         </helper>

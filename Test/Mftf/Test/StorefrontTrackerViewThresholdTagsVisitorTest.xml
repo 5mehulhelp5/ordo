@@ -28,7 +28,7 @@
         <executeJS function="window.ordoTrack('product_view', 'view-threshold-test-sku')" stepKey="callOrdoTrackForProductView3"/>
         <wait time="2" stepKey="waitForViewEventsToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertViewEventLogged">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="eventType">product_view</argument>
             <argument name="eventKey">view-threshold-test-sku</argument>
         </helper>
@@ -43,7 +43,7 @@
              have produced - VisitorAggregator::buildTag()'s 'viewed_<event_type>_<event_key>'
              shape, distinct from the 'clicked_X' shape click events get. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorTagAdded" stepKey="assertViewTagAdded">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="tag">viewed_product_view_view-threshold-test-sku</argument>
         </helper>
     </test>

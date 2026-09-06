@@ -52,7 +52,7 @@
              could have produced - both test items' titles, rendered as real HTML, not "no
              exception was thrown" from a mocked fetch. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="assertRssCacheContains" stepKey="assertCacheAfterButtonRefresh">
-            <argument name="contentBlockId">"{$grabContentBlockId}"</argument>
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
             <argument name="expectedText">ORDO-RSS-TEST-ITEM-ONE</argument>
         </helper>
 
@@ -61,7 +61,7 @@
              the button click above - then force the cron to run now (real schedule every 30
              minutes, see etc/crontab.xml, which a CI run can't wait out). -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="deleteRssCache" stepKey="deleteRssCacheBeforeCronTest">
-            <argument name="contentBlockId">"{$grabContentBlockId}"</argument>
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
         </helper>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleRefreshRssContentBlocksJob">
             <argument name="jobCode">ordo_automation_refresh_rss_content_blocks</argument>
@@ -70,7 +70,7 @@
 
         <!-- Step 5: the cron independently re-fetched and re-rendered the same real feed. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\RssCacheTestHelper" method="assertRssCacheContains" stepKey="assertCacheAfterCronRefresh">
-            <argument name="contentBlockId">"{$grabContentBlockId}"</argument>
+            <argument name="contentBlockId">{$grabContentBlockId}</argument>
             <argument name="expectedText">ORDO-RSS-TEST-ITEM-TWO</argument>
         </helper>
 

@@ -29,7 +29,7 @@
         <executeJS function="window.ordoTrack('element_clicked', 'hero-cta-button')" stepKey="callOrdoTrackForElementClick"/>
         <wait time="2" stepKey="waitForClickEventToLand"/>
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertEventLogged" stepKey="assertClickEventLogged">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="eventType">element_clicked</argument>
             <argument name="eventKey">hero-cta-button</argument>
         </helper>
@@ -59,7 +59,7 @@
              chains into. This is the assertion that actually proves the threshold-crossing ->
              tagging mechanism this scenario is about, not just that the click event was logged. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertVisitorTagAdded" stepKey="assertClickTagAdded">
-            <argument name="visitorId">"{$grabVisitorId}"</argument>
+            <argument name="visitorId">{$grabVisitorId}</argument>
             <argument name="tag">clicked_hero-cta-button</argument>
         </helper>
     </test>
