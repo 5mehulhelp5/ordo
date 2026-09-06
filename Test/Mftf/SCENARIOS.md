@@ -241,6 +241,15 @@ module's.
 | `Plugin/Quote/BlockOverLimitCheckout.php` — real checkout blocked once credit utilization reaches 100%                                               | ✅ `StorefrontCreditLimitBlocksCheckoutTest`             |
 | `Observer/SendWelcomeEmail.php` — new-customer tag + welcome email on `customer_register_success`, independent of any `customer_registered` campaign | ✅ `StorefrontCustomerRegistrationSendsWelcomeEmailTest` |
 
+## 13. GDPR / consent (`Model/ConsentManager.php`, `Controller/Adminhtml/Gdpr/`)
+
+| Scenario                                                                                                                        | Status                                    |
+|-----------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| Admin-recorded email opt-out (`Controller/Adminhtml/Gdpr/SetConsent.php`) genuinely blocks a real `send_email` campaign action    | ✅ `AdminGdprConsentAndErasureTest`        |
+| `Controller/Adminhtml/Gdpr/Erase.php` genuinely deletes a real `ordo_customer_consent` row (data-subject erasure)                 | ✅ `AdminGdprConsentAndErasureTest`        |
+| `Controller/Adminhtml/Gdpr/Export.php` (data-subject access request JSON download)                                                | ✅ `Test/Unit/Controller/Adminhtml/Gdpr/ExportTest.php` — correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above (no browser-observable effect a browser-driven test can assert on a file download) |
+| SMS opt-out via `ConsentManager` (as opposed to Twilio's own STOP-reply opt-out) — same `recordOptedOut` code path `send_sms` already exercises for Twilio's own opt-out | ✅ `SendSmsTest::testExecuteSkipsAndRecordsOptedOutWhenConsentWithdrawn` |
+
 ## Suggested next batch (highest signal per test written)
 
 Empty — every scenario this list ever tracked is now ✅ (see the sections above). Re-populate this when a new

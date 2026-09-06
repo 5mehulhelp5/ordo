@@ -9,6 +9,7 @@ use Magento\Framework\Mail\Template\TransportBuilder;
 use Magento\Framework\Translate\Inline\StateInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
+use Ordo\Automation\Model\ConsentManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -16,6 +17,9 @@ use Psr\Log\LoggerInterface;
  * Context must include "customer_id" (email resolved via CustomerRepositoryInterface).
  * Every scalar value in $context becomes a template variable, so "send_email" after a
  * "generate_coupon" action on the same campaign can render {{var coupon_code}} for free.
+ *
+ * Checks ConsentManager::hasConsent() before sending anything — an explicit email opt-out
+ * silently skips this action (not an error; skipping is the intended behavior).
  */
 class SendEmail implements ActionInterface
 {
@@ -26,6 +30,7 @@ class SendEmail implements ActionInterface
         private readonly TransportBuilder $transportBuilder,
         private readonly StoreManagerInterface $storeManager,
         private readonly StateInterface $inlineTranslation,
+        private readonly ConsentManager $consentManager,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -39,6 +44,14 @@ class SendEmail implements ActionInterface
             $this->logger->error(
                 'Ordo_Automation: send_email action is missing customer_id in context or "template" in params.'
             );
+            return;
+        }
+
+        if (!$this->consentManager->hasConsent($customerId, ConsentManager::CHANNEL_EMAIL)) {
+            $this->logger->info(sprintf(
+                'Ordo_Automation: send_email action skipped for customer #%d, email consent withdrawn.',
+                $customerId
+            ));
             return;
         }
 

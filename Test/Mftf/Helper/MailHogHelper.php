@@ -128,4 +128,28 @@ class MailHogHelper extends Helper
             "Text \"{$expectedText}\" not found in any of the last {$limit} MailHog messages sent to \"{$toAddress}\"."
         );
     }
+
+    /**
+     * Negative counterpart to seeTextInAnyRecentEmail() — AdminGdprConsentAndErasureTest's own
+     * proof that an explicit email opt-out actually skipped SendEmail's real template render,
+     * not just a coincidental absence: the real storefront order-confirmation email still goes
+     * to $toAddress (so a bare "no email at all" check would be wrong), only this specific
+     * campaign message text must be missing from all of them.
+     */
+    public function assertTextNotInAnyRecentEmail(
+        string $expectedText,
+        string $toAddress,
+        int $limit = 5,
+        string $mailhogUrl = 'http://127.0.0.1:8025'
+    ): void {
+        $items = $this->fetchMessages($toAddress, $limit, $mailhogUrl);
+
+        foreach ($items as $item) {
+            if (str_contains($this->decodeBody($item), $expectedText)) {
+                throw new \RuntimeException(
+                    "Text \"{$expectedText}\" unexpectedly found in a MailHog message sent to \"{$toAddress}\"."
+                );
+            }
+        }
+    }
 }

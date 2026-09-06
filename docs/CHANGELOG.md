@@ -24,6 +24,14 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
   dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
   producer can personalize by `customer_id`.
+- GDPR/consent manager — new `ordo_customer_consent` table (per-customer, per-channel: email/
+  sms/push), `Model/ConsentManager.php` is the single source of truth `send_email`/`send_sms`
+  both check before sending anything (opt-out register, not opt-in — a customer with no row is
+  treated as consented, so this never retrofits existing customers into a breaking prior-opt-in
+  requirement). New admin page (`admin/ordo/gdpr/index`, linked from the dashboard) to search a
+  customer by email, toggle their per-channel consent, download a full data-subject export
+  (`Controller/Adminhtml/Gdpr/Export.php`), and erase every row this module holds about them
+  (`Controller/Adminhtml/Gdpr/Erase.php`).
 - Single-question satisfaction/NPS survey action (`nps_survey`) — same queue-and-poll delivery
   shape as `popup`/`notify`: new `ordo_survey_prompt` table holds both the queued 0-10 question
   and its eventual response in one row, `Controller/Track/Survey.php` claims and hands it out

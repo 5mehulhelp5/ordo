@@ -9,6 +9,7 @@ use Magento\Framework\Api\AttributeInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\Campaign\Action\SendSms;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
 use Ordo\Automation\Model\Sms\OptedOutException;
 use Ordo\Automation\Model\Sms\SmsSenderInterface;
@@ -22,6 +23,7 @@ class SendSmsTest extends TestCase
     private SmsSenderInterface $smsSender;
     private Config $config;
     private MessageLogWriter $messageLogWriter;
+    private ConsentManager $consentManager;
     private LoggerInterface $logger;
 
     protected function setUp(): void
@@ -30,6 +32,8 @@ class SendSmsTest extends TestCase
         $this->smsSender = $this->createMock(SmsSenderInterface::class);
         $this->config = $this->createMock(Config::class);
         $this->messageLogWriter = $this->createMock(MessageLogWriter::class);
+        $this->consentManager = $this->createStub(ConsentManager::class);
+        $this->consentManager->method('hasConsent')->willReturn(true);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->config->method('isSmsEnabled')->willReturn(true);
@@ -42,8 +46,25 @@ class SendSmsTest extends TestCase
             $this->smsSender,
             $this->config,
             $this->messageLogWriter,
+            $this->consentManager,
             $this->logger
         );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsAndRecordsOptedOutWhenConsentWithdrawn(): void
+    {
+        $this->customerRepository->method('getById')->willReturn($this->customerWithPhone('+15551234567'));
+        $this->consentManager = $this->createMock(ConsentManager::class);
+        $this->consentManager->expects(self::once())->method('hasConsent')
+            ->with(42, ConsentManager::CHANNEL_SMS)->willReturn(false);
+        $this->smsSender->expects(self::never())->method('send');
+        $this->logger->expects(self::once())->method('info');
+        $this->messageLogWriter->expects(self::once())->method('recordOptedOut')
+            ->with('sms', 42, '+15551234567');
+
+        $context = ['customer_id' => 42];
+        $this->makeAction()->execute($context, ['message' => 'hello']);
     }
 
     private function customerWithPhone(?string $phone): CustomerInterface

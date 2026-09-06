@@ -12,6 +12,7 @@ use Magento\Framework\Translate\Inline\StateInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Model\Campaign\Action\SendEmail;
+use Ordo\Automation\Model\ConsentManager;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -22,6 +23,7 @@ class SendEmailTest extends TestCase
     private TransportBuilder $transportBuilder;
     private StoreManagerInterface $storeManager;
     private StateInterface $inlineTranslation;
+    private ConsentManager $consentManager;
     private LoggerInterface $logger;
     private StoreInterface $store;
 
@@ -31,6 +33,8 @@ class SendEmailTest extends TestCase
         $this->transportBuilder = $this->createMock(TransportBuilder::class);
         $this->storeManager = $this->createStub(StoreManagerInterface::class);
         $this->inlineTranslation = $this->createMock(StateInterface::class);
+        $this->consentManager = $this->createStub(ConsentManager::class);
+        $this->consentManager->method('hasConsent')->willReturn(true);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->store = $this->createStub(StoreInterface::class);
@@ -45,8 +49,22 @@ class SendEmailTest extends TestCase
             $this->transportBuilder,
             $this->storeManager,
             $this->inlineTranslation,
+            $this->consentManager,
             $this->logger
         );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsWhenConsentWithdrawn(): void
+    {
+        $this->consentManager = $this->createMock(ConsentManager::class);
+        $this->consentManager->expects(self::once())->method('hasConsent')
+            ->with(42, ConsentManager::CHANNEL_EMAIL)->willReturn(false);
+        $this->customerRepository->expects(self::never())->method('getById');
+        $this->logger->expects(self::once())->method('info');
+
+        $context = ['customer_id' => 42];
+        $this->makeAction()->execute($context, ['template' => 'ordo_campaign_generic']);
     }
 
     #[AllowMockObjectsWithoutExpectations]

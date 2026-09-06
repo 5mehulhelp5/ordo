@@ -6,6 +6,7 @@ namespace Ordo\Automation\Model\Campaign\Action;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
 use Ordo\Automation\Model\Sms\OptedOutException;
 use Ordo\Automation\Model\Sms\SmsSenderInterface;
@@ -20,6 +21,10 @@ use Throwable;
  * customer, resolve the delivery target, then hand off to a provider abstraction
  * (SmsSenderInterface, Twilio-backed by default via di.xml preference) inside a try/catch that
  * logs and swallows — a failed SMS never blocks the rest of the campaign's actions.
+ *
+ * Checks ConsentManager::hasConsent() before sending — an explicit SMS opt-out is recorded the
+ * same way Twilio's own STOP-reply opt-out already is (MessageLogWriter::recordOptedOut()), not
+ * as a distinct third outcome.
  */
 class SendSms implements ActionInterface
 {
@@ -38,6 +43,7 @@ class SendSms implements ActionInterface
         private readonly SmsSenderInterface $smsSender,
         private readonly Config $config,
         private readonly MessageLogWriter $messageLogWriter,
+        private readonly ConsentManager $consentManager,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -68,6 +74,15 @@ class SendSms implements ActionInterface
                 'Ordo_Automation: send_sms action has no ordo_sms_phone set for customer #%d.',
                 $customerId
             ));
+            return;
+        }
+
+        if (!$this->consentManager->hasConsent($customerId, ConsentManager::CHANNEL_SMS)) {
+            $this->logger->info(sprintf(
+                'Ordo_Automation: send_sms action skipped for customer #%d, SMS consent withdrawn.',
+                $customerId
+            ));
+            $this->messageLogWriter->recordOptedOut(self::CHANNEL, $customerId, $phone);
             return;
         }
 

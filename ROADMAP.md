@@ -41,9 +41,6 @@ Not a code review — a capability comparison against the category. Each is a re
 - **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
   SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
   decision — `TransportBuilder` is called from more places than just `SendEmail`.
-- **GDPR/consent manager** — per-customer marketing consent state (opt-in/opt-out per channel: email/SMS/push),
-  with timestamp/source, plus a data-subject export/erase admin action. Every campaign send action should check
-  consent before sending. Compliance gap, not just a feature gap.
 - **Ad-audience sync (Google Ads / Meta)** — export a segment's customer emails/hashes as a Customer Match
   audience for remarketing, refreshed on a cron. New outbound integration (OAuth, PII hashing), no existing
   precedent in this module.

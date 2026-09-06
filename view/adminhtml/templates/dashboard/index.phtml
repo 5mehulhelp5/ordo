@@ -142,6 +142,12 @@ $segmentNavDesc = __(
                 $escaper->escapeHtml(__('Delivery status of every SMS/email a campaign action sent'))
             ?></span>
         </a>
+        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/gdpr/index')) ?>">
+            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('GDPR / Consent')) ?></span>
+            <span class="ordo-nav-desc"><?=
+                $escaper->escapeHtml(__('Per-customer marketing consent, data export, and erasure'))
+            ?></span>
+        </a>
         <a class="ordo-nav-card"
            href="<?= $escaper->escapeUrl($block->getUrl('adminhtml/system_config/edit/section/ordo_automation')) ?>">
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Configuration')) ?></span>

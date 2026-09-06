@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminGdprConsentAndErasureTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="An admin-recorded email opt-out really blocks send_email, and GDPR erasure really deletes the consent row"/>
+            <description value="Closes ROADMAP.md's 'GDPR/consent manager' gap. Proves two real, separate effects: (1) Controller/Adminhtml/Gdpr/SetConsent.php's own admin-UI toggle writes a real ordo_customer_consent row that Model/Campaign/Action/SendEmail.php's ConsentManager::hasConsent() check genuinely reads before a real order_placed-triggered send_email action would otherwise fire (same real order/consumer chain as AdminCampaignSendEmailActionTest, but asserting the email's ABSENCE via MailHogHelper::assertNoEmailReceived(), not its presence); (2) Controller/Adminhtml/Gdpr/Erase.php genuinely deletes that same row, confirmed via direct DB read (GdprTestHelper) since the admin page itself gives no other observable proof of a deletion having happened."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, no condition, action=send_email. Same
+             shape as AdminCampaignSendEmailActionTest.xml. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="GDPR Consent Send Email Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="send_email" stepKey="selectActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][0][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][0][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][0][message]']" userInput="GDPR opt-out test message" stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+
+        <!-- Step 2: find the real customer on the GDPR page and opt them out of email - the
+             actual admin-UI path to ConsentManager::setConsent(). -->
+        <amOnPage url="admin/ordo/gdpr/index" stepKey="goToGdprPage"/>
+        <waitForPageLoad stepKey="waitForGdprPage"/>
+        <fillField selector="#ordo-gdpr-email" userInput="$createCustomer.email$" stepKey="fillSearchEmail"/>
+        <click selector="//button[contains(., 'Search')]" stepKey="clickSearch"/>
+        <waitForPageLoad stepKey="waitForSearchResult"/>
+        <waitForElementVisible selector="button[value='email']" stepKey="waitForEmailConsentButton"/>
+        <see selector="button[value='email']" userInput="Opt out" stepKey="seeOptedInInitially"/>
+        <click selector="button[value='email']" stepKey="clickOptOutEmail"/>
+        <waitForPageLoad stepKey="waitForOptOutRedirect"/>
+        <see selector=".message-success" userInput="Consent updated." stepKey="seeConsentUpdatedMessage"/>
+
+        <!-- Step 3: a REAL order, through REAL storefront checkout, as the REAL (now opted-out)
+             customer. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 4: the real, MailHog-observable negative - a real dispatch just ran, and
+             SendEmail's own ConsentManager::hasConsent() check is the only thing that could have
+             stopped this campaign's specific message text from ever reaching MailHog. The
+             storefront's own order-confirmation email still goes to the same address (so a bare
+             "no email at all" check would be wrong), but it never contains this campaign's own
+             message text. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="assertTextNotInAnyRecentEmail" stepKey="dontSeeGdprMessageInAnyEmail">
+            <argument name="expectedText">GDPR opt-out test message</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+
+        <!-- Step 5: the erasure half - back on the GDPR page, erase this customer's data for
+             real, then confirm the consent row from Step 2 is genuinely gone (the admin page
+             itself gives no other observable proof of a deletion). -->
+        <amOnPage url="admin/ordo/gdpr/index" stepKey="goBackToGdprPage"/>
+        <waitForPageLoad stepKey="waitForGdprPageAgain"/>
+        <fillField selector="#ordo-gdpr-email" userInput="$createCustomer.email$" stepKey="fillSearchEmailAgain"/>
+        <click selector="//button[contains(., 'Search')]" stepKey="clickSearchAgain"/>
+        <waitForPageLoad stepKey="waitForSearchResultAgain"/>
+        <waitForElementVisible selector="//button[contains(., 'Erase all data')]" stepKey="waitForEraseButton"/>
+        <executeJS function="window.confirm = function() { return true; };" stepKey="autoConfirmEraseDialog"/>
+        <click selector="//button[contains(., 'Erase all data')]" stepKey="clickEraseAllData"/>
+        <waitForPageLoad stepKey="waitForEraseRedirect"/>
+        <see selector=".message-success" userInput="Erased" stepKey="seeErasedMessage"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\GdprTestHelper" method="assertNoConsentRowForCustomer" stepKey="assertConsentRowErased">
+            <argument name="customerId">$createCustomer.id$</argument>
+        </helper>
+    </test>
+</tests>
