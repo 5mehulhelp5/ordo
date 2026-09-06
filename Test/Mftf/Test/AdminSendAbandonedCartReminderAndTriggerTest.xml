@@ -9,7 +9,7 @@
             <description value="Closes the last uncovered trigger (see SCENARIOS.md §1a): cart_abandoned is fired from Cron/SendAbandonedCartReminders.php's own dispatch() call, not a live observer, so this is the only way to exercise it. A real customer adds a real product to their cart and leaves - never checks out - then ordo_automation/abandoned_cart/delay_minutes is set to 0 so the quote already counts as 'abandoned' the instant the cron runs (its real schedule is every 30 minutes, see etc/crontab.xml, which CronScheduleHelper forces to run now instead). Both real outputs are asserted: the cron's own fixed abandoned_cart_reminder.html email, and a campaign's send_email action fired via the cart_abandoned trigger - seeTextInAnyRecentEmail (not seeTextInLatestEmail) because this one cron tick genuinely sends both emails to the same address, in that order."/>
             <severity value="CRITICAL"/>
             <group value="ordo_automation"/>
-            <group value="campaign2"/>
+            <group value="lifecycle"/>
         </annotations>
         <before>
             <createData entity="Simple_US_Customer" stepKey="createCustomer"/>

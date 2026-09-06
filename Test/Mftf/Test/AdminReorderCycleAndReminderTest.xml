@@ -9,7 +9,7 @@
             <description value="These two crons are as tightly coupled as TagInactiveCustomers/SendWinBackEmails - CalculateReorderCycle 'never emails anyone by itself' (see its own class doc), it only writes the ordo_reorder_cycle row SendReorderReminders reads - so one test covers both. CalculateReorderCycle requires a real interval between orders (it explicitly skips same-day repeats), which three real storefront checkouts placed back to back can't produce on their own - OrderBackdateHelper backdates them to 30/20/10 days ago (a real, even 10-day spacing) directly via the DB, since no MFTF-reachable UI/API sets sales_order.created_at. ordo_automation/reorder/lead_days is set to 0 so the predicted next-order date (10 days ago + the detected 10-day average = today) is already due; CronScheduleHelper forces both crons to run now instead of waiting out their real nightly schedules."/>
             <severity value="CRITICAL"/>
             <group value="ordo_automation"/>
-            <group value="campaign2"/>
+            <group value="lifecycle"/>
         </annotations>
         <before>
             <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
