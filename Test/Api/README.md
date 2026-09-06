@@ -1,98 +1,29 @@
 # API-functional tests
 
 Per Adobe's [contributor guide on automated tests](https://developer.adobe.com/commerce/contributor/guides/code-contributions/automated-tests):
-"Web API endpoints must have functional test coverage via api-functional tests. These tests
-should ensure that the endpoints behave in accordance to their service contracts regardless of
-the actual concrete implementation that may be loaded."
+"Web API endpoints must have functional test coverage via api-functional tests."
 
-Magento's own `dev/tests/api-functional` suite (`\Magento\TestFramework\TestCase\WebapiAbstract`)
-lives inside `magento/magento2-base`'s own test tree, not inside individual modules — it isn't
-something a third-party composer package can ship tests into directly. The tests here follow
-the same spirit (real HTTP calls against a running instance, asserting on the actual wire
-response, no mocks) using a portable, self-contained HTTP client instead, so they run against
-*this* module regardless of which Magento install it's dropped into.
+Magento's own `dev/tests/api-functional` suite lives inside `magento/magento2-base`, not inside individual
+modules, so a third-party package can't ship tests into it directly. These tests follow the same spirit (real
+HTTP calls against a running instance, no mocks) via a portable, self-contained HTTP client instead.
 
 ## What exists
 
-- **`AbstractApiTestCase.php`** — shared HTTP client: admin/customer token acquisition, REST
-  request helper.
-- **`CampaignApiTest.php`** — full CRUD round trip (POST create → GET by id → GET list → PUT
-  update → DELETE → confirm 404 after).
-- **`CampaignConditionActionApiTest.php`** — full CRUD on a campaign's condition/action rows
-  (the dynamicRows sections of the admin form), filtered listing by `campaign_id` via
-  `searchCriteria`.
-- **`OfferApiTest.php`** — POST create → PUT update → DELETE, plus the customer-scoped
-  self-extend endpoint (success, max-extensions-exceeded, and wrong-owner cases).
-- **`ReorderCycleApiTest.php`** — GET list / GET by id (read-only).
-- **`CustomerTagManagementApiTest.php`** — add → get → hasTag → getCustomerIdsWithTag → remove,
-  full round trip.
-- **`OrderApprovalApiTest.php`** — GET list (admin-scoped, confirms the token field is never
-  present in the response), the anonymous approve/reject-by-token endpoints (including
-  confirming a second call with the same token is rejected), and `decision-links` (admin
-  fetches the approve/reject URLs by entity_id, extracts the token, and actually uses it to
-  approve the order — proving the URL is real and usable, not just correctly formatted).
-- **`CreditLimitApiTest.php`** — admin by-id lookup (asserts `available_credit` really is
-  `credit_limit - used_credit` on the live response, not just on the model), 404 for a
-  nonexistent customer, 403 for a customer token hitting the admin-only by-id route, 401 for
-  both routes unauthenticated, and the customer-scoped `mine` endpoint returning the exact same
-  figures as the admin lookup for the same customer.
-- **`FreeGiftApiTest.php`** — the one gap this directory had despite README/ROADMAP claiming the
-  free-gift feature was "live-verified" (it was, manually, never as an automated test): offer/
-  tier/product CRUD with cascade-delete confirmed at the DB level, and the customer-facing
-  eligibility/selection round trip on a real cart (`getEligibility`/`selectGifts`) — earned
-  slots crossing a tier threshold, selecting a gift consuming a slot, and a nonexistent/not-owned
-  cart returning a non-leaking 404. Requires `ORDO_API_TEST_PRODUCT_SKU` (a real, existing SKU —
-  `selectGifts()` calls `Quote::addProduct()` for real, no fixture loader available to this
-  portable client). Both test methods wrap their offer-creation in `try`/`finally` — an earlier
-  version without that guard left a failed run's offer permanently active, inflating
-  `earned_slots` for every later run against the same persistent `ORDO_API_CUSTOMER_EMAIL`
-  customer, found by actually running this against a real instance more than once, not assumed.
-  **A known, still-open flakiness, documented rather than hidden:** in this project's own local
-  `php -S`-based sandbox, `earned_slots` occasionally still reads back as 0 immediately after
-  adding a cart item, even after a retry loop — proven, via careful step-by-step manual `curl`
-  testing, to *not* be a defect in `FreeGiftManagement` itself (every manual sequence succeeds
-  reliably); it reproduces only under PHPUnit's rapid back-to-back requests. This is the same
-  category of `php -S`-under-concurrent-load fragility this project's MFTF pipeline hit
-  repeatedly before moving to nginx + PHP-FPM in CI (see `.github/workflows/mftf.yml`) — a real,
-  live-instance API test (not run against `php -S`) would not be expected to see this.
-
-**All of the above were actually run against a live Magento 2.4.7 instance while writing this
-pass** (Docker Compose stack: `ordo_test_php` + `ordo_test_db`, PHP built-in server on
-`http://php:8080/`), not just written and left unverified. Doing so surfaced and fixed four
-real, pre-existing defects that unit tests alone could never have caught, since they only
-manifest in Magento's actual WebAPI reflection/serialization layer:
-
-1. **Missing docblocks on service interface methods.** `Api\CustomerTagManagementInterface`'s
-   methods had no docblocks at all — Magento's `TypeProcessor` throws
-   `InvalidArgumentException: Each method must have a doc block` at request time, which
-   `ErrorProcessor` swallows into a generic "There has been an error processing your request"
-   page with no useful detail in the response body (only in `var/log/exception.log`).
-2. **Missing docblocks on Data interface getters.** `Api\Data\CampaignInterface` and
-   `Api\Data\OfferInterface` (pre-existing, not written in this pass) had zero docblocks on
-   their getters. `GET /V1/ordo/campaigns/:id` 500'd outright; the two SearchResults-based list
-   endpoints ran without erroring but silently serialized every item as `{}` — worse than an
-   error, since it looks superficially like "it works, there's just no data".
-3. **Generic `SearchResultsInterface` return type on `getList()`.** Even after fixing (2), list
-   endpoints still returned empty items — the WebAPI output processor has no way to know a
-   plain `SearchResultsInterface` contains `CampaignInterface[]` specifically. Fixed with a
-   dedicated `Api\Data\{Entity}SearchResultsInterface extends SearchResultsInterface` per
-   entity, each declaring `@return \Ordo\Automation\Api\Data\{Entity}Interface[]` on
-   `getItems()`.
-4. **Binding a dedicated SearchResults interface straight to the generic
-   `Magento\Framework\Api\SearchResults` class in `di.xml`.** Throws a `TypeError` at runtime
-   (`Return value must be of type X, Magento\Framework\Api\SearchResults returned`) — PHP's
-   return-type covariance requires the actual returned object to implement the narrower
-   interface, which the generic class doesn't. Fixed with a one-line concrete subclass per
-   entity (`Model/{Entity}/SearchResults.php`), matching Magento core's own pattern
-   (`Magento\Catalog\Model\ProductSearchResults`).
-
-See `VERIFICATION.md` for the full list of bugs found and fixed across this project, and
-`git log` for the commits that fixed each of the four above.
+- `AbstractApiTestCase.php` — shared HTTP client: admin/customer token acquisition, REST request helper.
+- `CampaignApiTest.php` — full CRUD round trip.
+- `CampaignConditionActionApiTest.php` — CRUD on a campaign's condition/action rows, filtered listing.
+- `OfferApiTest.php` — CRUD, plus the customer-scoped self-extend endpoint.
+- `ReorderCycleApiTest.php` — GET list / GET by id (read-only).
+- `CustomerTagManagementApiTest.php` — add/get/hasTag/getCustomerIdsWithTag/remove round trip.
+- `OrderApprovalApiTest.php` — admin list, anonymous approve/reject-by-token, `decision-links`.
+- `CreditLimitApiTest.php` — admin by-id lookup, customer-scoped `mine`, auth/authorization edge cases.
+- `FreeGiftApiTest.php` — offer/tier/product CRUD, eligibility/selection round trip on a real cart. Requires
+  `ORDO_API_TEST_PRODUCT_SKU` (a real, existing SKU). Known flakiness under this project's local `php -S`
+  sandbox specifically (rapid back-to-back requests) — not expected against a real server.
 
 ## Running these tests
 
-They are plain PHPUnit test classes with no special bootstrap requirement beyond a reachable
-Magento REST API and admin/customer credentials, configured via environment variables:
+Plain PHPUnit classes, configured via environment variables (see `.env.example` at the module root):
 
 ```
 ORDO_API_BASE_URL=http://php:8080          # no trailing slash
@@ -100,16 +31,14 @@ ORDO_API_ADMIN_USERNAME=admin
 ORDO_API_ADMIN_PASSWORD=...
 ORDO_API_CUSTOMER_EMAIL=...
 ORDO_API_CUSTOMER_PASSWORD=...
-ORDO_API_TEST_PRODUCT_SKU=...          # FreeGiftApiTest only — a real, existing, purchasable SKU
-ORDO_API_TEST_APPROVAL_TOKEN=...       # OrderApprovalApiTest only — token of a freshly seeded, still-pending order
-ORDO_API_TEST_APPROVAL_ENTITY_ID=...   # OrderApprovalApiTest only — entity_id of that same order
+ORDO_API_TEST_PRODUCT_SKU=...          # FreeGiftApiTest only
+ORDO_API_TEST_APPROVAL_TOKEN=...       # OrderApprovalApiTest only
+ORDO_API_TEST_APPROVAL_ENTITY_ID=...   # OrderApprovalApiTest only
 ```
 
-See `.env.example` at the module root for the same contract.
-
-```
+```bash
 vendor/bin/phpunit vendor/ordo/module-automation/Test/Api --bootstrap vendor/autoload.php
 ```
 
-If the environment variables aren't set, tests `markTestSkipped()` rather than failing — they
-need a real, reachable Magento instance and are not meant to run as part of the fast unit suite.
+Without the environment variables set, tests `markTestSkipped()` rather than failing — they need a real,
+reachable Magento instance and aren't part of the fast unit suite.

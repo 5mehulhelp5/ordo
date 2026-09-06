@@ -1,15 +1,11 @@
 # Ordo Automation — REST API reference
 
-Every endpoint below is real, wired into `etc/webapi.xml`, and was **actually called against a
-running Magento 2.4.7 instance** while writing this document — request/response examples are
-copy-pasted from those real calls (with test data), not hand-written. See `Test/Api/README.md`
-for the automated test suite that exercises the same flows, and for the four real WebAPI
-defects that surfaced (and were fixed) only by doing this.
+Every endpoint below is wired into `etc/webapi.xml` and covered by `Test/Api/` (see
+`Test/Api/README.md`).
 
-This module is designed to work fully headless — every flow a native Magento admin/storefront
-would drive is also reachable over REST, with one honest exception noted below (order-approval
-tokens, which are deliberately delivered only by email, matching a "click to approve" link's
-trust model).
+Every flow a native Magento admin/storefront would drive is also reachable over REST, with one
+exception: order-approval tokens, delivered only by email, matching a "click to approve" link's
+trust model.
 
 ## Authentication
 
@@ -28,13 +24,13 @@ Two token types, matching who's allowed to call what:
 
 Full CRUD. ACL resource: `Ordo_Automation::campaigns` (admin token).
 
-| Method | Path | Service method |
-|---|---|---|
-| GET | `/V1/ordo/campaigns?searchCriteria[...]` | `CampaignRepositoryInterface::getList` |
-| GET | `/V1/ordo/campaigns/:entityId` | `CampaignRepositoryInterface::getById` |
-| POST | `/V1/ordo/campaigns` | `CampaignRepositoryInterface::save` |
-| PUT | `/V1/ordo/campaigns/:entityId` | `CampaignRepositoryInterface::save` |
-| DELETE | `/V1/ordo/campaigns/:entityId` | `CampaignRepositoryInterface::deleteById` |
+| Method | Path                                     | Service method                            |
+|--------|------------------------------------------|-------------------------------------------|
+| GET    | `/V1/ordo/campaigns?searchCriteria[...]` | `CampaignRepositoryInterface::getList`    |
+| GET    | `/V1/ordo/campaigns/:entityId`           | `CampaignRepositoryInterface::getById`    |
+| POST   | `/V1/ordo/campaigns`                     | `CampaignRepositoryInterface::save`       |
+| PUT    | `/V1/ordo/campaigns/:entityId`           | `CampaignRepositoryInterface::save`       |
+| DELETE | `/V1/ordo/campaigns/:entityId`           | `CampaignRepositoryInterface::deleteById` |
 
 ```
 POST /rest/V1/ordo/campaigns
@@ -43,23 +39,23 @@ POST /rest/V1/ordo/campaigns
 → 200 {"entity_id":10,"name":"API Test Campaign","enabled":true}
 ```
 
-A campaign's trigger event(s) are no longer a field on the campaign itself — see
+A campaign's trigger event (s) are no longer a field on the campaign itself — see
 "Campaign triggers" below. A campaign with no trigger rows never fires; add at least one.
 
 ## Campaign triggers
 
-The event(s) that start a campaign — a campaign can have more than one (e.g. both
+The event (s) that start a campaign — a campaign can have more than one (e.g. both
 `customer_registered` and `tag_added` running the same conditions/actions chain), so this is its
 own flat resource, same shape and convention as conditions/actions below. ACL resource:
 `Ordo_Automation::campaigns` (admin token).
 
-| Method | Path | Service method |
-|---|---|---|
-| GET | `/V1/ordo/campaign-triggers?searchCriteria[...]` | `CampaignTriggerRepositoryInterface::getList` |
-| GET | `/V1/ordo/campaign-triggers/:entityId` | `CampaignTriggerRepositoryInterface::getById` |
-| POST | `/V1/ordo/campaign-triggers` | `CampaignTriggerRepositoryInterface::save` |
-| PUT | `/V1/ordo/campaign-triggers/:entityId` | `CampaignTriggerRepositoryInterface::save` |
-| DELETE | `/V1/ordo/campaign-triggers/:entityId` | `CampaignTriggerRepositoryInterface::deleteById` |
+| Method | Path                                             | Service method                                   |
+|--------|--------------------------------------------------|--------------------------------------------------|
+| GET    | `/V1/ordo/campaign-triggers?searchCriteria[...]` | `CampaignTriggerRepositoryInterface::getList`    |
+| GET    | `/V1/ordo/campaign-triggers/:entityId`           | `CampaignTriggerRepositoryInterface::getById`    |
+| POST   | `/V1/ordo/campaign-triggers`                     | `CampaignTriggerRepositoryInterface::save`       |
+| PUT    | `/V1/ordo/campaign-triggers/:entityId`           | `CampaignTriggerRepositoryInterface::save`       |
+| DELETE | `/V1/ordo/campaign-triggers/:entityId`           | `CampaignTriggerRepositoryInterface::deleteById` |
 
 ```
 POST /rest/V1/ordo/campaign-triggers
@@ -80,14 +76,14 @@ resources, not nested under `/campaigns/:id/...` — filter by `campaign_id` via
 to get everything on one campaign, the same convention Magento's own APIs use (e.g. order
 items). ACL resource: `Ordo_Automation::campaigns` (admin token).
 
-| Method | Path | Service method |
-|---|---|---|
-| GET | `/V1/ordo/campaign-conditions?searchCriteria[...]` | `CampaignConditionRepositoryInterface::getList` |
-| GET | `/V1/ordo/campaign-conditions/:entityId` | `CampaignConditionRepositoryInterface::getById` |
-| POST | `/V1/ordo/campaign-conditions` | `CampaignConditionRepositoryInterface::save` |
-| PUT | `/V1/ordo/campaign-conditions/:entityId` | `CampaignConditionRepositoryInterface::save` |
-| DELETE | `/V1/ordo/campaign-conditions/:entityId` | `CampaignConditionRepositoryInterface::deleteById` |
-| GET / POST / PUT / DELETE | `/V1/ordo/campaign-actions[/...]` | `CampaignActionRepositoryInterface` (same shape) |
+| Method                    | Path                                               | Service method                                     |
+|---------------------------|----------------------------------------------------|----------------------------------------------------|
+| GET                       | `/V1/ordo/campaign-conditions?searchCriteria[...]` | `CampaignConditionRepositoryInterface::getList`    |
+| GET                       | `/V1/ordo/campaign-conditions/:entityId`           | `CampaignConditionRepositoryInterface::getById`    |
+| POST                      | `/V1/ordo/campaign-conditions`                     | `CampaignConditionRepositoryInterface::save`       |
+| PUT                       | `/V1/ordo/campaign-conditions/:entityId`           | `CampaignConditionRepositoryInterface::save`       |
+| DELETE                    | `/V1/ordo/campaign-conditions/:entityId`           | `CampaignConditionRepositoryInterface::deleteById` |
+| GET / POST / PUT / DELETE | `/V1/ordo/campaign-actions[/...]`                  | `CampaignActionRepositoryInterface` (same shape)   |
 
 ```
 POST /rest/V1/ordo/campaign-conditions
@@ -109,18 +105,18 @@ can't collide with the model's own `getParams(): array` decoded-helper method �
 
 ## Offers
 
-Full CRUD plus one customer-facing action. ACL resource: `Ordo_Automation::config` for CRUD
-(admin token); `self` for self-extend (customer token, any authenticated customer — ownership
+Full CRUD plus one customer-facing action. ACL resource: `Ordo_Automation::config` for CRUD (admin token); `self` for
+self-extend (customer token, any authenticated customer — ownership
 of the specific offer is checked inside the service, not by the route).
 
-| Method | Path | Service method | Auth |
-|---|---|---|---|
-| GET | `/V1/ordo/offers?searchCriteria[...]` | `OfferRepositoryInterface::getList` | admin |
-| GET | `/V1/ordo/offers/:entityId` | `OfferRepositoryInterface::getById` | admin |
-| POST | `/V1/ordo/offers` | `OfferRepositoryInterface::save` | admin |
-| PUT | `/V1/ordo/offers/:entityId` | `OfferRepositoryInterface::save` | admin |
-| DELETE | `/V1/ordo/offers/:entityId` | `OfferRepositoryInterface::deleteById` | admin |
-| POST | `/V1/ordo/offers/:offerId/self-extend` | `OfferManagementInterface::selfExtend` | customer |
+| Method | Path                                   | Service method                         | Auth     |
+|--------|----------------------------------------|----------------------------------------|----------|
+| GET    | `/V1/ordo/offers?searchCriteria[...]`  | `OfferRepositoryInterface::getList`    | admin    |
+| GET    | `/V1/ordo/offers/:entityId`            | `OfferRepositoryInterface::getById`    | admin    |
+| POST   | `/V1/ordo/offers`                      | `OfferRepositoryInterface::save`       | admin    |
+| PUT    | `/V1/ordo/offers/:entityId`            | `OfferRepositoryInterface::save`       | admin    |
+| DELETE | `/V1/ordo/offers/:entityId`            | `OfferRepositoryInterface::deleteById` | admin    |
+| POST   | `/V1/ordo/offers/:offerId/self-extend` | `OfferManagementInterface::selfExtend` | customer |
 
 ```
 POST /rest/V1/ordo/offers/2/self-extend      (customer token)
@@ -148,10 +144,10 @@ each time) is admin-configurable: `Stores → Configuration → Ordo Automation 
 Read-only — these rows are computed nightly by `Cron\CalculateReorderCycle`, never written
 through the API. ACL resource: `Ordo_Automation::config` (admin token).
 
-| Method | Path | Service method |
-|---|---|---|
-| GET | `/V1/ordo/reorder-cycles?searchCriteria[...]` | `ReorderCycleRepositoryInterface::getList` |
-| GET | `/V1/ordo/reorder-cycles/:entityId` | `ReorderCycleRepositoryInterface::getById` |
+| Method | Path                                          | Service method                             |
+|--------|-----------------------------------------------|--------------------------------------------|
+| GET    | `/V1/ordo/reorder-cycles?searchCriteria[...]` | `ReorderCycleRepositoryInterface::getList` |
+| GET    | `/V1/ordo/reorder-cycles/:entityId`           | `ReorderCycleRepositoryInterface::getById` |
 
 ```
 GET /rest/V1/ordo/reorder-cycles/1
@@ -169,13 +165,13 @@ The segmentation primitive campaigns target ("send to everyone tagged `vip`"). A
 `Ordo_Automation::campaigns` (admin token) — tagging is currently an admin/system action, not
 customer self-service.
 
-| Method | Path | Service method |
-|---|---|---|
-| GET | `/V1/ordo/customers/:customerId/tags` | `CustomerTagManagementInterface::getTags` |
-| PUT | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::addTag` |
-| DELETE | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::removeTag` |
-| GET | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::hasTag` |
-| GET | `/V1/ordo/tags/:tag/customers` | `CustomerTagManagementInterface::getCustomerIdsWithTag` |
+| Method | Path                                       | Service method                                          |
+|--------|--------------------------------------------|---------------------------------------------------------|
+| GET    | `/V1/ordo/customers/:customerId/tags`      | `CustomerTagManagementInterface::getTags`               |
+| PUT    | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::addTag`                |
+| DELETE | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::removeTag`             |
+| GET    | `/V1/ordo/customers/:customerId/tags/:tag` | `CustomerTagManagementInterface::hasTag`                |
+| GET    | `/V1/ordo/tags/:tag/customers`             | `CustomerTagManagementInterface::getCustomerIdsWithTag` |
 
 ```
 PUT  /rest/V1/ordo/customers/1/tags/vip           → 200 []
@@ -194,13 +190,13 @@ Adding a tag that already exists is a no-op (idempotent); it does **not** re-fir
 Read + a dedicated link-lookup (both admin-scoped) plus two anonymous, token-authenticated
 decision endpoints.
 
-| Method | Path | Service method | Auth |
-|---|---|---|---|
-| GET | `/V1/ordo/order-approvals?searchCriteria[...]` | `OrderApprovalRepositoryInterface::getList` | admin |
-| GET | `/V1/ordo/order-approvals/:entityId` | `OrderApprovalRepositoryInterface::getById` | admin |
-| GET | `/V1/ordo/order-approvals/:entityId/decision-links` | `OrderApprovalManagementInterface::getDecisionLinksById` | admin |
-| POST | `/V1/ordo/order-approvals/:token/approve` | `OrderApprovalManagementInterface::approveByToken` | anonymous |
-| POST | `/V1/ordo/order-approvals/:token/reject` | `OrderApprovalManagementInterface::rejectByToken` | anonymous |
+| Method | Path                                                | Service method                                           | Auth      |
+|--------|-----------------------------------------------------|----------------------------------------------------------|-----------|
+| GET    | `/V1/ordo/order-approvals?searchCriteria[...]`      | `OrderApprovalRepositoryInterface::getList`              | admin     |
+| GET    | `/V1/ordo/order-approvals/:entityId`                | `OrderApprovalRepositoryInterface::getById`              | admin     |
+| GET    | `/V1/ordo/order-approvals/:entityId/decision-links` | `OrderApprovalManagementInterface::getDecisionLinksById` | admin     |
+| POST   | `/V1/ordo/order-approvals/:token/approve`           | `OrderApprovalManagementInterface::approveByToken`       | anonymous |
+| POST   | `/V1/ordo/order-approvals/:token/reject`            | `OrderApprovalManagementInterface::rejectByToken`        | anonymous |
 
 ```
 GET /rest/V1/ordo/order-approvals?searchCriteria[pageSize]=3   (admin token)
@@ -234,18 +230,18 @@ already been decided — the token is only ever minted once, by `Observer\HoldOr
 
 Cascading cart-subtotal tiers per offer: every tier whose `min_subtotal` the cart has reached
 ADDS `gift_slots` to the customer's earned total — cumulative across tiers, and across every
-active offer, not a single flat threshold. Admin manages offers/tiers/gift-pool SKUs
-(`Ordo_Automation::free_gifts`); any authenticated customer (or guest, by cart id) reads
+active offer, not a single flat threshold. Admin manages offers/tiers/gift-pool SKUs (`Ordo_Automation::free_gifts`);
+any authenticated customer (or guest, by cart id) reads
 eligibility and picks gifts for their own cart.
 
-| Method | Path | Service method | Auth |
-|---|---|---|---|
-| GET | `/V1/ordo/free-gift-offers?searchCriteria[...]` | `FreeGiftOfferRepositoryInterface::getList` | admin |
-| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offers[/:entityId]` | `FreeGiftOfferRepositoryInterface::*` | admin |
-| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offer-tiers[/:entityId]` | `FreeGiftOfferTierRepositoryInterface::*` | admin |
-| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offer-products[/:entityId]` | `FreeGiftOfferProductRepositoryInterface::*` | admin |
-| GET | `/V1/ordo/carts/:cartId/free-gift-eligibility` | `FreeGiftManagementInterface::getEligibility` | customer/guest |
-| PUT | `/V1/ordo/carts/:cartId/free-gifts` | `FreeGiftManagementInterface::selectGifts` | customer/guest |
+| Method              | Path                                            | Service method                                | Auth           |
+|---------------------|-------------------------------------------------|-----------------------------------------------|----------------|
+| GET                 | `/V1/ordo/free-gift-offers?searchCriteria[...]` | `FreeGiftOfferRepositoryInterface::getList`   | admin          |
+| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offers[/:entityId]`         | `FreeGiftOfferRepositoryInterface::*`         | admin          |
+| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offer-tiers[/:entityId]`    | `FreeGiftOfferTierRepositoryInterface::*`     | admin          |
+| GET/POST/PUT/DELETE | `/V1/ordo/free-gift-offer-products[/:entityId]` | `FreeGiftOfferProductRepositoryInterface::*`  | admin          |
+| GET                 | `/V1/ordo/carts/:cartId/free-gift-eligibility`  | `FreeGiftManagementInterface::getEligibility` | customer/guest |
+| PUT                 | `/V1/ordo/carts/:cartId/free-gifts`             | `FreeGiftManagementInterface::selectGifts`    | customer/guest |
 
 Tiers and gift-pool SKUs are flat resources filterable by `offer_id` via `searchCriteria`, same
 pattern as campaign conditions/actions — not nested under `/free-gift-offers/:id/...`.
@@ -303,10 +299,10 @@ Previously cron/email-only (`Cron\SendCreditLimitAlerts`) with nothing a headles
 could query to show "how much credit do I have left" in a customer's account. `mine` resolves
 the customer straight from the token — no id needed, and nothing to enumerate.
 
-| Method | Path | Service method | Auth |
-|---|---|---|---|
-| GET | `/V1/ordo/credit-limit/mine` | `CreditLimitManagementInterface::getMyStatus` | customer |
-| GET | `/V1/ordo/customers/:customerId/credit-limit` | `CreditLimitManagementInterface::getStatusForCustomer` | admin |
+| Method | Path                                          | Service method                                         | Auth     |
+|--------|-----------------------------------------------|--------------------------------------------------------|----------|
+| GET    | `/V1/ordo/credit-limit/mine`                  | `CreditLimitManagementInterface::getMyStatus`          | customer |
+| GET    | `/V1/ordo/customers/:customerId/credit-limit` | `CreditLimitManagementInterface::getStatusForCustomer` | admin    |
 
 ```
 GET /rest/V1/ordo/credit-limit/mine   (customer token)
