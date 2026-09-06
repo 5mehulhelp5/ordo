@@ -63,9 +63,12 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   "no spend limit / no approval email configured → never held" is unit-tested only.
 - **Tracking & popups** (§7): view-threshold crossing tagging the visitor (chaining into `visitor_tag_added`,
   §1a) isn't covered; neither is `Cron\PrunePendingPopups` or `Cron\PruneVisitorEvents`.
-- **Reorder cycles** (§8): `Cron\CalculateReorderCycle` detecting a recurring purchase pattern from real order
-  history, and `Cron\SendReorderReminders` emailing a customer whose predicted next-order date arrived, are both
-  uncovered.
+- ~~Reorder cycles (§8): `Cron\CalculateReorderCycle`, `Cron\SendReorderReminders`~~ — done.
+  `AdminReorderCycleAndReminderTest`: three real storefront checkouts of the same SKU (
+  `CalculateReorderCycle` requires >= 3 real orders and explicitly skips same-day repeats), backdated
+  to a real, even 10-day spacing (30/20/10 days ago) via new `Test/Mftf/Helper/OrderBackdateHelper.php`
+  — no MFTF-reachable UI/API sets `sales_order.created_at` directly. `CronScheduleHelper` forces both
+  crons to run now instead of waiting out their real nightly schedules.
 - ~~Reminder/alert crons (§10): `SendCreditLimitAlerts`, `SendSalesRepDigest`, `SendWinBackEmails`,
   `TagInactiveCustomers`~~ — done. New `lifecycle` MFTF group (`.github/workflows/mftf.yml` matrix):
   `AdminTagInactiveCustomersAndWinBackEmailTest` (covers the tightly-coupled

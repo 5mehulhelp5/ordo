@@ -180,8 +180,8 @@ through. `Controller/Offer/*` (self-extend,
 | Scenario                                                                                  | Status                              |
 |-------------------------------------------------------------------------------------------|-------------------------------------|
 | Admin diagnostic grid renders                                                             | ✅ `AdminViewReorderCyclesGridTest` |
-| `Cron\CalculateReorderCycle` detects a recurring purchase pattern from real order history | ⬜                                  |
-| `Cron\SendReorderReminders` emails a customer whose predicted next-order date has arrived | ⬜                                  |
+| `Cron\CalculateReorderCycle` detects a recurring purchase pattern from real order history | ✅ `AdminReorderCycleAndReminderTest` |
+| `Cron\SendReorderReminders` emails a customer whose predicted next-order date has arrived | ✅ `AdminReorderCycleAndReminderTest` |
 
 ## 9. Dashboard (`Controller/Adminhtml/Dashboard/`)
 
