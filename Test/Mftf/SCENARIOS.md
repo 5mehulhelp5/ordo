@@ -45,14 +45,14 @@ cases separately from the type-by-type ones.
 
 ### 1a. Triggers (`Model/Config/Source/TriggerEvent.php` / `CampaignTriggerInterface`)
 
-| Trigger                   | Fired from                                                                 | Status                                                                                                                  |
-|---------------------------|----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `order_placed`            | `Observer/DispatchOrderPlacedCampaigns.php` (`sales_order_place_after`)    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                  |
-| `customer_registered`     | `Observer/DispatchCustomerRegisteredCampaigns.php`                         | ✅ `AdminCampaignCustomerRegisteredTriggerTest`                                                                         |
-| `tag_added`               | `Observer/DispatchTagAddedCampaigns.php` (`ordo_customer_tag_added`)       | ✅ `AdminCampaignTagAddedTriggerTest`                                                                                   |
-| `cart_abandoned`          | `Cron/SendAbandonedCartReminders.php`'s own dispatch, not a live observer  | ✅ `AdminSendAbandonedCartReminderAndTriggerTest`                                                                       |
-| `visitor_tag_added`       | `Observer/DispatchVisitorTagAddedCampaigns.php` (`ordo_visitor_tag_added`) | ✅ `AdminCampaignVisitorTagConditionTest`                                                                               |
-| `score_threshold_crossed` | `Observer/DispatchScoreThresholdCampaigns.php` (lead scoring, see §4)      | ✅ `AdminScoreThresholdCampaignTest`                                                                                    |
+| Trigger                   | Fired from                                                                 | Status                                            |
+|---------------------------|----------------------------------------------------------------------------|---------------------------------------------------|
+| `order_placed`            | `Observer/DispatchOrderPlacedCampaigns.php` (`sales_order_place_after`)    | ✅ `AdminCampaignScenarioEndToEndTest`            |
+| `customer_registered`     | `Observer/DispatchCustomerRegisteredCampaigns.php`                         | ✅ `AdminCampaignCustomerRegisteredTriggerTest`   |
+| `tag_added`               | `Observer/DispatchTagAddedCampaigns.php` (`ordo_customer_tag_added`)       | ✅ `AdminCampaignTagAddedTriggerTest`             |
+| `cart_abandoned`          | `Cron/SendAbandonedCartReminders.php`'s own dispatch, not a live observer  | ✅ `AdminSendAbandonedCartReminderAndTriggerTest` |
+| `visitor_tag_added`       | `Observer/DispatchVisitorTagAddedCampaigns.php` (`ordo_visitor_tag_added`) | ✅ `AdminCampaignVisitorTagConditionTest`         |
+| `score_threshold_crossed` | `Observer/DispatchScoreThresholdCampaigns.php` (lead scoring, see §4)      | ✅ `AdminScoreThresholdCampaignTest`              |
 
 ### 1b. Conditions (`Model\Campaign\ConditionPool`)
 
@@ -64,41 +64,41 @@ cases separately from the type-by-type ones.
 | `score_at_least`                      | `{threshold}`                                                     | ✅ `AdminCampaignScoreAtLeastConditionTest`                                                            |
 | `recency_days_at_most`                | `{days}` (RFM)                                                    | ✅ `AdminRecencyDaysAtMostConditionTest`                                                               |
 | `order_frequency_at_least`            | `{count}` (RFM)                                                   | ✅ `AdminOrderFrequencyAtLeastConditionTest`                                                           |
-| `monetary_total_at_least`             | `{amount}` (RFM)                                                  | ✅ `AdminMonetaryTotalAtLeastConditionTest`                                                             |
+| `monetary_total_at_least`             | `{amount}` (RFM)                                                  | ✅ `AdminMonetaryTotalAtLeastConditionTest`                                                            |
 | `recency_percentile_at_least`         | `{percentile}` (RFM, needs `Cron\RecomputeRfmScores` to have run) | ✅ `AdminRecencyPercentileConditionTest`                                                               |
 | `order_frequency_percentile_at_least` | `{percentile}` (RFM)                                              | ✅ `AdminOrderFrequencyPercentileConditionTest`                                                        |
-| `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ✅ `AdminMonetaryPercentileConditionTest`                                                               |
+| `monetary_percentile_at_least`        | `{percentile}` (RFM)                                              | ✅ `AdminMonetaryPercentileConditionTest`                                                              |
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 
-| Action            | Params                                 | Status                                                                                                                                                                                                                       |
-|-------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `add_tag`         | `{tag}`                                | ✅ `AdminCampaignAddTagActionTest`                                                                                                                                                                                            |
-| `send_email`      | `{template, message}`                  | ✅ `AdminCampaignSendEmailActionTest`                                                                                                                                                                                        |
-| `generate_coupon` | `{rule_id, prefix}`                    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                                                                                                                       |
-| `popup`           | `{headline, body, cta_label, cta_url}` | ✅ `AdminCampaignPopupActionTest` (writes `ordo_pending_popup`; storefront poll — see §7)                                                                                                                                    |
-| `add_points`      | `{points}`                             | ✅ `AdminCampaignAddPointsActionTest` (feeds `score_at_least`; does NOT itself dispatch `score_threshold_crossed` — confirmed from source, only `EvaluateCustomerScoreRules`'s own `customer_save_after` handling does that) |
-| `add_product_recommendations` | `{count}`                  | ✅ `AdminAddProductRecommendationsActionTest` (co-purchase signal empty in a fresh install, exercises the documented store-wide-best-sellers fallback)                                                                       |
-| `add_dynamic_content` | `{content_block_id, output_key}`    | ✅ `AdminCampaignDynamicContentSnippetActionTest` (`snippet` content-block type only — see §10 for `rss`/`product_feed`)                                                                                                       |
-| `send_sms`        | `{message}`                            | ✅ `Test/Integration/CampaignSendSmsActionTest.php` — real DI/database, `SmsSenderInterface` swapped for a recording fake (real Twilio account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope (no browser-visible effect for a browser to check) |
+| Action                        | Params                                 | Status                                                                                                                                                                                                                                                                                     |
+|-------------------------------|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `add_tag`                     | `{tag}`                                | ✅ `AdminCampaignAddTagActionTest`                                                                                                                                                                                                                                                         |
+| `send_email`                  | `{template, message}`                  | ✅ `AdminCampaignSendEmailActionTest`                                                                                                                                                                                                                                                      |
+| `generate_coupon`             | `{rule_id, prefix}`                    | ✅ `AdminCampaignScenarioEndToEndTest`                                                                                                                                                                                                                                                     |
+| `popup`                       | `{headline, body, cta_label, cta_url}` | ✅ `AdminCampaignPopupActionTest` (writes `ordo_pending_popup`; storefront poll — see §7)                                                                                                                                                                                                  |
+| `add_points`                  | `{points}`                             | ✅ `AdminCampaignAddPointsActionTest` (feeds `score_at_least`; does NOT itself dispatch `score_threshold_crossed` — confirmed from source, only `EvaluateCustomerScoreRules`'s own `customer_save_after` handling does that)                                                               |
+| `add_product_recommendations` | `{count}`                              | ✅ `AdminAddProductRecommendationsActionTest` (co-purchase signal empty in a fresh install, exercises the documented store-wide-best-sellers fallback)                                                                                                                                     |
+| `add_dynamic_content`         | `{content_block_id, output_key}`       | ✅ `AdminCampaignDynamicContentSnippetActionTest` (`snippet` content-block type only — see §10 for `rss`/`product_feed`)                                                                                                                                                                   |
+| `send_sms`                    | `{message}`                            | ✅ `Test/Integration/CampaignSendSmsActionTest.php` — real DI/database, `SmsSenderInterface` swapped for a recording fake (real Twilio account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope (no browser-visible effect for a browser to check) |
 
 ### 1d. Structural cases (not type-specific)
 
-| Scenario                                                                                                      | Status                                                                                                          |
-|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| Single trigger/condition/action, save + grid appearance                                                       | ✅ `AdminCreateCampaignTest`                                                                                    |
-| Multiple triggers on one campaign (fan-out to the same chain)                                                 | ✅ `AdminCreateMultiTriggerCampaignTest`                                                                        |
-| Condition + action together via the dynamicRows form (UI only, no live dispatch)                              | ✅ `AdminCreateCampaignWithConditionsAndActionsTest`                                                            |
-| Multiple conditions AND'd together — all pass                                                                 | ✅ `AdminCampaignMultipleConditionsAndTest`                                                                     |
-| Multiple conditions AND'd together — one fails, action must NOT run                                           | ✅ `AdminCampaignMultipleConditionsAndTest`                                                                     |
-| Multiple campaigns matching the same trigger, only some satisfy their conditions                              | ✅ `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest`                                                     |
-| Delayed action (`delay_minutes > 0`) — chain pauses, `Cron\RunScheduledCampaignActions` resumes it later      | ✅ `AdminCampaignDelayedActionTest`                                                                             |
-| Chained delays (action pauses, resumes, pauses again)                                                         | ✅ `AdminChainedDelayedActionsTest`                                                                              |
-| Disabled campaign — trigger fires, nothing happens                                                            | ✅ `AdminCampaignDisabledNoDispatchTest`                                                                        |
-| Campaign edited after creation (trigger/condition/action changed, re-saved, old rows replaced not duplicated) | ✅ `AdminEditCampaignConditionReplacesNotDuplicatesTest`                                                        |
-| Campaign deleted — grid no longer lists it, dispatch no longer matches its old triggers                       | ✅ `AdminDeleteCampaignStopsDispatchTest`                                                                       |
-| Unknown/removed condition or action type on a campaign (fails closed, logs, doesn't crash the whole dispatch) | ⬜ (unit-tested; no MFTF equivalent, arguably not worth one)                                                    |
+| Scenario                                                                                                      | Status                                                       |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| Single trigger/condition/action, save + grid appearance                                                       | ✅ `AdminCreateCampaignTest`                                 |
+| Multiple triggers on one campaign (fan-out to the same chain)                                                 | ✅ `AdminCreateMultiTriggerCampaignTest`                     |
+| Condition + action together via the dynamicRows form (UI only, no live dispatch)                              | ✅ `AdminCreateCampaignWithConditionsAndActionsTest`         |
+| Multiple conditions AND'd together — all pass                                                                 | ✅ `AdminCampaignMultipleConditionsAndTest`                  |
+| Multiple conditions AND'd together — one fails, action must NOT run                                           | ✅ `AdminCampaignMultipleConditionsAndTest`                  |
+| Multiple campaigns matching the same trigger, only some satisfy their conditions                              | ✅ `AdminMultipleCampaignsOnSameTriggerOnlySomeSatisfyTest`  |
+| Delayed action (`delay_minutes > 0`) — chain pauses, `Cron\RunScheduledCampaignActions` resumes it later      | ✅ `AdminCampaignDelayedActionTest`                          |
+| Chained delays (action pauses, resumes, pauses again)                                                         | ✅ `AdminChainedDelayedActionsTest`                          |
+| Disabled campaign — trigger fires, nothing happens                                                            | ✅ `AdminCampaignDisabledNoDispatchTest`                     |
+| Campaign edited after creation (trigger/condition/action changed, re-saved, old rows replaced not duplicated) | ✅ `AdminEditCampaignConditionReplacesNotDuplicatesTest`     |
+| Campaign deleted — grid no longer lists it, dispatch no longer matches its old triggers                       | ✅ `AdminDeleteCampaignStopsDispatchTest`                    |
+| Unknown/removed condition or action type on a campaign (fails closed, logs, doesn't crash the whole dispatch) | ✅ `AdminCampaignUnknownActionTypeFailsClosedTest` |
 
 ## 2. Segments (`Model/Segment.php`, `Controller/Adminhtml/Segment/`)
 
@@ -114,25 +114,25 @@ cases separately from the type-by-type ones.
 
 ## 3. RFM (`Model/Rfm/`, `Cron/RecomputeRfmScores.php`, `ordo/rfm/index`)
 
-| Scenario                                                                                     | Status |
-|----------------------------------------------------------------------------------------------|--------|
-| Admin RFM report grid (`Controller/Adminhtml/Rfm/Index.php`) renders with real customer data | ✅ `AdminRfmReportGridReflectsRealDataTest` |
+| Scenario                                                                                     | Status                                                                                         |
+|----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| Admin RFM report grid (`Controller/Adminhtml/Rfm/Index.php`) renders with real customer data | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                    |
 | `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`                                | ✅ `AdminRecencyPercentileConditionTest` (populate half only — grid-reflects-it half still ⬜) |
-| RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest` |
-| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest` |
+| RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                    |
+| Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest`                                                       |
 
 ## 4. Lead scoring (`Model/ScoreRule.php`, `Controller/Adminhtml/ScoreRule/`)
 
-| Scenario                                                                                                 | Status                               |
-|----------------------------------------------------------------------------------------------------------|--------------------------------------|
-| Create a score rule (attribute code, operator, value, points) via admin CRUD                             | ✅ `AdminScoreThresholdCampaignTest` |
-| Operator: `equals`                                                                                       | ✅ `AdminScoreThresholdCampaignTest` |
+| Scenario                                                                                                 | Status                                               |
+|----------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| Create a score rule (attribute code, operator, value, points) via admin CRUD                             | ✅ `AdminScoreThresholdCampaignTest`                 |
+| Operator: `equals`                                                                                       | ✅ `AdminScoreThresholdCampaignTest`                 |
 | Operator: `not_equals`                                                                                   | ✅ `AdminScoreRuleNotEqualsAndContainsOperatorsTest` |
 | Operator: `contains`                                                                                     | ✅ `AdminScoreRuleNotEqualsAndContainsOperatorsTest` |
-| Customer save triggers `Observer/EvaluateCustomerScoreRules.php`, delta applied to `ordo_customer_score` | ✅ `AdminScoreThresholdCampaignTest` |
-| Crossing the configured threshold fires `score_threshold_crossed` (chains §1a)                           | ✅ `AdminScoreThresholdCampaignTest` |
-| Score rule edited/disabled — no longer contributes on next customer save                                 | ✅ `AdminDisableScoreRuleStopsContributingTest` |
-| Score rule deleted                                                                                       | ✅ `AdminDeleteScoreRuleStopsContributingTest` |
+| Customer save triggers `Observer/EvaluateCustomerScoreRules.php`, delta applied to `ordo_customer_score` | ✅ `AdminScoreThresholdCampaignTest`                 |
+| Crossing the configured threshold fires `score_threshold_crossed` (chains §1a)                           | ✅ `AdminScoreThresholdCampaignTest`                 |
+| Score rule edited/disabled — no longer contributes on next customer save                                 | ✅ `AdminDisableScoreRuleStopsContributingTest`      |
+| Score rule deleted                                                                                       | ✅ `AdminDeleteScoreRuleStopsContributingTest`       |
 
 ## 5. Free gift offers (`Model/FreeGiftOffer.php`, `Model/FreeGiftManagement.php`,
 
@@ -150,77 +150,78 @@ through. `Controller/Offer/*` (self-extend,
 | Real cart crosses a tier's `min_subtotal` — gift slot becomes available on the storefront                                                                                           | ✅ `FreeGiftManagementScenarioTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Customer selects a free gift, it's added to cart at zero cost                                                                                                                       | ✅ `FreeGiftManagementScenarioTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Cart drops below the tier threshold — previously-added gift is removed                                                                                                              | ✅ `FreeGiftManagementScenarioTest` — caught and fixed a real bug: `Observer/TrimExcessFreeGifts.php` read `$quote->getSubtotal()`, which is stale at the moment `sales_quote_collect_totals_after` fires (dispatched from inside `Quote\TotalsCollector::collect()`, *before* `Quote::collectTotals()` applies the freshly computed totals back onto the quote) — the gift was never actually trimmed. Fixed to sum `getAllAddresses()`' own (fresh) subtotals instead, same as `TotalsCollector` itself does. |
-| Offer self-extension (`Controller/Offer/Extend.php`, `Offer::canSelfExtend()`)                                                                                                      | ✅ `StorefrontMyOffersSelfExtendTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| "My Offers" storefront customer-account page (`Controller/Offer/Index.php`) lists the logged-in customer's offers, self-extend action visible only when `canSelfExtend()` allows it | ✅ `StorefrontMyOffersSelfExtendTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `Cron\SendOfferExpiryReminders` — reminder email before expiry                                                                                                                      | ✅ `AdminOfferExpiryReminderAndExpirationTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `Cron\ExpireOverdueOffers` — offer past expiry marked expired, no longer redeemable                                                                                                 | ✅ `AdminOfferExpiryReminderAndExpirationTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Offer self-extension (`Controller/Offer/Extend.php`, `Offer::canSelfExtend()`)                                                                                                      | ✅ `StorefrontMyOffersSelfExtendTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| "My Offers" storefront customer-account page (`Controller/Offer/Index.php`) lists the logged-in customer's offers, self-extend action visible only when `canSelfExtend()` allows it | ✅ `StorefrontMyOffersSelfExtendTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `Cron\SendOfferExpiryReminders` — reminder email before expiry                                                                                                                      | ✅ `AdminOfferExpiryReminderAndExpirationTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `Cron\ExpireOverdueOffers` — offer past expiry marked expired, no longer redeemable                                                                                                 | ✅ `AdminOfferExpiryReminderAndExpirationTest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## 6. Order approval (`Model/OrderApproval.php`, `Controller/Approval/`)
 
-| Scenario                                                                                                                             | Status                                    |
-|--------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| Real order over spend limit → held, approve email sent, approve link releases it                                                     | ✅ `AdminApproveOrderViaEmailTest`        |
-| Reject link (`Controller/Approval/Reject.php`) — order canceled, not released                                                        | ✅ `AdminRejectOrderViaEmailTest`         |
-| Token re-use after approve/reject (already covered as the *second* half of `AdminApproveOrderViaEmailTest` — single-use enforcement) | ✅                                        |
-| `Cron\EscalateStalePendingApprovals` — a pending approval past its SLA gets escalated                                                | ✅ `AdminEscalateStalePendingApprovalTest` |
-| Order under spend limit — never held at all (negative case)                                                                          | ✅ `AdminOrderUnderSpendLimitNotHeldTest` |
+| Scenario                                                                                                                             | Status                                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+| Real order over spend limit → held, approve email sent, approve link releases it                                                     | ✅ `AdminApproveOrderViaEmailTest`                      |
+| Reject link (`Controller/Approval/Reject.php`) — order canceled, not released                                                        | ✅ `AdminRejectOrderViaEmailTest`                       |
+| Token re-use after approve/reject (already covered as the *second* half of `AdminApproveOrderViaEmailTest` — single-use enforcement) | ✅                                                      |
+| `Cron\EscalateStalePendingApprovals` — a pending approval past its SLA gets escalated                                                | ✅ `AdminEscalateStalePendingApprovalTest`              |
+| Order under spend limit — never held at all (negative case)                                                                          | ✅ `AdminOrderUnderSpendLimitNotHeldTest`               |
 | Customer with no spend limit / no approval admin email configured — never held                                                       | ✅ `AdminOrderNeverHeldWithoutSpendLimitConfiguredTest` |
 
 ## 7. Tracking & popups (`view/frontend/web/js/tracker.js`, `Controller/Track/`)
 
-| Scenario                                                                                                                              | Status                                              |
-|---------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| `ordo_visitor_id` cookie issued on first visit, stable across reload                                                                  | ✅ `StorefrontTrackerSetsVisitorCookieTest`         |
-| `page_view` event posted and persisted                                                                                                | ✅ `StorefrontTrackerPostsEventsTest`               |
-| `product_view` event posted and persisted (scripted stand-in for a theme PDP hook)                                                    | ✅ `StorefrontTrackerPostsEventsTest`               |
-| `category_view` event posted and persisted                                                                                            | ✅ `StorefrontTrackerCategoryViewEventTest`         |
-| `element_clicked` event posted and persisted (popup-targeting click threshold)                                                        | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest` |
-| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                           | ✅ `StorefrontTrackerViewThresholdTagsVisitorTest` |
-| Click-threshold crossing (default 1) tags the visitor via `element_clicked`                                                           | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest` |
-| A campaign's `popup` action writes a pending popup, storefront poll (`Controller/Track/Popup.php`) picks it up and renders the banner | ✅ `AdminCampaignPopupActionTest`                   |
-| Popup dismissed / closed client-side, doesn't reappear on next poll                                                                   | ✅ `AdminCampaignPopupClaimedOnceTest`             |
+| Scenario                                                                                                                              | Status                                                                                                                                       |
+|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `ordo_visitor_id` cookie issued on first visit, stable across reload                                                                  | ✅ `StorefrontTrackerSetsVisitorCookieTest`                                                                                                  |
+| `page_view` event posted and persisted                                                                                                | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
+| `product_view` event posted and persisted (scripted stand-in for a theme PDP hook)                                                    | ✅ `StorefrontTrackerPostsEventsTest`                                                                                                        |
+| `category_view` event posted and persisted                                                                                            | ✅ `StorefrontTrackerCategoryViewEventTest`                                                                                                  |
+| `element_clicked` event posted and persisted (popup-targeting click threshold)                                                        | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
+| View-threshold crossing (default 3) tags the visitor, chains into `visitor_tag_added` (§1a)                                           | ✅ `StorefrontTrackerViewThresholdTagsVisitorTest`                                                                                           |
+| Click-threshold crossing (default 1) tags the visitor via `element_clicked`                                                           | ✅ `StorefrontTrackerClickThresholdTagsVisitorTest`                                                                                          |
+| A campaign's `popup` action writes a pending popup, storefront poll (`Controller/Track/Popup.php`) picks it up and renders the banner | ✅ `AdminCampaignPopupActionTest`                                                                                                            |
+| Popup dismissed / closed client-side, doesn't reappear on next poll                                                                   | ✅ `AdminCampaignPopupClaimedOnceTest`                                                                                                       |
 | `Cron\PrunePendingPopups` — delivered/expired popups cleaned up                                                                       | ✅ `AdminPrunePendingPopupsTest` (delivered half only — expired-undelivered half is dead code in production, nothing ever sets `expires_at`) |
-| `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ✅ `StorefrontPruneVisitorEventsTest` |
-| Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                       | ✅ `StorefrontTrackingDisabledConfigTest`          |
+| `Cron\PruneVisitorEvents` — events past retention window removed                                                                      | ✅ `StorefrontPruneVisitorEventsTest`                                                                                                        |
+| Tracking disabled via config — `window.ordoTrack` calls become no-ops server-side (`reason: tracking_disabled`)                       | ✅ `StorefrontTrackingDisabledConfigTest`                                                                                                    |
 
 ## 8. Reorder cycles (`Model/ReorderCycle.php`, `Cron/CalculateReorderCycle.php`, `Cron/SendReorderReminders.php`)
 
-| Scenario                                                                                  | Status                              |
-|-------------------------------------------------------------------------------------------|-------------------------------------|
-| Admin diagnostic grid renders                                                             | ✅ `AdminViewReorderCyclesGridTest` |
+| Scenario                                                                                  | Status                                |
+|-------------------------------------------------------------------------------------------|---------------------------------------|
+| Admin diagnostic grid renders                                                             | ✅ `AdminViewReorderCyclesGridTest`   |
 | `Cron\CalculateReorderCycle` detects a recurring purchase pattern from real order history | ✅ `AdminReorderCycleAndReminderTest` |
 | `Cron\SendReorderReminders` emails a customer whose predicted next-order date has arrived | ✅ `AdminReorderCycleAndReminderTest` |
 
 ## 9. Dashboard (`Controller/Adminhtml/Dashboard/`)
 
-| Scenario                                                                                        | Status                      |
-|-------------------------------------------------------------------------------------------------|-----------------------------|
-| Single "Ordo Automation" menu entry lands on the dashboard, stat cards render                   | ✅ `AdminViewDashboardTest` |
+| Scenario                                                                                        | Status                                  |
+|-------------------------------------------------------------------------------------------------|-----------------------------------------|
+| Single "Ordo Automation" menu entry lands on the dashboard, stat cards render                   | ✅ `AdminViewDashboardTest`             |
 | Stat cards reflect real data (e.g. campaign count, trigger performance) after creating fixtures | ✅ `AdminDashboardReflectsRealDataTest` |
 
-## 10. Content blocks (`Model/ContentBlock/`, `Controller/Adminhtml/ContentBlock/`) and Message Log (`Controller/Adminhtml/MessageLog/`)
+## 10. Content blocks (`Model/ContentBlock/`, `Controller/Adminhtml/ContentBlock/`) and Message Log (
+`Controller/Adminhtml/MessageLog/`)
 
 Both missing from this document's original scope check (see the note at the top of this file) — added here rather
 than retrofitted into an existing section, since neither fits §1-§9's shape.
 
-| Scenario                                                                                                    | Status |
-|----------------------------------------------------------------------------------------------------------------|--------|
-| Create a `snippet` content block, resolved by a real `add_dynamic_content` campaign action                     | ✅ `AdminCreateContentBlockSnippetTest` / `AdminCampaignDynamicContentSnippetActionTest` |
-| `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                          | ✅ `AdminContentBlockRssTest` |
+| Scenario                                                                                                                | Status                                                                                                                           |
+|-------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| Create a `snippet` content block, resolved by a real `add_dynamic_content` campaign action                              | ✅ `AdminCreateContentBlockSnippetTest` / `AdminCampaignDynamicContentSnippetActionTest`                                         |
+| `rss` content block type (`Model/ContentBlock/Producer/RssProducer.php`, `RssFetcher`)                                  | ✅ `AdminContentBlockRssTest`                                                                                                    |
 | `product_feed` content block type, `source: category` (`CategoryProductLister`) or `source: rule` (`RuleProductLister`) | ✅ `AdminContentBlockProductFeedTest` (`source: rule`) and `AdminContentBlockProductFeedCategorySourceTest` (`source: category`) |
-| `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                       | ✅ `AdminContentBlockRssTest` |
-| Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                            | ✅ `AdminContentBlockRssTest` |
-| Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row        | ✅ `AdminMessageLogGridReflectsRealDataTest` |
+| `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                               | ✅ `AdminContentBlockRssTest`                                                                                                    |
+| Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                                    | ✅ `AdminContentBlockRssTest`                                                                                                    |
+| Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row                | ✅ `AdminMessageLogGridReflectsRealDataTest`                                                                                     |
 
 ## 11. Cron jobs not otherwise covered above
 
-| Job                          | What it does                                                 | Status |
-|------------------------------|--------------------------------------------------------------|--------|
-| `SendCreditLimitAlerts`      | Emails when a customer's credit exposure crosses a threshold | ✅ `AdminSendCreditLimitAlertTest` |
-| `SendSalesRepDigest`         | Digest email to a sales rep                                  | ✅ `AdminSendSalesRepDigestTest` |
-| `SendWinBackEmails`          | Emails customers `TagInactiveCustomers` tagged inactive      | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` |
+| Job                          | What it does                                                 | Status                                                                                                                     |
+|------------------------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `SendCreditLimitAlerts`      | Emails when a customer's credit exposure crosses a threshold | ✅ `AdminSendCreditLimitAlertTest`                                                                                         |
+| `SendSalesRepDigest`         | Digest email to a sales rep                                  | ✅ `AdminSendSalesRepDigestTest`                                                                                           |
+| `SendWinBackEmails`          | Emails customers `TagInactiveCustomers` tagged inactive      | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest`                                                                          |
 | `TagInactiveCustomers`       | Tags customers inactive past the configured window           | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` (same test — the two crons are tightly coupled, see its own description) |
-| `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ✅ `AdminSendAbandonedCartReminderAndTriggerTest` |
+| `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ✅ `AdminSendAbandonedCartReminderAndTriggerTest`                                                                          |
 
 All four crons above only fire once a day (or, for `SendSalesRepDigest`, once a week) at a fixed
 wall-clock time (`etc/crontab.xml`) — no MFTF test can wait that out. `Test/Mftf/Helper/CronScheduleHelper.php`

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignUnknownActionTypeFailsClosedTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="An unknown/removed campaign action type fails closed and logs, without aborting the rest of that campaign's action chain"/>
+            <description value="Closes SCENARIOS.md §1c's last remaining gap: CampaignDispatcher::runOneAction() falls back to ActionPool::get() returning null for a type no longer wired via di.xml (e.g. a module providing a custom action got uninstalled, or di.xml was edited, while a campaign still references it) - unit-tested (CampaignDispatcherTest) but never proven end to end, since the admin Action Type &lt;select&gt; only ever lists ActionPool::getAvailableTypes() and can never actually select an unknown one through the UI. Builds a real campaign with TWO actions via the admin UI exactly like AdminCampaignScenarioEndToEndTest, then rewrites the FIRST action's type column directly in the DB (CampaignActionCorruptorHelper, same direct-write technique as CronScheduleHelper, since there's no MFTF-reachable path to this state) to an unregistered value. A real order fires the real trigger; the proof is that the SECOND action (send_email) still runs and its email still arrives - if runOneAction() threw or returned early out of the whole action loop instead of just skipping the one bad row, this second action would never fire."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign3"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, no condition (vacuously satisfied), two
+             actions: add_tag first (this is the one about to be corrupted below - chosen simply
+             because it's the cheapest/first action type in the dropdown, not for any behavioral
+             reason), send_email second - the one whose real side effect proves the chain kept
+             going past the corrupted row. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="E2E Unknown Action Type Campaign" stepKey="fillCampaignName"/>
+
+        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
+        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
+        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
+        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addFirstActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForFirstActionRow"/>
+        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectFirstActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagField"/>
+        <fillField selector="[name='actions[actions][0][tag]']" userInput="will_be_corrupted" stepKey="fillTag"/>
+        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillFirstActionDelay"/>
+
+        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addSecondActionRow"/>
+        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForSecondActionRow"/>
+        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectSecondActionType"/>
+        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
+        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
+        <fillField selector="[name='actions[actions][1][message]']" userInput="You should still get this." stepKey="fillMessage"/>
+        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillSecondActionDelay"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: corrupt the first action's type to something ActionPool was never wired
+             with - the state a live campaign can genuinely end up in, but that the admin form
+             itself can never produce, since its Action Type <select> only ever lists
+             ActionPool::getAvailableTypes(). -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CampaignActionCorruptorHelper" method="corruptMostRecentActionType" stepKey="corruptFirstActionType">
+            <argument name="campaignId">{$grabCampaignId}</argument>
+        </helper>
+
+        <!-- Step 3: a REAL order, through REAL storefront checkout, as the REAL customer. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 4: the actual proof — the second action's own message, which only reaching
+             runOneAction() a SECOND time (i.e. the corrupted first action was skipped, not
+             thrown/aborted out of the whole loop) could have delivered. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeSecondActionEmail">
+            <argument name="expectedText">You should still get this.</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+    </test>
+</tests>

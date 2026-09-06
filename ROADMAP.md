@@ -13,9 +13,9 @@ scoped from real hands-on marketing automation experience.
   `Test/Integration/CampaignDispatchLoadTest.php` puts real numbers on both fixes: 200 campaigns
   matched to one trigger dispatch in ~1.05s (~191 campaigns/sec, batched condition/action loading,
   not one query per campaign), and a 600-row `ordo_campaign_scheduled_action` backlog (deliberately
-  over `RunScheduledCampaignActions::BATCH_SIZE`, 500) is fully claimed and resumed in ~1.36s
-  (~440 rows/sec) across two batches within one cron tick. Asserted bounds are deliberately generous
-  (15s / 60s) — the point is catching a regression back to O(n) query behavior, not
+  over `RunScheduledCampaignActions::BATCH_SIZE`, 500) is fully claimed and resumed in ~1.36s (~440 rows/sec) across two
+  batches within one cron tick. Asserted bounds are deliberately generous (15s / 60s) — the point is catching a
+  regression back to O (n) query behavior, not
   micro-benchmarking a specific number that would make CI flaky on a slower runner. Running this
   against a real install caught a real, separate bug along the way: the shared
   `AbstractCustomerAttributePatch` base class (extracted for the Setup-patch dedup, see
@@ -135,8 +135,8 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
 Not a code review — a capability comparison against the category. Each is a real, separate stream of work:
 
 - **WhatsApp** (multichannel recovery, alongside the shipped SMS channel) — confirmed via Twilio's own docs to be
-  materially more work than "same API, `whatsapp:` prefix": outside a 24-hour customer-service session window
-  (started only when the *customer* messages first), only pre-approved message templates can be sent
+  materially more work than "same API, `whatsapp:` prefix": outside a 24-hour customer-service session window (started
+  only when the *customer* messages first), only pre-approved message templates can be sent
   (Marketing/Utility/Authentication categories, each with separate Meta fees, ~minutes-to-48h approval
   turnaround). A cold-start marketing cart-recovery message is necessarily template-based, so this needs a
   template-authoring/approval-tracking admin UI, not just a new `SmsSenderInterface`-style action — scope this
