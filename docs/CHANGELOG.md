@@ -5,6 +5,18 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Dedicated admin fields for the 6 RFM-based campaign conditions.** `recency_days_at_most`,
+  `order_frequency_at_least`, `monetary_total_at_least`, and the 3 percentile variants
+  previously had no field-mapping rule in the campaign edit form's conditions switcher — the
+  raw "Params (JSON)" textarea was the only way to configure them, unlike every other condition
+  type, which has had a labeled input since the Drawflow canvas shipped (see this file's
+  "Editable Drawflow scenario canvas" entry). Added `days`/`count`/`percentile` fields plus a
+  switcher rule per type (`monetary_total_at_least` reuses the existing `amount` field, same
+  param key and "minimum total" shape as `order_total_gte`; the 3 percentile conditions share
+  one `percentile` field, same reuse pattern as `tag`/`visitor_tag`).
+
 ### Fixed
 
 - **`SendSalesRepDigest`'s email always rendered an empty customer list.** The subject line

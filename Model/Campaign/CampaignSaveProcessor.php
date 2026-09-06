@@ -38,7 +38,7 @@ class CampaignSaveProcessor
     private const array DEDICATED_PARAM_FIELDS = [
         'tag', 'amount', 'rule_id', 'prefix', 'template', 'message',
         'headline', 'body', 'cta_label', 'cta_url', 'points', 'threshold',
-        'content_block_id', 'output_key',
+        'content_block_id', 'output_key', 'days', 'count', 'percentile',
     ];
 
     public function __construct(

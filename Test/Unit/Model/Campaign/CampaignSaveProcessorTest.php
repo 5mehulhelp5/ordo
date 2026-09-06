@@ -289,6 +289,43 @@ class CampaignSaveProcessorTest extends TestCase
         ]);
     }
 
+    /**
+     * Regression test, same reasoning as testProcessPersistsDynamicContentActionFields above:
+     * the RFM-based condition types (recency_days_at_most, order_frequency_at_least,
+     * monetary_percentile_at_least, ...) render days/count/percentile as dedicated fields
+     * (view/adminhtml/ui_component/ordo_campaign_form.xml's conditions switcherConfig), so all
+     * three must be in DEDICATED_PARAM_FIELDS or they're posted but silently dropped.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testProcessPersistsRfmConditionFields(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $campaign = $this->createMock(Campaign::class);
+        $campaign->method('getEntityId')->willReturn(1);
+        $this->campaignFactory->method('create')->willReturn($campaign);
+
+        $this->triggerCollectionFactory->method('create')->willReturn($this->emptyTriggerCollection());
+        $this->actionCollectionFactory->method('create')->willReturn($this->emptyActionCollection());
+
+        $condition = $this->createMock(CampaignCondition::class);
+        $condition->expects(self::once())->method('setData')->with(self::callback(
+            fn (array $data) => json_decode($data['params'], true) === ['percentile' => '80']
+        ));
+        $this->campaignConditionFactory->method('create')->willReturn($condition);
+        $this->conditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+        $this->campaignConditionResource->expects(self::once())->method('save')->with($condition);
+
+        $processor->process([
+            'conditions' => ['conditions' => [[
+                'type' => 'recency_percentile_at_least',
+                'percentile' => '80',
+                'params_json' => '',
+            ]]],
+            'actions' => ['actions' => []],
+        ]);
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testProcessDefaultsDelayMinutesToZeroWhenAbsent(): void
     {

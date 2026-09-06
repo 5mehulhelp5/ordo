@@ -46,16 +46,13 @@ Full inventory with what's already covered and why: `Test/Mftf/SCENARIOS.md`. Th
   cron's own fixed reminder email AND the campaign the `cart_abandoned` trigger dispatched —
   `MailHogHelper::seeTextInAnyRecentEmail()` (new, alongside the existing `seeTextInLatestEmail()`)
   since this one cron tick genuinely sends both emails to the same address in sequence.
+- ~~The 6 RFM-based campaign conditions had no dedicated admin field~~ — done. Added `days`/
+  `count`/`percentile` fields plus a switcher rule per type to `ordo_campaign_form.xml` (see
+  docs/CHANGELOG.md) — configurable via the raw "Params (JSON)" fallback before, same as every
+  other condition type long since got a labeled input for.
 - **Campaign engine** (§1): all 6 RFM-based conditions
   (`recency_days_at_most`, `order_frequency_at_least`, `monetary_total_at_least`, and their 3 percentile
-  variants) are untested end to end — and, discovered while scoping that test, not just untested: the admin
-  campaign form (`view/adminhtml/ui_component/ordo_campaign_form.xml`'s `conditions` dynamicRows switcher) has
-  no field-mapping rule for any of these 6 types at all. Only `tag`/`order_total_gte`/`visitor_tag`/
-  `score_at_least` have a switcher rule revealing their param field(s); selecting one of the 6 RFM types in the
-  Type dropdown leaves every field (`tag`/`amount`/`threshold`) hidden, with no raw-JSON-params fallback either
-  — there is currently **no way to configure these conditions' params through the admin UI at all** (REST/API
-  only). This is a real product gap, not just a test gap — an MFTF test would need that UI to exist first (or
-  test via the REST API instead of the Flow canvas, a real scope decision, not a small addition). `add_tag`
+  variants) are still untested end to end (unit-level only). `add_tag`
   action has never been the thing directly under test (only a side
   effect elsewhere); multiple campaigns matching the same trigger where only some satisfy their conditions is
   only incidentally exercised, never asserted; chained delays (an action pauses, resumes, pauses again) aren't
