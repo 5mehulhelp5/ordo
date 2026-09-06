@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminTagInactiveCustomersAndWinBackEmailTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Lifecycle emails"/>
+            <title value="Cron\TagInactiveCustomers tags a real customer, Cron\SendWinBackEmails then emails them"/>
+            <description value="These two crons are tightly coupled by design (see TagInactiveCustomers's own class doc: 'pure data classification - SendWinBackEmails is the cron that actually emails anyone'), so one test covers both rather than mocking the tag SendWinBackEmails depends on. Neither has any admin UI to drive - both are pure background jobs - so this asserts through their only real, merchant-visible output: the win-back email a real customer actually receives. ordo_automation/lifecycle/win_back_inactive_days is set to 0 so a customer created moments ago already counts as 'inactive' without waiting real days; CronScheduleHelper forces both jobs to run on the next cron:run regardless of their own once-a-day crontab.xml schedule (0 3 * * * / 0 9 * * *), which a CI run can't otherwise wait out."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="lifecycle"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <!-- A customer created THIS instant only counts as "inactive" if the window is 0
+                 days - see Cron\TagInactiveCustomers::execute(): cutoff = now - win_back_inactive_days,
+                 and the customer must satisfy created_at <= cutoff. Restored to the code default
+                 (90) in <after> so this doesn't linger as "everyone is inactive" for whatever
+                 other lifecycle-group test runs next in this same install. -->
+            <magentoCLI command="config:set ordo_automation/lifecycle/win_back_inactive_days 0" stepKey="setInactiveDaysToZero"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/lifecycle/win_back_inactive_days 90" stepKey="restoreInactiveDaysDefault"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+        </after>
+
+        <!-- Step 1: force TagInactiveCustomers to run now (its real schedule is 03:00 daily -
+             see etc/crontab.xml - which a CI run can't wait out) and confirm it actually
+             classified this customer, not just that the job didn't crash: SendWinBackEmails
+             below only has anything to do if the tag really landed. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleTagInactiveCustomersJob">
+            <argument name="jobCode">ordo_automation_tag_inactive_customers</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runTagInactiveCustomersCron"/>
+
+        <!-- Step 2: force SendWinBackEmails to run now (its own real schedule is 09:00 daily) -
+             it reads TagInactiveCustomers's tag from step 1, so this must run second, not in
+             the same cron:run pass as an unrelated ordering assumption. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSendWinBackEmailsJob">
+            <argument name="jobCode">ordo_automation_send_win_back_emails</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runSendWinBackEmailsCron"/>
+
+        <!-- Step 3: the real, merchant-visible output only a correctly-tagged customer reaching
+             SendWinBackEmails could have produced - the actual win_back_email.html template,
+             rendered with this customer's real first name, delivered to their real inbox. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeGreetingInWinBackEmail">
+            <argument name="expectedText">Hi $createCustomer.firstname$,</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeWinBackCopyInEmail">
+            <argument name="expectedText">It's been a while since your last order</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+    </test>
+</tests>

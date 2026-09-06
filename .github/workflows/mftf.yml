@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [campaign, campaign2, segment, dashboard, tracking]
+        group: [campaign, campaign2, segment, dashboard, tracking, lifecycle]
 
     services:
       mysql:
@@ -195,6 +195,12 @@ jobs:
           # (gated behind data-popup-enabled="1" on the tracker script tag) — off by default,
           # same as the flags above.
           bin/magento config:set ordo_automation/tracking/popup_enabled 1
+          # AdminTagInactiveCustomersAndWinBackEmailTest/AdminSendCreditLimitAlertTest/
+          # AdminSendSalesRepDigestTest (lifecycle group) need their crons' own feature flags
+          # actually on — off by default, same as the flags above.
+          bin/magento config:set ordo_automation/lifecycle/enabled 1
+          bin/magento config:set ordo_automation/credit_limit/enabled 1
+          bin/magento config:set ordo_automation/sales_rep/digest_enabled 1
 
           # Every admin test that navigates straight to a URL (amOnPage) rather than
           # clicking a rendered link was silently redirected to the Dashboard — confirmed

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSendSalesRepDigestTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Lifecycle emails"/>
+            <title value="Cron\SendSalesRepDigest groups a real inactive customer under their assigned rep and emails the rep, not the customer"/>
+            <description value="SendSalesRepDigest::groupInactiveCustomersByRep() reads every customer tagged 'inactive' (the same tag TagInactiveCustomers writes) and groups them by the ordo_sales_rep_email customer attribute - so this assigns a real rep email to a real customer via the admin form, tags that customer inactive the same way AdminTagInactiveCustomersAndWinBackEmailTest does, then forces SendSalesRepDigest (real schedule Mondays 08:00 only - see etc/crontab.xml - which a CI run genuinely cannot wait out) to run via CronScheduleHelper, and asserts the digest email lands in the REP's inbox (not the customer's) and actually names the customer."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="lifecycle"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <!-- Same reasoning as AdminTagInactiveCustomersAndWinBackEmailTest: a customer
+                 created moments ago only counts as "inactive" once the window is 0 days. -->
+            <magentoCLI command="config:set ordo_automation/lifecycle/win_back_inactive_days 0" stepKey="setInactiveDaysToZero"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/lifecycle/win_back_inactive_days 90" stepKey="restoreInactiveDaysDefault"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: assign a real rep email to the real customer via the admin form - the only
+             thing SendSalesRepDigest's grouping actually keys on. -->
+        <amOnPage url="{{AdminEditCustomerPage.url($$createCustomer.id$$)}}" stepKey="goToCustomerEditPage"/>
+        <waitForPageLoad stepKey="waitForCustomerEditPage"/>
+        <waitForElementVisible selector="[name='customer[ordo_sales_rep_email]']" stepKey="waitForRepEmailField"/>
+        <fillField selector="[name='customer[ordo_sales_rep_email]']" userInput="rep-digest-test@example.test" stepKey="fillRepEmail"/>
+        <click selector="{{AdminCustomerMainActionsSection.saveButton}}" stepKey="saveCustomer"/>
+        <see selector="{{AdminCustomerMessagesSection.successMessage}}" userInput="You saved the customer" stepKey="seeCustomerSavedMessage"/>
+
+        <!-- Step 2: tag the customer inactive for real - same two steps as
+             AdminTagInactiveCustomersAndWinBackEmailTest's own step 1, forcing
+             TagInactiveCustomers to run now instead of at its real 03:00 schedule. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleTagInactiveCustomersJob">
+            <argument name="jobCode">ordo_automation_tag_inactive_customers</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runTagInactiveCustomersCron"/>
+
+        <!-- Step 3: force SendSalesRepDigest to run now - its real schedule is Mondays 08:00
+             only (etc/crontab.xml), which no CI run can wait out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSendSalesRepDigestJob">
+            <argument name="jobCode">ordo_automation_send_sales_rep_digest</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runSendSalesRepDigestCron"/>
+
+        <!-- Step 4: the digest reaches the REP's inbox, naming the customer - proving the
+             grouping-by-rep-email actually happened, not just that some email went out to
+             someone. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeDigestCountInEmail">
+            <argument name="expectedText">customers have gone inactive this week</argument>
+            <argument name="toAddress">rep-digest-test@example.test</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeCustomerNameInEmail">
+            <argument name="expectedText">$createCustomer.firstname$ $createCustomer.lastname$</argument>
+            <argument name="toAddress">rep-digest-test@example.test</argument>
+        </helper>
+    </test>
+</tests>
