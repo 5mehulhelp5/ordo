@@ -79,6 +79,16 @@ controller/cron gets a row there before it's considered done).
       above it already solves this (labeled fields per type, visual graph) but this native form
       is still the first thing a new campaign lands on and needs its own pass, not just a
       pointer to "use the other editor instead."
+    - Diagnostic-only grids (Reorder Cycles, RFM Report, and likely others in the same family)
+      show correct data but no in-UI explanation of what they mean or what they're for - reported
+      directly ("what is this view, what does it show, I don't understand") against a real Reorder
+      Cycles screenshot: a grid of `customer_id`/SKU/avg interval/last order/next expected/orders
+      considered with zero header tooltips, page description, or column help text, so a viewer has
+      no way to tell it's a read-only "here's what the reorder-reminder detection engine
+      currently believes" view without reading the cron's own source code. Needs a short page-level
+      description block (same pattern `VERIFICATION.md`/docstrings already use to explain intent)
+      plus column tooltips, applied consistently across every diagnostic-only grid in the module,
+      not just this one.
   - Needs a real scoping pass (which admin screens are in/out, whether this touches only CSS/
     templates or also UI component layouts, a11y/contrast check against the new palette) before
     implementation starts - this entry exists to make sure that scoping happens deliberately
