@@ -66,17 +66,20 @@ class Render extends Template
     {
         $identifier = (string) $this->getData('identifier');
         if ($identifier === '') {
-            return '';
+            return 'ORDO_DEBUG:EMPTY_IDENTIFIER';
         }
 
         $block = $this->contentBlockRepository->getByIdentifier($identifier);
-        if (!$block instanceof ContentBlock || !$block->isEnabled()) {
-            return '';
+        if (!$block instanceof ContentBlock) {
+            return 'ORDO_DEBUG:BLOCK_NOT_FOUND:' . $identifier;
+        }
+        if (!$block->isEnabled()) {
+            return 'ORDO_DEBUG:BLOCK_DISABLED:' . $identifier;
         }
 
         $producer = $this->producerPool->get($block->getType());
         if (!$producer instanceof ProducerInterface) {
-            return '';
+            return 'ORDO_DEBUG:NO_PRODUCER:' . $block->getType();
         }
 
         $context = [];
@@ -84,6 +87,8 @@ class Render extends Template
             $context['customer_id'] = (int) $this->customerSession->getCustomerId();
         }
 
-        return $producer->render($block, $context);
+        $rendered = $producer->render($block, $context);
+
+        return $rendered === '' ? 'ORDO_DEBUG:PRODUCER_RETURNED_EMPTY' : $rendered;
     }
 }

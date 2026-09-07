@@ -61,7 +61,7 @@ class RenderTest extends TestCase
     {
         $this->contentBlockRepository->expects(self::never())->method('getByIdentifier');
 
-        self::assertSame('', $this->makeBlock()->getContentHtml());
+        self::assertSame('ORDO_DEBUG:EMPTY_IDENTIFIER', $this->makeBlock()->getContentHtml());
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -71,7 +71,7 @@ class RenderTest extends TestCase
             ->method('getByIdentifier')->with('missing')->willReturn(null);
         $this->producerPool->expects(self::never())->method('get');
 
-        self::assertSame('', $this->makeBlock(['identifier' => 'missing'])->getContentHtml());
+        self::assertSame('ORDO_DEBUG:BLOCK_NOT_FOUND:missing', $this->makeBlock(['identifier' => 'missing'])->getContentHtml());
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -81,7 +81,7 @@ class RenderTest extends TestCase
         $this->contentBlockRepository->method('getByIdentifier')->willReturn($block);
         $this->producerPool->expects(self::never())->method('get');
 
-        self::assertSame('', $this->makeBlock(['identifier' => 'homepage_recs'])->getContentHtml());
+        self::assertSame('ORDO_DEBUG:BLOCK_DISABLED:homepage_recs', $this->makeBlock(['identifier' => 'homepage_recs'])->getContentHtml());
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -91,7 +91,7 @@ class RenderTest extends TestCase
         $this->contentBlockRepository->method('getByIdentifier')->willReturn($block);
         $this->producerPool->expects(self::once())->method('get')->with('unregistered_type')->willReturn(null);
 
-        self::assertSame('', $this->makeBlock(['identifier' => 'homepage_recs'])->getContentHtml());
+        self::assertSame('ORDO_DEBUG:NO_PRODUCER:unregistered_type', $this->makeBlock(['identifier' => 'homepage_recs'])->getContentHtml());
     }
 
     #[AllowMockObjectsWithoutExpectations]
