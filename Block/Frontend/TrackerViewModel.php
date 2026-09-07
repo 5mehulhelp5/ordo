@@ -47,4 +47,18 @@ class TrackerViewModel implements ArgumentInterface
     {
         return $this->config->getNpsSurveyPollIntervalSeconds();
     }
+
+    public function isPushEnabled(): bool
+    {
+        return $this->config->isPushEnabled();
+    }
+
+    /**
+     * Not a secret - safe to render straight into the page, same as any other applicationServerKey
+     * example in the Web Push spec itself.
+     */
+    public function getVapidPublicKey(): string
+    {
+        return $this->config->getVapidPublicKey();
+    }
 }

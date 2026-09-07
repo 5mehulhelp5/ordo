@@ -13,5 +13,7 @@ $viewModel = $block->getData('view_model');
     data-notification-poll-interval="<?= (int) $viewModel->getNotificationPollIntervalSeconds() ?>"
     data-nps-survey-enabled="<?= $viewModel->isNpsSurveyEnabled() ? '1' : '0' ?>"
     data-nps-survey-poll-interval="<?= (int) $viewModel->getNpsSurveyPollIntervalSeconds() ?>"
+    data-push-enabled="<?= $viewModel->isPushEnabled() ? '1' : '0' ?>"
+    data-push-vapid-public-key="<?= $escaper->escapeHtmlAttr($viewModel->getVapidPublicKey()) ?>"
 ></script>
 <?php endif; ?>

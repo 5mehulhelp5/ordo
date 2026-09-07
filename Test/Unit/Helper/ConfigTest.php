@@ -47,6 +47,30 @@ class ConfigTest extends TestCase
         self::assertTrue($this->config->isCreditLimitCheckoutBlockEnabled());
         self::assertTrue($this->config->isLeadScoringEnabled());
         self::assertTrue($this->config->isSmsEnabled());
+        self::assertTrue($this->config->isWhatsAppEnabled());
+        self::assertTrue($this->config->isPushEnabled());
+    }
+
+    public function testPushGettersDelegateToScopeConfig(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturnMap([
+            ['ordo_automation/push/vapid_public_key', 'store', null, 'public-key-b64url'],
+            ['ordo_automation/push/vapid_private_key', 'store', null, 'private-key-b64url'],
+            ['ordo_automation/push/vapid_subject', 'store', null, 'mailto:ops@example.com'],
+        ]);
+
+        self::assertSame('public-key-b64url', $this->config->getVapidPublicKey());
+        self::assertSame('private-key-b64url', $this->config->getVapidPrivateKey());
+        self::assertSame('mailto:ops@example.com', $this->config->getVapidSubject());
+    }
+
+    public function testPushGettersReturnEmptyStringWhenUnset(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn(null);
+
+        self::assertSame('', $this->config->getVapidPublicKey());
+        self::assertSame('', $this->config->getVapidPrivateKey());
+        self::assertSame('', $this->config->getVapidSubject());
     }
 
     public function testTwilioGettersDelegateToScopeConfig(): void

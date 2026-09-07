@@ -27,18 +27,18 @@ scoped from real hands-on marketing automation experience.
   use a real HMAC-SHA256 signature — but template submission (`SubmitForReview`), approval polling
   (`RefreshStatus`), and an actual template message send have never been exercised against a live WABA/phone
   number, and the webhook receiver has never received a genuine callback from Meta.
+- **`send_push` / Web Push has no test against a real browser or push service (FCM, Mozilla autopush, etc.).**
+  The RFC 8291/8188 encryption itself is covered thoroughly (`WebPushCryptoTest` round-trips a full encrypt against
+  an independent, from-scratch decrypt reimplementation; `DerTest`/`VapidTokenBuilderTest` verify the ECDH/ECDSA
+  primitives against real OpenSSL), but no CI run has ever registered a real subscription in an actual browser,
+  sent a push through it, and confirmed a notification appeared — the one thing unit tests structurally can't
+  exercise here.
 
 ### MFTF/scenario coverage
 
 Full inventory with what's covered and why: `Test/Mftf/SCENARIOS.md`. Every row there is currently ✅ — no open
 gaps. Kept as the standing scope check for anything newly added to the module (new trigger/condition/action/
 controller/cron gets a row there before it's considered done).
-
-## Gaps vs. a full-market MA platform
-
-Not a code review — a capability comparison against the category. Each is a real, separate stream of work:
-
-- **Push notifications** — not investigated yet.
 
 ## Localization
 

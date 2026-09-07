@@ -37,8 +37,11 @@ Covers both classic B2C lifecycle automation and the B2B triggers most external 
 - Abandoned cart recovery, capped per cart.
 - Welcome email on registration.
 - Win-back / re-engagement email after N days of inactivity, self-clearing once the customer orders again.
-- SMS recovery (Twilio) — a `send_sms` campaign action, with delivery-status tracking and opt-out handling. WhatsApp
-  and push are tracked in ROADMAP.md, not built yet.
+- SMS recovery (Twilio) — a `send_sms` campaign action, with delivery-status tracking and opt-out handling.
+- WhatsApp (Meta Cloud API) — a `send_whatsapp` campaign action sending pre-approved templates, with its own
+  admin-managed template approval lifecycle and delivery-status webhook.
+- Web Push notifications — a `send_push` campaign action delivering real browser/OS notifications (RFC 8291/8292,
+  no vendor SDK), to every device a customer has subscribed from.
 
 **Shared foundation**
 

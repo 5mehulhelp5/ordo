@@ -91,6 +91,11 @@ class Config
     private const string XML_PATH_WHATSAPP_APP_SECRET = 'ordo_automation/whatsapp/app_secret';
     private const string XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'ordo_automation/whatsapp/webhook_verify_token';
 
+    private const string XML_PATH_PUSH_ENABLED = 'ordo_automation/push/enabled';
+    private const string XML_PATH_PUSH_VAPID_PUBLIC_KEY = 'ordo_automation/push/vapid_public_key';
+    private const string XML_PATH_PUSH_VAPID_PRIVATE_KEY = 'ordo_automation/push/vapid_private_key';
+    private const string XML_PATH_PUSH_VAPID_SUBJECT = 'ordo_automation/push/vapid_subject';
+
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly EncryptorInterface $encryptor
@@ -573,5 +578,51 @@ class Config
     public function getWhatsAppWebhookVerifyToken(?int $storeId = null): string
     {
         return $this->decryptedConfig(self::XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN, $storeId);
+    }
+
+    public function isPushEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_PUSH_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * Base64url-encoded, uncompressed P-256 public key — sent to the browser verbatim as the
+     * `applicationServerKey` for `pushManager.subscribe()`. Not a secret (see
+     * getVapidPrivateKey() for that), so this is a plain text field, not obscure/encrypted.
+     */
+    public function getVapidPublicKey(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_PUSH_VAPID_PUBLIC_KEY,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * Base64url-encoded P-256 private key (PKCS#8/SEC1 raw scalar) — Model\Push\VapidTokenBuilder
+     * signs every outbound push request's VAPID JWT with this. Never sent to the browser.
+     */
+    public function getVapidPrivateKey(?int $storeId = null): string
+    {
+        return $this->decryptedConfig(self::XML_PATH_PUSH_VAPID_PRIVATE_KEY, $storeId);
+    }
+
+    /**
+     * A `mailto:` address or `https://` URL identifying this site's operator, per the VAPID spec
+     * (RFC 8292) — carried in every VAPID JWT's `sub` claim so a push service can contact the
+     * sender if its traffic needs throttling/investigating.
+     */
+    public function getVapidSubject(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_PUSH_VAPID_SUBJECT,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
     }
 }

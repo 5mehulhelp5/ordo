@@ -7,6 +7,7 @@ use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Framework\Event;
 use Magento\Framework\Event\Observer as EventObserver;
 use Magento\Framework\Stdlib\CookieManagerInterface;
+use Ordo\Automation\Model\Push\PushSubscriptionManager;
 use Ordo\Automation\Model\VisitorEventLogger;
 use Ordo\Automation\Observer\StitchVisitorIdentity;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -31,7 +32,10 @@ class StitchVisitorIdentityTest extends TestCase
         $eventLogger = $this->createMock(VisitorEventLogger::class);
         $eventLogger->expects(self::once())->method('attributeVisitorToCustomer')->with('v1', 42);
 
-        (new StitchVisitorIdentity($cookieManager, $eventLogger))->execute($observer);
+        $pushSubscriptionManager = $this->createMock(PushSubscriptionManager::class);
+        $pushSubscriptionManager->expects(self::once())->method('attributeVisitorToCustomer')->with('v1', 42);
+
+        (new StitchVisitorIdentity($cookieManager, $eventLogger, $pushSubscriptionManager))->execute($observer);
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -45,7 +49,10 @@ class StitchVisitorIdentityTest extends TestCase
         $eventLogger = $this->createMock(VisitorEventLogger::class);
         $eventLogger->expects(self::never())->method('attributeVisitorToCustomer');
 
-        (new StitchVisitorIdentity($cookieManager, $eventLogger))->execute($observer);
+        $pushSubscriptionManager = $this->createMock(PushSubscriptionManager::class);
+        $pushSubscriptionManager->expects(self::never())->method('attributeVisitorToCustomer');
+
+        (new StitchVisitorIdentity($cookieManager, $eventLogger, $pushSubscriptionManager))->execute($observer);
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -62,6 +69,9 @@ class StitchVisitorIdentityTest extends TestCase
         $eventLogger = $this->createMock(VisitorEventLogger::class);
         $eventLogger->expects(self::never())->method('attributeVisitorToCustomer');
 
-        (new StitchVisitorIdentity($cookieManager, $eventLogger))->execute($observer);
+        $pushSubscriptionManager = $this->createMock(PushSubscriptionManager::class);
+        $pushSubscriptionManager->expects(self::never())->method('attributeVisitorToCustomer');
+
+        (new StitchVisitorIdentity($cookieManager, $eventLogger, $pushSubscriptionManager))->execute($observer);
     }
 }

@@ -365,6 +365,30 @@
                     <depends><field id="enabled">1</field></depends>
                 </field>
             </group>
+            <group id="push" translate="label" type="text" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Push Notifications (Web Push)</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Master switch for the "Send Push" campaign action and for tracker.js offering the browser notification-permission prompt at all. Requires a VAPID key pair below - generate one with `bin/magento ordo:push:vapid:generate`.</comment>
+                </field>
+                <field id="vapid_public_key" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>VAPID Public Key</label>
+                    <comment>Not a secret - sent to every visitor's browser as-is. Generate a matching pair with `bin/magento ordo:push:vapid:generate`.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="vapid_private_key" translate="label comment" type="obscure" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>VAPID Private Key</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>Signs every outbound push request's VAPID authentication token (Model\Push\VapidTokenBuilder) - never sent to the browser.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="vapid_subject" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>VAPID Contact (mailto: or https:// URL)</label>
+                    <comment>Required by the Web Push standard (RFC 8292) so a push service (Chrome/Firefox/etc.) can reach this site's operator if its traffic needs attention, e.g. "mailto:ops@example.com".</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+            </group>
         </section>
     </system>
 </config>

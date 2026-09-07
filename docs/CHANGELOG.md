@@ -7,6 +7,42 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Web Push notifications — a full third messaging channel (`send_push` campaign action), closing the
+  ROADMAP.md "Push notifications" gap. No vendor web-push library: real browser/OS notifications via RFC 8291
+  (Message Encryption for Web Push) and RFC 8292 (VAPID), implemented by hand on top of PHP's own `openssl_*`
+  functions (P-256 ECDH via `openssl_pkey_derive`, HKDF via `hash_hmac`, AES-128-GCM via `openssl_encrypt`) —
+  the same no-SDK stance this module already takes for Twilio/Meta/Google/SendGrid, extended here to
+  asymmetric crypto rather than just HMAC signature verification.
+  - `Model\Push\Der` — a minimal hand-rolled ASN.1 DER encoder/parser turning the raw EC points/scalars every
+    part of this feature deals with (browser subscription keys, this module's own stored VAPID keys, ECDSA
+    signatures) into something `openssl_pkey_get_public()`/`openssl_pkey_get_private()`/`openssl_sign()`
+    accept, and back — every length is computed from actual content, never a hardcoded byte-offset table.
+  - `Model\Push\WebPushCrypto` — the RFC 8291/8188 encryption pipeline itself (ephemeral ECDH, two-stage HKDF,
+    single-record `aes128gcm` framing). Verified by `WebPushCryptoTest`, which round-trips a real `encrypt()`
+    call against an independent, from-scratch reimplementation of the *receiving* side of the same RFCs,
+    rather than trusting the implementation's own internal consistency.
+  - `Model\Push\VapidTokenBuilder` — builds the `Authorization: vapid t=<JWT>, k=<key>` header (RFC 8292),
+    including converting `openssl_sign()`'s DER ECDSA signature into JWS's required raw `r || s` format.
+  - New `ordo_push_subscription` table + `Model\Push\PushSubscriptionManager` — one row per browser/device
+    (a customer can have several), upserted by `endpoint_hash` so a browser silently rotating its own
+    subscription updates the existing row instead of accumulating duplicates. Keyed by `customer_id` OR
+    `visitor_id`, same anonymous-then-stitched shape as `ordo_visitor_tag`/`ordo_pending_popup` —
+    `Observer\StitchVisitorIdentity` now also backfills `customer_id` onto pre-login subscriptions on login.
+  - `Controller\Track\RegisterPushSubscription`/`UnregisterPushSubscription` — public endpoints `tracker.js`
+    (and `push-sw.js`'s own `pushsubscriptionchange` handler) call to register/remove a subscription.
+  - `Controller\Track\PushServiceWorker` — serves `view/frontend/web/js/push-sw.js` from a plain, unversioned
+    controller URL with a `Service-Worker-Allowed: /` response header, instead of Magento's usual deep
+    `/static/version.../frontend/...` static asset path, which would otherwise limit the service worker's
+    scope to that same deep path and make it unable to control real storefront pages at all.
+  - `Model\Campaign\Action\SendPush` — same skeleton as `send_sms`/`send_whatsapp` (consent gate via the
+    already-existing, previously-unused `ConsentChannel::Push`, `MessageLogWriter` into the shared
+    `ordo_message_log`), but sends to every one of a customer's registered devices rather than a single
+    phone number, and deletes a subscription outright (`SubscriptionGoneException`) on an HTTP 404/410 from
+    the push service instead of just logging a failure.
+  - New CLI command `bin/magento ordo:push:vapid:generate` — an admin has no other reasonable way to produce
+    a VAPID key pair in the exact base64url-encoded raw-EC-point/scalar format the config fields need.
+  - New "Push Notifications (Web Push)" config section (VAPID public/private key, contact subject).
+
 - WhatsApp Business Platform integration (Meta Cloud API v20.0) — a full second messaging channel alongside
   the existing `send_sms`. Not "same API, `whatsapp:` prefix": outside a 24-hour customer-service window
   (which is most campaign sends), Meta only allows a pre-approved message template, so this ships:

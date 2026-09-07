@@ -612,4 +612,28 @@
         </index>
     </table>
 
+    <table name="ordo_push_subscription" resource="default" engine="innodb" comment="A single browser/device's Web Push subscription (RFC 8030/8291) - one row per endpoint, since a customer commonly has more than one (phone + laptop). Keyed by customer_id OR visitor_id, same anonymous-then-stitched shape as ordo_visitor_tag/ordo_pending_popup - a visitor can grant notification permission before ever logging in.">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
+        <column xsi:type="int" name="customer_id" padding="10" unsigned="true" nullable="true" comment="Set once identity stitching links this subscription's visitor_id to a logged-in customer, or immediately if the browser was already logged in when it subscribed"/>
+        <column xsi:type="varchar" name="visitor_id" nullable="true" length="64" comment="Anonymous first-party cookie value, matches ordo_visitor_event.visitor_id - at least one of customer_id/visitor_id is always set"/>
+        <column xsi:type="text" name="endpoint" nullable="false" comment="The push service URL (fcm.googleapis.com/..., updates.push.services.mozilla.com/..., etc.) PushSender posts the encrypted message to - can exceed 255 chars for some browsers, hence text not varchar"/>
+        <column xsi:type="varchar" name="endpoint_hash" nullable="false" length="64" comment="sha256(endpoint) - endpoint itself is a text column and can't be usefully unique-indexed/looked-up directly in InnoDB, this is what PushSubscriptionManager actually queries/uniques on"/>
+        <column xsi:type="varchar" name="p256dh_key" nullable="false" length="255" comment="Subscription's P-256 ECDH public key (base64url), from PushSubscription.getKey('p256dh') in the browser - PushSender's own ephemeral key is combined with this to derive the message encryption key, see RFC 8291"/>
+        <column xsi:type="varchar" name="auth_key" nullable="false" length="255" comment="Subscription's 16-byte auth secret (base64url), from PushSubscription.getKey('auth') - the other HKDF input RFC 8291 requires alongside p256dh_key"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
+        <column xsi:type="timestamp" name="last_seen_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Last time this endpoint was (re)registered - browsers can rotate the endpoint/keys of an existing subscription without an explicit unsubscribe, so a fresh register just updates this row rather than creating a duplicate"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="ORDO_PUSH_SUBSCRIPTION_ENDPOINT_HASH">
+            <column name="endpoint_hash"/>
+        </constraint>
+        <index referenceId="ORDO_PUSH_SUBSCRIPTION_CUSTOMER_ID" indexType="btree">
+            <column name="customer_id"/>
+        </index>
+        <index referenceId="ORDO_PUSH_SUBSCRIPTION_VISITOR_ID" indexType="btree">
+            <column name="visitor_id"/>
+        </index>
+    </table>
+
 </schema>

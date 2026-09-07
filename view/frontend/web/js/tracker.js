@@ -416,7 +416,73 @@
         setInterval(pollForSurvey, intervalSeconds * 1000);
     }
 
+    function urlBase64ToUint8Array(base64Url) {
+        var padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+        var base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; i++) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function arrayBufferToBase64Url(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var binary = '';
+        for (var i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function registerPushSubscription(subscription) {
+        var body = new URLSearchParams({
+            endpoint: subscription.endpoint,
+            p256dh: arrayBufferToBase64Url(subscription.getKey('p256dh')),
+            auth: arrayBufferToBase64Url(subscription.getKey('auth'))
+        });
+
+        fetch('/ordo/track/registerpushsubscription', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: body,
+            keepalive: true
+        }).catch(function () {});
+    }
+
+    /**
+     * Only ever subscribes on an explicit, separate user gesture (e.g. a theme's own "Enable
+     * notifications" button calling window.ordoSubscribeToPush()) - never auto-prompts on page
+     * load. An unsolicited native permission prompt the moment a visitor lands on the page is
+     * both a bad first impression and, on Chrome, a well-known way to get a site's own prompt
+     * quietly auto-blocked by the browser's own spam heuristics.
+     */
+    function subscribeToPush() {
+        if (!currentScript || currentScript.getAttribute('data-push-enabled') !== '1') {
+            return Promise.reject(new Error('Push notifications are disabled.'));
+        }
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return Promise.reject(new Error('Push notifications are not supported in this browser.'));
+        }
+
+        var vapidPublicKey = currentScript.getAttribute('data-push-vapid-public-key');
+
+        return navigator.serviceWorker.register('/ordo/track/pushserviceworker', { scope: '/' })
+            .then(function (registration) {
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+                });
+            })
+            .then(function (subscription) {
+                registerPushSubscription(subscription);
+                return subscription;
+            });
+    }
+
     window.ordoTrack = track;
+    window.ordoSubscribeToPush = subscribeToPush;
     track('page_view');
     startPopupPolling();
     startNotificationPolling();

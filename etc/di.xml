@@ -213,6 +213,7 @@
                 <item name="notify" xsi:type="object">Ordo\Automation\Model\Campaign\Action\Notify</item>
                 <item name="nps_survey" xsi:type="object">Ordo\Automation\Model\Campaign\Action\NpsSurvey</item>
                 <item name="send_whatsapp" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendWhatsApp</item>
+                <item name="send_push" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendPush</item>
             </argument>
         </arguments>
     </type>
@@ -259,6 +260,14 @@
         <arguments>
             <argument name="discountRules" xsi:type="array">
                 <item name="ordo_cheapest_item_free" xsi:type="string">Ordo\Automation\Model\Rule\Action\Discount\CheapestItemFree</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="ordo_push_vapid_generate" xsi:type="object">Ordo\Automation\Console\Command\GenerateVapidKeysCommand</item>
             </argument>
         </arguments>
     </type>

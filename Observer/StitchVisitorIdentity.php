@@ -6,6 +6,7 @@ namespace Ordo\Automation\Observer;
 use Magento\Framework\Event\Observer as EventObserver;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Stdlib\CookieManagerInterface;
+use Ordo\Automation\Model\Push\PushSubscriptionManager;
 use Ordo\Automation\Model\VisitorEventLogger;
 
 /**
@@ -14,6 +15,10 @@ use Ordo\Automation\Model\VisitorEventLogger;
  * — attributeVisitorToCustomer() itself publishes the aggregation check (see
  * Model\Queue\VisitorAggregationPublisher), so any threshold already crossed while browsing
  * anonymously still turns into a tag, just off the request thread rather than blocking login.
+ *
+ * Also stitches any push subscription(s) this browser registered before login (Model\Push\
+ * PushSubscriptionManager::attributeVisitorToCustomer()), so a "send_push" campaign action
+ * triggered right after this login can already reach this device.
  */
 class StitchVisitorIdentity implements ObserverInterface
 {
@@ -21,7 +26,8 @@ class StitchVisitorIdentity implements ObserverInterface
 
     public function __construct(
         private readonly CookieManagerInterface $cookieManager,
-        private readonly VisitorEventLogger $visitorEventLogger
+        private readonly VisitorEventLogger $visitorEventLogger,
+        private readonly PushSubscriptionManager $pushSubscriptionManager
     ) {
     }
 
@@ -38,5 +44,6 @@ class StitchVisitorIdentity implements ObserverInterface
         }
 
         $this->visitorEventLogger->attributeVisitorToCustomer($visitorId, (int) $customer->getId());
+        $this->pushSubscriptionManager->attributeVisitorToCustomer($visitorId, (int) $customer->getId());
     }
 }

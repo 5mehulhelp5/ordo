@@ -26,7 +26,7 @@ class MessageLogWriter
         string $channel,
         ?int $customerId,
         string $toAddress,
-        string $providerMessageId
+        ?string $providerMessageId
     ): void {
         $log = $this->messageLogFactory->create();
         $log->setChannel($channel)
