@@ -2059,6 +2059,48 @@ parameters:
 			path: Model/ResourceModel/OrderApproval.php
 
 		-
+			message: '#^Cannot call method update\(\) on Magento\\Framework\\DB\\Adapter\\AdapterInterface\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/ResourceModel/OrderApproval.php
+
+		-
+			message: '#^Cannot call method quoteInto\(\) on Magento\\Framework\\DB\\Adapter\\AdapterInterface\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/ResourceModel/OrderApproval.php
+
+		-
+			message: '#^Cannot call method quote\(\) on Magento\\Framework\\DB\\Adapter\\AdapterInterface\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/ResourceModel/OrderApproval.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: Model/ResourceModel/OrderApproval.php
+
+		-
+			message: '#^Cannot call method update\(\) on Magento\\Framework\\DB\\Adapter\\AdapterInterface\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/ResourceModel/Campaign/ScheduledAction.php
+
+		-
+			message: '#^Cannot call method quoteInto\(\) on Magento\\Framework\\DB\\Adapter\\AdapterInterface\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/ResourceModel/Campaign/ScheduledAction.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: Model/ResourceModel/Campaign/ScheduledAction.php
+
+		-
 			message: '#^Parameter \#2 \$condition of method Magento\\Framework\\Data\\Collection\\AbstractDb\:\:addFieldToFilter\(\) expects array\|string\|null, int given\.$#'
 			identifier: argument.type
 			count: 1

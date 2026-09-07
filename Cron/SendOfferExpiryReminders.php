@@ -5,6 +5,8 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
@@ -33,6 +35,7 @@ class SendOfferExpiryReminders
         private readonly ReminderEmailSender $emailSender,
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
+        private readonly ConsentManager $consentManager,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
         private readonly CronRunLogger $cronRunLogger
     ) {
@@ -72,6 +75,18 @@ class SendOfferExpiryReminders
                 continue;
             }
 
+            // A customer who opted out of email must never receive this reminder, same consent
+            // gate every other channel's send action applies before sending anything.
+            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+                continue;
+            }
+
+            // Claim (log) BEFORE sending, not after - a crash between a successful send and the
+            // log write must never cause a resend on the next tick. If the send itself then
+            // fails, the claim is rolled back so this offer is retried next run.
+            $reminderLogRow = $this->buildReminderLogRow((int) $offer->getEntityId(), self::REMINDER_TYPE_EXPIRING_SOON);
+            $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, $reminderLogRow);
+
             try {
                 $customer = $customerMap[$customerId];
                 $this->emailSender->send(
@@ -80,10 +95,10 @@ class SendOfferExpiryReminders
                     $customer->getEmail(),
                     $customer->getFirstname()
                 );
-                $this->logReminder((int) $offer->getEntityId(), self::REMINDER_TYPE_EXPIRING_SOON);
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_OFFER_EXPIRY, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
+                $this->reminderLogStore->deleteMatching(self::REMINDER_LOG_TABLE, $reminderLogRow);
                 $this->cronRunLogger->logFailure(
                     sprintf('send offer expiry reminder for offer #%d', $offer->getEntityId()),
                     $e
@@ -117,12 +132,15 @@ class SendOfferExpiryReminders
         ]) > 0;
     }
 
-    private function logReminder(int $offerId, string $type): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildReminderLogRow(int $offerId, string $type): array
     {
-        $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, [
+        return [
             'offer_id' => $offerId,
             'reminder_type' => $type,
             'sent_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
     }
 }

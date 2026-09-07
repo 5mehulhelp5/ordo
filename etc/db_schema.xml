@@ -175,6 +175,13 @@
         <index referenceId="ORDO_ORDER_APPROVAL_STATUS" indexType="btree">
             <column name="status"/>
         </index>
+        <!-- Covers Cron\EscalateStalePendingApprovals' own addStalePendingFilter() (status =
+             'pending' AND created_at <= cutoff), so its scan doesn't grow linearly with the
+             whole table as approvals accumulate. -->
+        <index referenceId="ORDO_ORDER_APPROVAL_STATUS_CREATED_AT" indexType="btree">
+            <column name="status"/>
+            <column name="created_at"/>
+        </index>
     </table>
 
     <table name="ordo_campaign" resource="default" engine="innodb" comment="A configurable when-X-happens-and-Y-is-true-do-Z marketing rule">
@@ -405,6 +412,10 @@
         <index referenceId="ORDO_AD_AUDIENCE_SEGMENT_ID" indexType="btree">
             <column name="segment_id"/>
         </index>
+        <!-- Cron\SyncAdAudiences' own addEnabledFilter() scans this every run. -->
+        <index referenceId="ORDO_AD_AUDIENCE_ENABLED" indexType="btree">
+            <column name="enabled"/>
+        </index>
     </table>
 
     <table name="ordo_free_gift_offer" resource="default" engine="innodb" comment="Free-gift-above-threshold offer header">
@@ -416,6 +427,11 @@
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="entity_id"/>
         </constraint>
+        <!-- Model\FreeGiftManagement / Observer\TrimExcessFreeGifts both filter on enabled on the
+             checkout hot path - found via a code audit. -->
+        <index referenceId="ORDO_FREE_GIFT_OFFER_ENABLED" indexType="btree">
+            <column name="enabled"/>
+        </index>
     </table>
 
     <table name="ordo_free_gift_offer_tier" resource="default" engine="innodb" comment="Cascading cart-subtotal thresholds for a free-gift offer — every tier the cart subtotal has reached ADDS gift_slots, cumulative, not highest-tier-wins">
@@ -589,6 +605,11 @@
         <constraint xsi:type="unique" referenceId="ORDO_WHATSAPP_TEMPLATE_META_TEMPLATE_NAME">
             <column name="meta_template_name"/>
         </constraint>
+        <!-- Model\Config\Source\WhatsAppTemplateOptions' own addApprovedFilter() scans this every
+             time the campaign flow editor loads. -->
+        <index referenceId="ORDO_WHATSAPP_TEMPLATE_STATUS" indexType="btree">
+            <column name="status"/>
+        </index>
     </table>
 
 </schema>

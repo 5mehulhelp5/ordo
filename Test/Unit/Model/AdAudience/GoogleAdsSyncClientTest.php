@@ -80,6 +80,26 @@ class GoogleAdsSyncClientTest extends TestCase
         $this->client->sync('customers/1234567890/userLists/555', ['hash1']);
     }
 
+    /**
+     * Regression test for a real data-integrity bug a code audit found: Google Ads can return
+     * HTTP 200 for addOperations while still rejecting part of the batch via partialFailureError,
+     * which used to be completely ignored - Cron\SyncAdAudiences would record a full success even
+     * when Google Ads rejected some or all of it.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSyncThrowsWhenAddOperationsReportsAPartialFailure(): void
+    {
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->curl->method('getBody')->willReturnOnConsecutiveCalls(
+            json_encode(['resourceName' => 'customers/1234567890/offlineUserDataJobs/999']),
+            json_encode(['partialFailureError' => ['message' => 'INVALID_USER_LIST']])
+        );
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Google Ads rejected part of the batch');
+        $this->client->sync('customers/1234567890/userLists/555', ['hash1']);
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testSyncThrowsOnNonSuccessHttpStatus(): void
     {

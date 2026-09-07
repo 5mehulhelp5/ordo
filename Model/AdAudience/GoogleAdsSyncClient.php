@@ -87,7 +87,7 @@ class GoogleAdsSyncClient implements SyncClientInterface
      */
     private function addOperations(string $jobResourceName, array $hashedEmails, string $accessToken): void
     {
-        $this->request(
+        $body = $this->request(
             sprintf(
                 'https://googleads.googleapis.com/%s/%s:addOperations',
                 self::API_VERSION,
@@ -105,6 +105,19 @@ class GoogleAdsSyncClient implements SyncClientInterface
             ],
             $accessToken
         );
+
+        // Google Ads can return HTTP 200 for this call while still rejecting some or all of the
+        // batch (a malformed hash, a policy violation, ...), reported via partialFailureError
+        // rather than a non-2xx status - a batch that returns 200 with every identifier rejected
+        // would otherwise be recorded as a full sync success by Cron\SyncAdAudiences.
+        if (isset($body['partialFailureError'])) {
+            $partialFailureError = $body['partialFailureError'];
+            throw new \RuntimeException(sprintf(
+                'Google Ads rejected part of the batch for %s: %s',
+                $jobResourceName,
+                is_string($partialFailureError) ? $partialFailureError : (string) json_encode($partialFailureError)
+            ));
+        }
     }
 
     private function runJob(string $jobResourceName, string $accessToken): void

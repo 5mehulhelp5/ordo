@@ -47,16 +47,41 @@ class RunScheduledCampaignActionsTest extends TestCase
         $scheduled->method('getCampaignId')->willReturn(3);
         $scheduled->method('getResumeActionId')->willReturn(9);
         $scheduled->method('getContext')->willReturn(['customer_id' => 1]);
-        $scheduled->expects(self::once())->method('setExecutedAt');
 
         $collection = $this->createStub(ScheduledActionCollection::class);
         $collection->method('addDueFilter');
         $collection->method('getIterator')->willReturn(new \ArrayIterator([$scheduled]));
         $this->collectionFactory->method('create')->willReturn($collection);
 
-        $this->resource->expects(self::once())->method('save')->with($scheduled);
+        $this->resource->expects(self::once())->method('claim')
+            ->with($scheduled, self::callback(static fn ($now) => is_string($now)))
+            ->willReturn(true);
 
         $this->dispatcher->expects(self::once())->method('resumeScheduledAction')->with(3, 9, ['customer_id' => 1]);
+
+        $this->makeCron()->execute();
+    }
+
+    /**
+     * Regression test for a real race-condition bug a code audit found: the claim used to be a
+     * plain load()-then-save(), so two overlapping cron runs could both "win" the same due row
+     * and both dispatch its action. The atomic conditional UPDATE (claim()) now returning false -
+     * meaning some other process's UPDATE already matched this row - must make this process skip
+     * it entirely, never dispatching.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsRowWhenAnotherProcessAlreadyClaimedIt(): void
+    {
+        $scheduled = $this->createMock(CampaignScheduledAction::class);
+
+        $collection = $this->createStub(ScheduledActionCollection::class);
+        $collection->method('addDueFilter');
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$scheduled]));
+        $this->collectionFactory->method('create')->willReturn($collection);
+
+        $this->resource->method('claim')->willReturn(false);
+
+        $this->dispatcher->expects(self::never())->method('resumeScheduledAction');
 
         $this->makeCron()->execute();
     }
@@ -75,6 +100,7 @@ class RunScheduledCampaignActionsTest extends TestCase
         $collection->method('getIterator')->willReturn(new \ArrayIterator([$scheduled]));
         $this->collectionFactory->method('create')->willReturn($collection);
 
+        $this->resource->method('claim')->willReturn(true);
         $this->dispatcher->method('resumeScheduledAction')->willThrowException(new \RuntimeException('boom'));
 
         $this->logger->expects(self::once())->method('error');
@@ -112,6 +138,7 @@ class RunScheduledCampaignActionsTest extends TestCase
         $emptyBatch->method('getIterator')->willReturn(new \ArrayIterator([]));
 
         $this->collectionFactory->method('create')->willReturnOnConsecutiveCalls($fullBatch, $emptyBatch);
+        $this->resource->method('claim')->willReturn(true);
 
         $this->dispatcher->expects(self::exactly(500))->method('resumeScheduledAction');
         $this->logger->expects(self::never())->method('warning');
@@ -134,6 +161,7 @@ class RunScheduledCampaignActionsTest extends TestCase
         // Every one of the 20 allowed batches comes back full — the cron must stop after the
         // cap instead of looping forever, and must say so.
         $this->collectionFactory->method('create')->willReturn($fullBatch);
+        $this->resource->method('claim')->willReturn(true);
 
         $this->logger->expects(self::once())->method('warning');
 

@@ -45,4 +45,31 @@ class ReminderLogStore
         $connection = $this->resourceConnection->getConnection();
         $connection->insert($this->resourceConnection->getTableName($table), $data);
     }
+
+    /**
+     * Rolls back a claim row written by insert() — every caller of insert() in this module now
+     * writes the "already sent" row BEFORE calling the actual send (a claim, not an after-the-
+     * fact log), so a crash between the insert and the send can never cause a duplicate send on
+     * the next cron tick. If the send itself then genuinely fails (caught exception), the claim
+     * must be undone here so the customer is retried on the next run instead of being
+     * permanently skipped by a row that says "already sent" for a send that never happened.
+     *
+     * Deliberately deletes by matching the exact data insert() just wrote, not by a captured
+     * entity_id/lastInsertId() - AdapterInterface (this store's only dependency, deliberately not
+     * the concrete Zend adapter class) doesn't declare lastInsertId() at all, so relying on it
+     * would make this store untestable without a real database connection.
+     *
+     * @param array<string, mixed> $data the exact same array just passed to insert()
+     */
+    public function deleteMatching(string $table, array $data): void
+    {
+        $connection = $this->resourceConnection->getConnection();
+
+        $where = [];
+        foreach ($data as $column => $value) {
+            $where[] = $connection->quoteInto($connection->quoteIdentifier($column) . ' = ?', $value);
+        }
+
+        $connection->delete($this->resourceConnection->getTableName($table), implode(' AND ', $where));
+    }
 }

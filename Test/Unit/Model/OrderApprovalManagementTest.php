@@ -104,7 +104,6 @@ class OrderApprovalManagementTest extends TestCase
         $approval->method('getId')->willReturn(1);
         $approval->method('isPending')->willReturn(true);
         $approval->method('getOrderId')->willReturn(7);
-        $approval->expects(self::exactly(2))->method('setData');
         $this->orderApprovalFactory->method('create')->willReturn($approval);
 
         $order = $this->createMock(Order::class);
@@ -117,9 +116,34 @@ class OrderApprovalManagementTest extends TestCase
 
         $this->orderConfig->method('getStateDefaultStatus')->willReturnMap([[Order::STATE_NEW, 'processing']]);
         $this->orderResource->expects(self::once())->method('save')->with($order);
-        $this->orderApprovalResource->expects(self::once())->method('save')->with($approval);
+        $this->orderApprovalResource->expects(self::once())->method('claimPending')
+            ->with($approval, OrderApproval::STATUS_APPROVED)->willReturn(true);
 
         self::assertSame($approval, $this->management->approveByToken('tok'));
+    }
+
+    /**
+     * Regression test for a real race-condition bug a code audit found: approveByToken()/
+     * rejectByToken() used to load-then-save without a lock, so two concurrent requests for the
+     * same token could both pass the "still pending" check before either wrote, and one order
+     * could end up both approved and rejected. claimPending() returning false - meaning another
+     * request's conditional UPDATE already won - must stop this request before it ever touches
+     * the order.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testApproveByTokenThrowsWhenAnotherRequestAlreadyClaimedTheApproval(): void
+    {
+        $approval = $this->createMock(OrderApproval::class);
+        $approval->method('getId')->willReturn(1);
+        $approval->method('isPending')->willReturn(true);
+        $approval->method('getOrderId')->willReturn(7);
+        $this->orderApprovalFactory->method('create')->willReturn($approval);
+
+        $this->orderApprovalResource->method('claimPending')->willReturn(false);
+        $this->orderResource->expects(self::never())->method('save');
+
+        $this->expectException(NoSuchEntityException::class);
+        $this->management->approveByToken('tok');
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -129,7 +153,6 @@ class OrderApprovalManagementTest extends TestCase
         $approval->method('getId')->willReturn(1);
         $approval->method('isPending')->willReturn(true);
         $approval->method('getOrderId')->willReturn(7);
-        $approval->expects(self::exactly(2))->method('setData');
         $this->orderApprovalFactory->method('create')->willReturn($approval);
 
         $order = $this->createMock(Order::class);
@@ -141,7 +164,8 @@ class OrderApprovalManagementTest extends TestCase
         $this->orderCollectionFactory->method('create')->willReturn($orderCollection);
 
         $this->orderRepository->expects(self::once())->method('save')->with($order);
-        $this->orderApprovalResource->expects(self::once())->method('save')->with($approval);
+        $this->orderApprovalResource->expects(self::once())->method('claimPending')
+            ->with($approval, OrderApproval::STATUS_REJECTED)->willReturn(true);
 
         self::assertSame($approval, $this->management->rejectByToken('tok'));
     }

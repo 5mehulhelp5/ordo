@@ -114,6 +114,69 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Double-execution race in `Cron\RunScheduledCampaignActions`** — claiming a due row was a plain
+  load()-then-save(), so two overlapping cron runs could both "win" the same row and both dispatch
+  its action (email/SMS/coupon) twice. `Model\ResourceModel\Campaign\ScheduledAction::claim()` now
+  does the claim as a single atomic conditional `UPDATE ... WHERE executed_at IS NULL`.
+- **Same race in order approval** — `OrderApprovalManagement::approveByToken()`/`rejectByToken()`
+  loaded then saved without a lock, so two concurrent requests for the same token (a double click,
+  a forwarded email opened twice) could both pass the "still pending" check and one order could
+  end up both approved and rejected. `Model\ResourceModel\OrderApproval::claimPending()` now
+  atomically transitions `status` from `pending` via a conditional `UPDATE`, checked *before* the
+  order is ever touched.
+- **Double-counting in lead scoring** — `Observer\EvaluateCustomerScoreRules` read
+  `getDemographicScore()`/`getScore()` then wrote `addPoints()`/`setDemographicScore()` as four
+  separate, unlocked calls, so two overlapping `customer_save_after` events could both read the
+  same stale old value and each apply the same delta, inflating the total by 2x. New
+  `CustomerScoreManager::applyDemographicScore()` does the whole read-modify-write atomically
+  inside one transaction (`SELECT ... FOR UPDATE` on both rows).
+- **Resend-on-crash in 6 reminder/alert crons** — `SendWinBackEmails`, `SendOfferExpiryReminders`,
+  `SendReorderReminders`, `SendCreditLimitAlerts`, `SendAbandonedCartReminders`,
+  `EscalateStalePendingApprovals` all wrote their "already sent" record *after* the send call, so a
+  crash in between caused a duplicate send on the next cron tick. All six now claim (write the
+  dedupe record) *before* sending, and roll the claim back if the send itself then genuinely
+  fails, so a real failure is still retried next run without risking a duplicate on a crash.
+- **Ad-audience sync bypassed consent entirely** — `Cron\SyncAdAudiences` uploaded every matching
+  segment member's hashed email to the configured ad platform with no consent check anywhere in
+  the path. New `ConsentManager::CHANNEL_ADS` (now `ConsentChannel::Ads`), checked per customer
+  before hashing/upload.
+- **Win-back email bypassed consent entirely** — `Cron\SendWinBackEmails` had no `ConsentManager`
+  check at all; a customer who opted out of email still received it. Added the same consent gate
+  `send_email`/`send_sms`/`send_whatsapp` already apply, and extended it to
+  `SendOfferExpiryReminders`/`SendReorderReminders`/`SendCreditLimitAlerts`/
+  `SendAbandonedCartReminders` for consistency.
+- **RFM scored a zero-order customer as "555" (the best possible score) on a degenerate dataset**
+  (a brand-new/empty store, or any customer base where every customer's metrics happen to be
+  identical) — the count-based percentile formula counted such a customer as "≤/≥ itself" and
+  landed them at percentile 100 on all three axes, the opposite of "a zero-order customer is never
+  a top spender." `RfmCalculator::computePercentileRanks()` now scores a zero-order customer at
+  exactly percentile 0 on all three axes directly, bypassing the formula for that customer while
+  still counting them as a data point for everyone else's percentile.
+- **Google Ads/Meta ad-audience sync silently accepted partial API failures** — both
+  `GoogleAdsSyncClient` (`partialFailureError` in an HTTP 200 `addOperations` response) and
+  `MetaSyncClient` (`num_invalid_entries` in an HTTP 200 `usersreplace` response) previously never
+  inspected these fields, so `Cron\SyncAdAudiences` recorded a full sync success even when the
+  platform rejected some or all of the batch.
+- **`Controller\Adminhtml\Gdpr\SetConsent`'s channel allow-list had quietly gone stale** — a
+  hand-maintained array of valid channel strings was missing `whatsapp` entirely (added when that
+  channel shipped, this list wasn't updated), silently blocking admins from ever opting a customer
+  out of WhatsApp from this screen. `ConsentManager`'s channels are now a backed enum
+  (`Ordo\Automation\Model\ConsentChannel`) instead of string constants, and `SetConsent` validates
+  via `ConsentChannel::tryFrom()` against that one source of truth instead of keeping a second,
+  independently-maintained list that can go stale the same way again.
+- Plaintext phone number logged on an E.164-validation failure in `Model\Campaign\Action\
+  SendWhatsApp` — inconsistent with the rest of the module's PII handling (see
+  `Model\AdAudience\PiiHasher`); the customer id alone is enough to look the record up.
+- Missing indexes found via a code audit: `ordo_ad_audience.enabled` (scanned every
+  `Cron\SyncAdAudiences` run), `ordo_free_gift_offer.enabled` (checkout hot path),
+  `ordo_whatsapp_template.status` (scanned every campaign flow editor load), and a composite
+  `ordo_order_approval(status, created_at)` (`Cron\EscalateStalePendingApprovals`' own stale-filter
+  query).
+
+All of the above found via a dedicated correctness/security/data-integrity code-audit pass (three
+parallel subagent reviews); every fix above ships with new regression test coverage reproducing
+the original bug.
+
 - Stored XSS in the campaign flow editor — `Block/Adminhtml/Campaign/Edit/Flow.php`'s
   `getFieldsConfigJson()`/`getFlowDataJson()` are embedded raw (`@noEscape`) directly inside a
   `<script>` block, not an HTML attribute `escapeHtmlAttr()` would cover. A literal `</script>`

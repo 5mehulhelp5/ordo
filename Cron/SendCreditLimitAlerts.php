@@ -5,6 +5,8 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\CreditLimitCalculator;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
@@ -32,6 +34,7 @@ class SendCreditLimitAlerts
         private readonly ReminderEmailSender $emailSender,
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
+        private readonly ConsentManager $consentManager,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
         private readonly CronRunLogger $cronRunLogger
     ) {
@@ -75,12 +78,25 @@ class SendCreditLimitAlerts
                 continue;
             }
 
+            // A customer who opted out of email must never receive this alert, same consent gate
+            // every other channel's send action applies before sending anything.
+            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+                continue;
+            }
+
+            // Claim (log) BEFORE sending, not after - see ReminderLogStore::deleteMatching()'s
+            // own docblock: a crash between a successful send and the log write must never cause
+            // a duplicate alert next tick, and a genuine send failure rolls the claim back so
+            // this customer/band is retried.
+            $alertLogRow = $this->buildAlertLogRow($customerId, $band, $utilization);
+            $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, $alertLogRow);
+
             try {
                 $this->sendAlert($customer, $customerId, $utilization, $limit, $used, $band);
-                $this->logAlert($customerId, $band, $utilization);
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_CREDIT_LIMIT_ALERT, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
+                $this->reminderLogStore->deleteMatching(self::REMINDER_LOG_TABLE, $alertLogRow);
                 $this->cronRunLogger->logFailure(
                     sprintf('send credit limit alert for customer #%d', $customerId),
                     $e
@@ -139,13 +155,16 @@ class SendCreditLimitAlerts
         );
     }
 
-    private function logAlert(int $customerId, int $band, float $utilization): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildAlertLogRow(int $customerId, int $band, float $utilization): array
     {
-        $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, [
+        return [
             'customer_id' => $customerId,
             'threshold_percent' => $band,
             'utilization_percent' => $utilization,
             'sent_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
     }
 }

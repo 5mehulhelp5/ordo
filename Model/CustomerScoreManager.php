@@ -147,4 +147,79 @@ class CustomerScoreManager
             [$customerId, $score]
         );
     }
+
+    /**
+     * Atomically recomputes a customer's demographic score and applies the delta to their
+     * running total — used by Observer\EvaluateCustomerScoreRules instead of separately calling
+     * getDemographicScore()/addPoints()/setDemographicScore(), which read then wrote each table
+     * independently with no lock held across the read-modify-write. Two overlapping
+     * customer_save_after events (a near-simultaneous checkout + admin save, or a duplicate event
+     * dispatch) could otherwise both read the same stale old demographic score and each apply the
+     * same delta, inflating the total by 2x instead of once. This locks both rows for the
+     * duration of one transaction (SELECT ... FOR UPDATE), so the second transaction blocks until
+     * the first commits and then sees the already-updated value.
+     *
+     * @return array{delta: int, scoreBefore: int, scoreAfter: int}
+     */
+    public function applyDemographicScore(int $customerId, int $newDemographicScore): array
+    {
+        $connection = $this->resourceConnection->getConnection();
+        $demographicTable = $this->resourceConnection->getTableName('ordo_customer_demographic_score');
+        $scoreTable = $this->resourceConnection->getTableName('ordo_customer_score');
+
+        $connection->beginTransaction();
+        try {
+            // Ensure both rows exist (a customer being scored for the first time has neither),
+            // without changing their value, so the FOR UPDATE lock below always has a row to
+            // lock.
+            $connection->query(
+                // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
+                'INSERT INTO ' . $connection->quoteIdentifier($demographicTable) . ' (customer_id, score) '
+                . 'VALUES (?, 0) ON DUPLICATE KEY UPDATE score = score',
+                [$customerId]
+            );
+            $connection->query(
+                // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
+                'INSERT INTO ' . $connection->quoteIdentifier($scoreTable) . ' (customer_id, score) '
+                . 'VALUES (?, 0) ON DUPLICATE KEY UPDATE score = score',
+                [$customerId]
+            );
+
+            $oldDemographicScore = (int) $connection->fetchOne(
+                $connection->select()
+                    ->from($demographicTable, 'score')
+                    ->where('customer_id = ?', $customerId)
+                    ->forUpdate(true)
+            );
+            $scoreBefore = (int) $connection->fetchOne(
+                $connection->select()
+                    ->from($scoreTable, 'score')
+                    ->where('customer_id = ?', $customerId)
+                    ->forUpdate(true)
+            );
+
+            $delta = $newDemographicScore - $oldDemographicScore;
+            $scoreAfter = $scoreBefore + $delta;
+
+            if ($delta !== 0) {
+                $connection->update(
+                    $demographicTable,
+                    ['score' => $newDemographicScore],
+                    $connection->quoteInto('customer_id = ?', $customerId)
+                );
+                $connection->update(
+                    $scoreTable,
+                    ['score' => $scoreAfter],
+                    $connection->quoteInto('customer_id = ?', $customerId)
+                );
+            }
+
+            $connection->commit();
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
+
+        return ['delta' => $delta, 'scoreBefore' => $scoreBefore, 'scoreAfter' => $scoreAfter];
+    }
 }

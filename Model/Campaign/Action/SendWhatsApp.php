@@ -6,6 +6,7 @@ namespace Ordo\Automation\Model\Campaign\Action;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\ResourceModel\WhatsAppTemplate as WhatsAppTemplateResource;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
@@ -98,7 +99,7 @@ class SendWhatsApp implements ActionInterface
             return;
         }
 
-        if (!$this->consentManager->hasConsent($customerId, ConsentManager::CHANNEL_WHATSAPP)) {
+        if (!$this->consentManager->hasConsent($customerId, ConsentChannel::WhatsApp)) {
             $this->logger->info(sprintf(
                 'Ordo_Automation: send_whatsapp action skipped for customer #%d, WhatsApp consent withdrawn.',
                 $customerId
@@ -108,11 +109,13 @@ class SendWhatsApp implements ActionInterface
         }
 
         if (!preg_match(self::E164_PATTERN, $phone)) {
+            // Never log the raw phone number here - this module otherwise deliberately hashes/
+            // avoids logging PII (see Model/AdAudience/PiiHasher.php), and the customer id alone
+            // is enough to look the record up if needed.
             $this->logger->error(sprintf(
-                'Ordo_Automation: send_whatsapp action skipped for customer #%d, ordo_sms_phone "%s" is not a'
+                'Ordo_Automation: send_whatsapp action skipped for customer #%d, ordo_sms_phone is not a'
                 . ' valid E.164 number.',
-                $customerId,
-                $phone
+                $customerId
             ));
             $this->messageLogWriter->recordFailed(self::CHANNEL, $customerId, $phone);
             return;

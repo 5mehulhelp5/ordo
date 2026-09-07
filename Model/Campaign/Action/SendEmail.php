@@ -9,6 +9,7 @@ use Magento\Framework\Mail\Template\TransportBuilder;
 use Magento\Framework\Translate\Inline\StateInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Email\MessageIdGenerator;
 use Ordo\Automation\Model\Email\PendingMessageIdHolder;
@@ -64,7 +65,7 @@ class SendEmail implements ActionInterface
             return;
         }
 
-        if (!$this->consentManager->hasConsent($customerId, ConsentManager::CHANNEL_EMAIL)) {
+        if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
             $this->logger->info(sprintf(
                 'Ordo_Automation: send_email action skipped for customer #%d, email consent withdrawn.',
                 $customerId

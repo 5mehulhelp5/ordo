@@ -9,6 +9,7 @@ use Magento\Framework\ObjectManagerInterface;
 use Magento\Framework\Registry;
 use Magento\Framework\UrlInterface;
 use Ordo\Automation\Block\Adminhtml\Gdpr\Index;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use PHPUnit\Framework\TestCase;
 
@@ -84,26 +85,34 @@ class IndexTest extends TestCase
         $this->registry->method('registry')->willReturnMap([['ordo_gdpr_customer_id', 42]]);
         $this->consentManager->method('getConsentStates')->willReturn([]);
 
+        $states = $this->block->getConsentStates();
+
+        self::assertTrue($states->isEmailConsented());
+        self::assertTrue($states->isSmsConsented());
+        self::assertTrue($states->isPushConsented());
+        self::assertTrue($states->isWhatsAppConsented());
+        self::assertTrue($states->isAdsConsented());
         self::assertSame(
             [
-                ConsentManager::CHANNEL_EMAIL => true,
-                ConsentManager::CHANNEL_SMS => true,
-                ConsentManager::CHANNEL_PUSH => true,
-                ConsentManager::CHANNEL_WHATSAPP => true,
+                ConsentChannel::Email->value => true,
+                ConsentChannel::Sms->value => true,
+                ConsentChannel::Push->value => true,
+                ConsentChannel::WhatsApp->value => true,
+                ConsentChannel::Ads->value => true,
             ],
-            $this->block->getConsentStates()
+            iterator_to_array($states)
         );
     }
 
     public function testGetConsentStatesReflectsRecordedOptOut(): void
     {
         $this->registry->method('registry')->willReturnMap([['ordo_gdpr_customer_id', 42]]);
-        $this->consentManager->method('getConsentStates')->willReturn([ConsentManager::CHANNEL_EMAIL => false]);
+        $this->consentManager->method('getConsentStates')->willReturn([ConsentChannel::Email->value => false]);
 
         $states = $this->block->getConsentStates();
 
-        self::assertFalse($states[ConsentManager::CHANNEL_EMAIL]);
-        self::assertTrue($states[ConsentManager::CHANNEL_SMS]);
+        self::assertFalse($states->isEmailConsented());
+        self::assertTrue($states->isSmsConsented());
     }
 
     public function testGetSearchFormActionBuildsIndexUrl(): void

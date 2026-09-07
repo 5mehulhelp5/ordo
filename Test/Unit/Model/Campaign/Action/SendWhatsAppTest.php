@@ -10,6 +10,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\Campaign\Action\SendWhatsApp;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\ResourceModel\WhatsAppTemplate as WhatsAppTemplateResource;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
@@ -237,7 +238,7 @@ class SendWhatsAppTest extends TestCase
         $this->customerRepository->method('getById')->willReturn($this->customerWithPhone('+15551234567'));
         $this->consentManager = $this->createMock(ConsentManager::class);
         $this->consentManager->expects(self::once())->method('hasConsent')
-            ->with(42, ConsentManager::CHANNEL_WHATSAPP)->willReturn(false);
+            ->with(42, ConsentChannel::WhatsApp)->willReturn(false);
         $this->whatsAppSender->expects(self::never())->method('send');
         $this->logger->expects(self::once())->method('info');
         $this->messageLogWriter->expects(self::once())->method('recordOptedOut')

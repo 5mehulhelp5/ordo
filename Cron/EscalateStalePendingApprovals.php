@@ -68,10 +68,16 @@ class EscalateStalePendingApprovals
                 continue;
             }
 
+            // Claim (increment reminders_sent) BEFORE sending, not after - a crash between a
+            // successful send and this save must never cause a duplicate escalation on the next
+            // tick. If the send itself then fails, the increment is rolled back so this approval
+            // is retried next run.
+            $remindersSentBeforeClaim = $approval->getRemindersSent();
+            $approval->setData('reminders_sent', $remindersSentBeforeClaim + 1);
+            $this->orderApprovalResource->save($approval);
+
             try {
                 $this->sendEscalationEmail($approval, $order);
-                $approval->setData('reminders_sent', $approval->getRemindersSent() + 1);
-                $this->orderApprovalResource->save($approval);
                 if ($order->getCustomerId()) {
                     $this->triggerOutcomeLogger->logSent(
                         TriggerOutcomeLogger::TRIGGER_ORDER_APPROVAL,
@@ -80,6 +86,8 @@ class EscalateStalePendingApprovals
                 }
                 $sent++;
             } catch (\Throwable $e) {
+                $approval->setData('reminders_sent', $remindersSentBeforeClaim);
+                $this->orderApprovalResource->save($approval);
                 $this->cronRunLogger->logFailure(
                     sprintf('send approval escalation for order #%d', (int) $order->getEntityId()),
                     $e

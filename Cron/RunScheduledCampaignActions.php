@@ -18,6 +18,10 @@ use Psr\Log\LoggerInterface;
  * throw, and this must never re-run a row just because it failed once. A row that failed stays
  * marked executed and stays failed; there's no retry queue for this yet (see ROADMAP).
  *
+ * The claim itself is a single atomic conditional UPDATE (ResourceModel\Campaign\ScheduledAction
+ * ::claim(), "... WHERE executed_at IS NULL"), not a load()-then-save() — two overlapping cron
+ * runs racing on the same due row must never both win the claim and both dispatch the action.
+ *
  * Due rows are processed in fixed-size batches (BATCH_SIZE), each batch re-queried after the
  * previous one is claimed, instead of loading every due row into memory up front — a single
  * cron tick's memory/runtime is bounded no matter how many rows are backlogged. If more than
@@ -74,8 +78,11 @@ class RunScheduledCampaignActions
 
     private function resumeOne(CampaignScheduledAction $scheduled): void
     {
-        $scheduled->setExecutedAt(date('Y-m-d H:i:s'));
-        $this->campaignScheduledActionResource->save($scheduled);
+        if (!$this->campaignScheduledActionResource->claim($scheduled, date('Y-m-d H:i:s'))) {
+            // Lost the race to another overlapping cron run - it already claimed this row and
+            // will (or already did) resume it. Not ours to process.
+            return;
+        }
 
         try {
             $this->campaignDispatcher->resumeScheduledAction(

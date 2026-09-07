@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Model;
 
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\CustomerConsent;
 use Ordo\Automation\Model\CustomerConsentFactory;
@@ -47,7 +48,7 @@ class ConsentManagerTest extends TestCase
         $noRow->method('getId')->willReturn(null);
         $this->collectionFactory->method('create')->willReturn($this->makeCollection($noRow));
 
-        self::assertTrue($this->manager->hasConsent(42, ConsentManager::CHANNEL_EMAIL));
+        self::assertTrue($this->manager->hasConsent(42, ConsentChannel::Email));
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -58,7 +59,7 @@ class ConsentManagerTest extends TestCase
         $row->method('isConsented')->willReturn(false);
         $this->collectionFactory->method('create')->willReturn($this->makeCollection($row));
 
-        self::assertFalse($this->manager->hasConsent(42, ConsentManager::CHANNEL_EMAIL));
+        self::assertFalse($this->manager->hasConsent(42, ConsentChannel::Email));
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -69,7 +70,7 @@ class ConsentManagerTest extends TestCase
         $row->method('isConsented')->willReturn(true);
         $this->collectionFactory->method('create')->willReturn($this->makeCollection($row));
 
-        self::assertTrue($this->manager->hasConsent(42, ConsentManager::CHANNEL_EMAIL));
+        self::assertTrue($this->manager->hasConsent(42, ConsentChannel::Email));
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -81,13 +82,13 @@ class ConsentManagerTest extends TestCase
 
         $newConsent = $this->createMock(CustomerConsent::class);
         $newConsent->expects(self::once())->method('setCustomerId')->with(42);
-        $newConsent->expects(self::once())->method('setChannel')->with(ConsentManager::CHANNEL_SMS);
+        $newConsent->expects(self::once())->method('setChannel')->with(ConsentChannel::Sms->value);
         $newConsent->expects(self::once())->method('setConsented')->with(false);
         $newConsent->expects(self::once())->method('setSource')->with('admin');
         $this->consentFactory->method('create')->willReturn($newConsent);
         $this->consentResource->expects(self::once())->method('save')->with($newConsent);
 
-        $this->manager->setConsent(42, ConsentManager::CHANNEL_SMS, false, 'admin');
+        $this->manager->setConsent(42, ConsentChannel::Sms, false, 'admin');
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -101,7 +102,7 @@ class ConsentManagerTest extends TestCase
         $this->consentFactory->expects(self::never())->method('create');
         $this->consentResource->expects(self::once())->method('save')->with($existing);
 
-        $this->manager->setConsent(42, ConsentManager::CHANNEL_SMS, true, 'unsubscribe_link');
+        $this->manager->setConsent(42, ConsentChannel::Sms, true, 'unsubscribe_link');
     }
 
     #[AllowMockObjectsWithoutExpectations]

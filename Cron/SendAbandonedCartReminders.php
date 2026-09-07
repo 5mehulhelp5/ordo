@@ -11,6 +11,8 @@ use Magento\Quote\Model\QuoteFactory;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CampaignDispatcher;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 
 /**
@@ -46,6 +48,7 @@ class SendAbandonedCartReminders
         private readonly StoreManagerInterface $storeManager,
         private readonly StateInterface $inlineTranslation,
         private readonly CampaignDispatcher $campaignDispatcher,
+        private readonly ConsentManager $consentManager,
         private readonly CronRunLogger $cronRunLogger
     ) {
     }
@@ -88,12 +91,27 @@ class SendAbandonedCartReminders
 
         $sent = 0;
         foreach ($rows as $row) {
+            // A registered customer (guest quotes have no customer_id and aren't covered by the
+            // consent register at all) who opted out of email must never receive this reminder,
+            // same consent gate every other channel's send action applies before sending.
+            if (!empty($row['customer_id'])
+                && !$this->consentManager->hasConsent((int) $row['customer_id'], ConsentChannel::Email)
+            ) {
+                continue;
+            }
+
+            // Claim (log) BEFORE sending, not after - a crash between a successful send and the
+            // log write must never cause a duplicate reminder on the next tick. If the send
+            // itself then fails, the claim is rolled back so this quote is retried next run.
+            $reminderLogRow = $this->buildReminderLogRow((int) $row['entity_id']);
+            $this->logReminderSent($reminderLogRow);
+
             try {
                 $this->sendReminder($row);
-                $this->logReminderSent((int) $row['entity_id']);
                 $this->dispatchCampaigns($row);
                 $sent++;
             } catch (\Throwable $e) {
+                $this->deleteReminderLog($reminderLogRow);
                 $this->cronRunLogger->logFailure(
                     sprintf('send abandoned cart reminder for quote #%d', (int) $row['entity_id']),
                     $e
@@ -155,14 +173,47 @@ class SendAbandonedCartReminders
         ]);
     }
 
-    private function logReminderSent(int $quoteId): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildReminderLogRow(int $quoteId): array
+    {
+        return [
+            'quote_id' => $quoteId,
+            'sent_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function logReminderSent(array $row): void
     {
         $connection = $this->resourceConnection->getConnection();
         $table = $this->resourceConnection->getTableName('ordo_abandoned_cart_reminder_log');
 
-        $connection->insert($table, [
-            'quote_id' => $quoteId,
-            'sent_at' => date('Y-m-d H:i:s'),
-        ]);
+        $connection->insert($table, $row);
+    }
+
+    /**
+     * Rolls back a claim row from logReminderSent() when the send it claimed then fails - see
+     * Model\Cron\ReminderLogStore::deleteMatching()'s own docblock for the same reasoning applied
+     * there (deletes by matching the exact row just inserted, not by a captured entity_id/
+     * lastInsertId() - AdapterInterface doesn't declare lastInsertId() at all, so relying on it
+     * would make this untestable without a real database connection).
+     *
+     * @param array<string, mixed> $row the exact same array just passed to logReminderSent()
+     */
+    private function deleteReminderLog(array $row): void
+    {
+        $connection = $this->resourceConnection->getConnection();
+        $table = $this->resourceConnection->getTableName('ordo_abandoned_cart_reminder_log');
+
+        $where = [];
+        foreach ($row as $column => $value) {
+            $where[] = $connection->quoteInto($connection->quoteIdentifier($column) . ' = ?', $value);
+        }
+
+        $connection->delete($table, implode(' AND ', $where));
     }
 }

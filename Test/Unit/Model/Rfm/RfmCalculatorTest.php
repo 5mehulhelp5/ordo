@@ -197,10 +197,14 @@ class RfmCalculatorTest extends TestCase
 
         $calculator = $this->makeCalculator($connection, $now);
 
-        // N = 4. Frequencies across the base are [0, 1, 3, 5] and monetaries [0, 100, 300, 500],
-        // so "count with metric <= mine / 4 * 100" gives 25/50/75/100. Recency days are
-        // [5, 10, 30, INF]; "count with days >= mine" inverts the order so the most recent
-        // customer still scores 100.
+        // N = 4. Frequencies across the base are [0, 1, 3, 5] and monetaries [0, 100, 300, 500]
+        // (customer 4's zero orders still contribute a 0 to these sorted arrays), so "count with
+        // metric <= mine / 4 * 100" gives 25/50/75/100 for customers 4/1/2/3 respectively; same
+        // for recency's inverted "count with days >= mine". Customer 4 themselves, though, is
+        // always exactly percentile 0 on all three axes regardless of what that formula would say
+        // for them - see computePercentileRanks()'s own docblock on why a zero-order customer's
+        // OWN percentile bypasses the formula entirely, while still counting as a data point for
+        // everyone else's.
         self::assertSame(
             [
                 1 => [
@@ -219,9 +223,9 @@ class RfmCalculatorTest extends TestCase
                     'monetary_percentile' => 100.0,
                 ],
                 4 => [
-                    'recency_percentile' => 25.0,
-                    'frequency_percentile' => 25.0,
-                    'monetary_percentile' => 25.0,
+                    'recency_percentile' => 0.0,
+                    'frequency_percentile' => 0.0,
+                    'monetary_percentile' => 0.0,
                 ],
             ],
             $calculator->getPercentileRanks()
@@ -233,8 +237,8 @@ class RfmCalculatorTest extends TestCase
         $now = 1700000000;
         $lastOrderAt = date('Y-m-d H:i:s', $now - 3 * 86400);
 
-        // Nine customers who have ordered, one who hasn't — the zero-order customer is alone in
-        // the bottom tenth of every metric, so 10.0 is as close to 0 as N = 10 can express.
+        // Nine customers who have ordered, one who hasn't — the zero-order customer is always
+        // exactly percentile 0 on every metric, regardless of N.
         $orderRows = [];
         for ($customerId = 1; $customerId <= 9; $customerId++) {
             $orderRows[] = [
@@ -255,9 +259,9 @@ class RfmCalculatorTest extends TestCase
 
         self::assertSame(
             [
-                'recency_percentile' => 10.0,
-                'frequency_percentile' => 10.0,
-                'monetary_percentile' => 10.0,
+                'recency_percentile' => 0.0,
+                'frequency_percentile' => 0.0,
+                'monetary_percentile' => 0.0,
             ],
             $ranks[10]
         );
@@ -266,6 +270,34 @@ class RfmCalculatorTest extends TestCase
         // customer.
         self::assertSame(100.0, $ranks[1]['recency_percentile']);
         self::assertSame(100.0, $ranks[9]['monetary_percentile']);
+    }
+
+    /**
+     * Regression test for a real bug a code audit found: on a degenerate dataset (here, a single
+     * customer who has never ordered - a brand-new/empty store), the count-based percentile
+     * formula would previously count that customer as "<= itself"/">= itself" and score them at
+     * percentile 100 (RFM "555", the BEST possible score) on every axis - the exact opposite of
+     * "a zero-order customer is never a top spender/most recent/most frequent."
+     */
+    public function testGetPercentileRanksScoresTheOnlyCustomerAtZeroWhenTheyHaveNeverOrdered(): void
+    {
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchCol')->willReturn(['1']);
+        // No aggregate rows at all - the one customer in the store has never ordered.
+        $connection->method('fetchAll')->willReturnOnConsecutiveCalls([], []);
+
+        $calculator = $this->makeCalculator($connection);
+        $ranks = $calculator->getPercentileRanks();
+
+        self::assertSame(
+            [
+                'recency_percentile' => 0.0,
+                'frequency_percentile' => 0.0,
+                'monetary_percentile' => 0.0,
+            ],
+            $ranks[1]
+        );
     }
 
     public function testGetPercentileRanksReturnsEmptyArrayWhenStoreHasNoCustomers(): void
@@ -378,8 +410,9 @@ class RfmCalculatorTest extends TestCase
                     $byCustomer[$row['customer_id']] = $row;
                 }
                 // Same percentiles as testGetPercentileRanksComputesRankAcrossWholeCustomerBase
-                // (25/50/75/100), so the quintile buckets are 2/3/4/5.
-                self::assertSame(2, $byCustomer[4]['recency_quintile']);
+                // (0/50/75/100 - customer 4 has zero orders, always exactly percentile 0), so the
+                // quintile buckets are 1/3/4/5.
+                self::assertSame(1, $byCustomer[4]['recency_quintile']);
                 self::assertSame(3, $byCustomer[1]['frequency_quintile']);
                 self::assertSame(5, $byCustomer[3]['monetary_quintile']);
                 self::assertSame(75.0, $byCustomer[2]['monetary_percentile']);

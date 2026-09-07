@@ -39,6 +39,15 @@ class OrderApprovalManagement implements OrderApprovalManagementInterface
     public function approveByToken(string $token): OrderApprovalInterface
     {
         $approval = $this->loadPendingApprovalByToken($token);
+
+        // Claim the decision atomically BEFORE touching the order - two concurrent requests for
+        // the same token (double click, a forwarded email opened twice) must never both pass
+        // this and both release/cancel the same order. Only the request whose conditional UPDATE
+        // actually matches a row (still "pending" at that instant) may proceed.
+        if (!$this->orderApprovalResource->claimPending($approval, OrderApproval::STATUS_APPROVED)) {
+            throw new NoSuchEntityException(__('Invalid or already-used approval token.'));
+        }
+
         $order = $this->loadOrder($approval->getOrderId());
 
         // Release the order into whatever status is normally the default for the "new" state —
@@ -46,19 +55,25 @@ class OrderApprovalManagement implements OrderApprovalManagementInterface
         $order->setStatus($this->orderConfig->getStateDefaultStatus(Order::STATE_NEW));
         $this->orderResource->save($order);
 
-        return $this->decide($approval, OrderApproval::STATUS_APPROVED);
+        return $approval;
     }
 
     public function rejectByToken(string $token): OrderApprovalInterface
     {
         $approval = $this->loadPendingApprovalByToken($token);
+
+        // Same claim-before-acting reasoning as approveByToken() above.
+        if (!$this->orderApprovalResource->claimPending($approval, OrderApproval::STATUS_REJECTED)) {
+            throw new NoSuchEntityException(__('Invalid or already-used approval token.'));
+        }
+
         $order = $this->loadOrder($approval->getOrderId());
 
         // cancel() also releases any reserved inventory back to stock.
         $order->cancel();
         $this->orderRepository->save($order);
 
-        return $this->decide($approval, OrderApproval::STATUS_REJECTED);
+        return $approval;
     }
 
     public function getDecisionLinksById(int $entityId): OrderApprovalDecisionLinksInterface
@@ -117,14 +132,5 @@ class OrderApprovalManagement implements OrderApprovalManagementInterface
         }
 
         return $order;
-    }
-
-    private function decide(OrderApproval $approval, string $status): OrderApproval
-    {
-        $approval->setData('status', $status);
-        $approval->setData('decided_at', date('Y-m-d H:i:s'));
-        $this->orderApprovalResource->save($approval);
-
-        return $approval;
     }
 }

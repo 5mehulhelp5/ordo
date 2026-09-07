@@ -18,6 +18,8 @@ use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\SendReorderReminders;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
@@ -59,6 +61,14 @@ class SendReorderRemindersTest extends TestCase
         $customerRepository->method('getList')->willReturn($searchResults);
 
         return new CustomerMapBuilder($customerRepository, $searchCriteriaBuilder);
+    }
+
+    private function makeConsentManager(bool $hasConsent = true): ConsentManager
+    {
+        $consentManager = $this->createStub(ConsentManager::class);
+        $consentManager->method('hasConsent')->willReturn($hasConsent);
+
+        return $consentManager;
     }
 
     public function testExecuteSkipsWhenDisabled(): void
@@ -105,6 +115,61 @@ class SendReorderRemindersTest extends TestCase
         $logger->expects(self::once())->method('info')->with(self::stringContains('1 reorder reminders'));
 
         $this->makeCron($config, $collectionFactory, $resourceConnection, $logger)->execute();
+    }
+
+    /**
+     * Regression test for a real consent-bypass bug a code audit found: this cron used to have no
+     * ConsentManager check at all.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsCycleWhenCustomerWithdrewEmailConsent(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isReorderReminderEnabled')->willReturn(true);
+        $config->method('getReorderLeadDays')->willReturn(2);
+
+        $cycle = $this->createStub(ReorderCycle::class);
+        $cycle->method('getEntityId')->willReturn(3);
+        $cycle->method('getCustomerId')->willReturn(5);
+
+        $collection = $this->createStub(Collection::class);
+        $collection->method('addDueTodayFilter');
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$cycle]));
+
+        $collectionFactory = $this->createMock(CollectionFactory::class);
+        $collectionFactory->method('create')->willReturn($collection);
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchOne')->willReturn(0);
+        $connection->expects(self::never())->method('insert');
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getId')->willReturn(5);
+        $customerMapBuilder = $this->makeCustomerMapBuilder([$customer]);
+
+        $consentManager = $this->createMock(ConsentManager::class);
+        $consentManager->expects(self::once())->method('hasConsent')->with(5, ConsentChannel::Email)->willReturn(false);
+
+        (new SendReorderReminders(
+            $config,
+            $collectionFactory,
+            $customerMapBuilder,
+            new ReminderEmailSender(
+                $this->createStub(TransportBuilder::class),
+                $this->createStub(StoreManagerInterface::class),
+                $this->createStub(StateInterface::class)
+            ),
+            new ReminderLogStore($resourceConnection),
+            $this->createStub(SalesRepEmailContext::class),
+            $consentManager,
+            $this->createStub(TriggerOutcomeLogger::class),
+            new CronRunLogger($this->createStub(LoggerInterface::class))
+        ))->execute();
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -204,6 +269,7 @@ class SendReorderRemindersTest extends TestCase
             ),
             new ReminderLogStore($resourceConnection),
             $this->createStub(SalesRepEmailContext::class),
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -253,6 +319,7 @@ class SendReorderRemindersTest extends TestCase
             ),
             new ReminderLogStore($resourceConnection),
             $this->createStub(SalesRepEmailContext::class),
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -294,6 +361,7 @@ class SendReorderRemindersTest extends TestCase
             new ReminderEmailSender($transportBuilder, $storeManager, $this->createStub(StateInterface::class)),
             new ReminderLogStore($resourceConnection),
             $salesRepEmailContext,
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger ?? $this->createStub(LoggerInterface::class))
         );

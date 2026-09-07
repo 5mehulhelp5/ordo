@@ -7,6 +7,8 @@ use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Model\AdAudience;
 use Ordo\Automation\Model\AdAudience\PiiHasher;
 use Ordo\Automation\Model\AdAudience\SyncClientPool;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\ResourceModel\AdAudience as AdAudienceResource;
@@ -31,6 +33,7 @@ class SyncAdAudiences
         private readonly CustomerMapBuilder $customerMapBuilder,
         private readonly PiiHasher $piiHasher,
         private readonly SyncClientPool $syncClientPool,
+        private readonly ConsentManager $consentManager,
         private readonly CronRunLogger $cronRunLogger,
         private readonly LoggerInterface $logger
     ) {
@@ -80,8 +83,23 @@ class SyncAdAudiences
         // One batched customer_entity lookup for the whole segment instead of one EAV load per
         // customer_id - found via a performance audit, real impact at a few thousand members.
         $customerMap = $this->customerMapBuilder->build($customerIds);
-        $emails = array_map(static fn ($customer) => (string) $customer->getEmail(), $customerMap);
-        $emails = array_values(array_filter($emails, static fn (string $email) => $email !== ''));
+
+        // A customer who withdrew ad-sharing consent (ConsentChannel::Ads) must never
+        // have their email uploaded to a third-party ad platform here, regardless of whether they
+        // still match the segment - this is data leaving the store entirely, not just a message
+        // being sent, so it's checked per customer before hashing/upload, same as every other
+        // channel's send action checks hasConsent() before sending.
+        $emails = [];
+        foreach ($customerMap as $customerId => $customer) {
+            if (!$this->consentManager->hasConsent((int) $customerId, ConsentChannel::Ads)) {
+                continue;
+            }
+
+            $email = (string) $customer->getEmail();
+            if ($email !== '') {
+                $emails[] = $email;
+            }
+        }
 
         $hashedEmails = $this->piiHasher->hashEmails($emails);
         $createdAudienceId = $client->sync($adAudience->getExternalAudienceId(), $hashedEmails);
