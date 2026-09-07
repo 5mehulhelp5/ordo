@@ -38,7 +38,7 @@ class Index extends Template
     }
 
     /**
-     * @return array{email: bool, sms: bool, push: bool}
+     * @return array{email: bool, sms: bool, push: bool, whatsapp: bool}
      */
     public function getConsentStates(): array
     {
@@ -48,6 +48,7 @@ class Index extends Template
             ConsentManager::CHANNEL_EMAIL => $states[ConsentManager::CHANNEL_EMAIL] ?? true,
             ConsentManager::CHANNEL_SMS => $states[ConsentManager::CHANNEL_SMS] ?? true,
             ConsentManager::CHANNEL_PUSH => $states[ConsentManager::CHANNEL_PUSH] ?? true,
+            ConsentManager::CHANNEL_WHATSAPP => $states[ConsentManager::CHANNEL_WHATSAPP] ?? true,
         ];
     }
 

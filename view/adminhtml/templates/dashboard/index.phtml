@@ -173,6 +173,12 @@ $segmentNavDesc = __(
                 $escaper->escapeHtml(__('Per-customer marketing consent, data export, and erasure'))
             ?></span>
         </a>
+        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/whatsapptemplate/index')) ?>">
+            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('WhatsApp Templates')) ?></span>
+            <span class="ordo-nav-desc"><?=
+                $escaper->escapeHtml(__('Manage and submit templates the send_whatsapp campaign action can use'))
+            ?></span>
+        </a>
         <a class="ordo-nav-card"
            href="<?= $escaper->escapeUrl($block->getUrl('adminhtml/system_config/edit/section/ordo_automation')) ?>">
             <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Configuration')) ?></span>

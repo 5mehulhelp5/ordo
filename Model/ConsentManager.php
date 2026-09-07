@@ -22,6 +22,7 @@ class ConsentManager
     public const CHANNEL_EMAIL = 'email';
     public const CHANNEL_SMS = 'sms';
     public const CHANNEL_PUSH = 'push';
+    public const CHANNEL_WHATSAPP = 'whatsapp';
 
     public function __construct(
         private readonly CustomerConsentCollectionFactory $customerConsentCollectionFactory,

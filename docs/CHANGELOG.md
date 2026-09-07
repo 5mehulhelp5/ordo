@@ -7,6 +7,31 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- WhatsApp Business Platform integration (Meta Cloud API v20.0) — a full second messaging channel alongside
+  the existing `send_sms`. Not "same API, `whatsapp:` prefix": outside a 24-hour customer-service window
+  (which is most campaign sends), Meta only allows a pre-approved message template, so this ships:
+  - A new admin CRUD entity, WhatsApp Templates (`admin/ordo/whatsapptemplate`), tracking each template
+    through Meta's own approval lifecycle (`Model/WhatsAppTemplate::STATUS_DRAFT/PENDING/APPROVED/REJECTED/
+    DISABLED`) — `SubmitForReview` registers a draft with Meta (`Model/WhatsApp/WhatsAppTemplateClient`,
+    plain `Curl`, no vendor SDK, same pattern as `GoogleAdsSyncClient`/`MetaSyncClient`), `RefreshStatus`
+    polls Meta for the current status, and editing an already-submitted template's body text resets it back
+    to draft (same rule Meta's own template editor applies, since the old submission no longer matches).
+  - A new `send_whatsapp` campaign action (`Model/Campaign/Action/SendWhatsApp`) — always sends a template
+    message (never free-form text, since a campaign dispatch has no reliable way to know a 24h window is
+    open for a given recipient), picking an APPROVED template and filling its `{{1}}, {{2}}, ...`
+    placeholders from a comma-separated `params` field. Reuses the existing `ordo_sms_phone` customer
+    attribute (one phone number serving both channels), `ConsentManager` (new `CHANNEL_WHATSAPP`), and the
+    channel-generic `ordo_message_log`/`MessageLogWriter` already shared by sms/email.
+  - `Controller\WhatsApp\Webhook` — a single public endpoint handling both halves of Meta's real webhook
+    contract: the one-time GET subscription handshake, and POST event delivery (signature-verified via
+    `X-Hub-Signature-256`/HMAC-SHA256, `Model/WhatsApp/WhatsAppSignatureValidator`) carrying either message
+    delivery-status updates (correlated to `ordo_message_log` by provider message id) or template
+    approval-status updates (correlated to `ordo_whatsapp_template` by Meta's own template id) — the same
+    "unauthenticated, signature-verified, single registered URL" shape as `Controller\Sms\StatusCallback`/
+    `Controller\Email\StatusCallback`.
+  - New config section `Stores > Ordo Automation > WhatsApp (Meta Cloud API)`: enable flag, access token,
+    app secret, webhook verify token (all encrypted), phone number id, business account id.
+  - Not yet exercised against a real Meta/WhatsApp Business Account end to end — see ROADMAP.md.
 - Campaign calendar view (`admin/ordo/campaign/calendar`) — every campaign's trigger(s) and action-chain
   timing (cumulative offset, not raw per-step `delay_minutes`) in one place.
 - Dedicated admin fields for the 6 RFM-based campaign conditions (`days`/`count`/`percentile`), replacing the

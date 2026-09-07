@@ -89,6 +89,7 @@ class IndexTest extends TestCase
                 ConsentManager::CHANNEL_EMAIL => true,
                 ConsentManager::CHANNEL_SMS => true,
                 ConsentManager::CHANNEL_PUSH => true,
+                ConsentManager::CHANNEL_WHATSAPP => true,
             ],
             $this->block->getConsentStates()
         );

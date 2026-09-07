@@ -1,0 +1,143 @@
+<?xml version="1.0"?>
+<form xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
+    <argument name="data" xsi:type="array">
+        <item name="js_config" xsi:type="array">
+            <item name="provider" xsi:type="string">ordo_whatsapptemplate_form.ordo_whatsapptemplate_form_data_source</item>
+        </item>
+        <item name="label" xsi:type="string" translate="true">WhatsApp Template Information</item>
+        <item name="template" xsi:type="string">templates/form/collapsible</item>
+    </argument>
+    <settings>
+        <buttons>
+            <button name="back" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\BackButton"/>
+            <button name="delete" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\DeleteButton"/>
+            <button name="refresh_status" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\RefreshStatusButton"/>
+            <button name="submit_for_review" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\SubmitForReviewButton"/>
+            <button name="save" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\SaveButton"/>
+            <button name="save_and_continue" class="Ordo\Automation\Block\Adminhtml\WhatsAppTemplate\Edit\SaveAndContinueButton"/>
+        </buttons>
+        <namespace>ordo_whatsapptemplate_form</namespace>
+        <dataScope>data</dataScope>
+        <deps>
+            <dep>ordo_whatsapptemplate_form.ordo_whatsapptemplate_form_data_source</dep>
+        </deps>
+    </settings>
+
+    <dataSource name="ordo_whatsapptemplate_form_data_source">
+        <argument name="dataProvider" xsi:type="configurableObject">
+            <argument name="class" xsi:type="string">Ordo\Automation\Model\WhatsAppTemplate\DataProvider</argument>
+            <argument name="name" xsi:type="string">ordo_whatsapptemplate_form_data_source</argument>
+            <argument name="primaryFieldName" xsi:type="string">entity_id</argument>
+            <argument name="requestFieldName" xsi:type="string">entity_id</argument>
+        </argument>
+        <argument name="data" xsi:type="array">
+            <item name="js_config" xsi:type="array">
+                <item name="component" xsi:type="string">Magento_Ui/js/form/provider</item>
+            </item>
+        </argument>
+        <settings>
+            <submitUrl path="ordo/whatsapptemplate/save"/>
+        </settings>
+    </dataSource>
+
+    <fieldset name="general">
+        <settings>
+            <label translate="true">General</label>
+        </settings>
+        <field name="entity_id" formElement="input">
+            <settings>
+                <dataType>text</dataType>
+                <visible>false</visible>
+            </settings>
+        </field>
+        <field name="name" formElement="input" sortOrder="10">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Name</label>
+                <notice translate="true">Admin-facing only - not sent to Meta.</notice>
+                <validation>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
+                </validation>
+            </settings>
+        </field>
+        <field name="meta_template_name" formElement="input" sortOrder="20">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Meta Template Name</label>
+                <notice translate="true">Lowercase letters, digits, and underscores only - this is the exact name registered with Meta.</notice>
+                <validation>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
+                </validation>
+            </settings>
+        </field>
+        <field name="category" formElement="select" sortOrder="30">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Category</label>
+                <validation>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
+                </validation>
+            </settings>
+            <formElements>
+                <select>
+                    <settings>
+                        <options class="Ordo\Automation\Model\Config\Source\WhatsAppTemplateCategory"/>
+                    </settings>
+                </select>
+            </formElements>
+        </field>
+        <field name="language" formElement="input" sortOrder="40">
+            <argument name="data" xsi:type="array">
+                <item name="config" xsi:type="array">
+                    <item name="default" xsi:type="string">en_US</item>
+                </item>
+            </argument>
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Language</label>
+                <notice translate="true">Meta locale code, e.g. en_US, pl_PL.</notice>
+                <validation>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
+                </validation>
+            </settings>
+        </field>
+        <field name="body_text" formElement="textarea" sortOrder="50">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Body Text</label>
+                <notice translate="true">Use {{1}}, {{2}}, ... for placeholders filled positionally by the send_whatsapp campaign action's own "params" field at send time.</notice>
+                <validation>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
+                </validation>
+            </settings>
+        </field>
+        <field name="status" formElement="input" sortOrder="60">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Status</label>
+                <disabled>true</disabled>
+            </settings>
+        </field>
+        <field name="rejection_reason" formElement="input" sortOrder="70">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Rejection Reason</label>
+                <disabled>true</disabled>
+            </settings>
+        </field>
+        <field name="meta_template_id" formElement="input" sortOrder="80">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Meta Template ID</label>
+                <disabled>true</disabled>
+            </settings>
+        </field>
+        <field name="submitted_at" formElement="input" sortOrder="90">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Submitted At</label>
+                <disabled>true</disabled>
+            </settings>
+        </field>
+    </fieldset>
+</form>

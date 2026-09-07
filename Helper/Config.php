@@ -81,6 +81,13 @@ class Config
     private const string XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY
         = 'ordo_automation/email/sendgrid_webhook_verification_key';
 
+    private const string XML_PATH_WHATSAPP_ENABLED = 'ordo_automation/whatsapp/enabled';
+    private const string XML_PATH_WHATSAPP_ACCESS_TOKEN = 'ordo_automation/whatsapp/access_token';
+    private const string XML_PATH_WHATSAPP_PHONE_NUMBER_ID = 'ordo_automation/whatsapp/phone_number_id';
+    private const string XML_PATH_WHATSAPP_BUSINESS_ACCOUNT_ID = 'ordo_automation/whatsapp/business_account_id';
+    private const string XML_PATH_WHATSAPP_APP_SECRET = 'ordo_automation/whatsapp/app_secret';
+    private const string XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'ordo_automation/whatsapp/webhook_verify_token';
+
     public function __construct(private readonly ScopeConfigInterface $scopeConfig)
     {
     }
@@ -498,6 +505,73 @@ class Config
     {
         return (string) $this->scopeConfig->getValue(
             self::XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function isWhatsAppEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_WHATSAPP_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * Decrypted automatically by ScopeConfigInterface::getValue() — same backend_model-driven
+     * decryption as getTwilioAuthToken() above.
+     */
+    public function getWhatsAppAccessToken(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_WHATSAPP_ACCESS_TOKEN,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getWhatsAppPhoneNumberId(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_WHATSAPP_PHONE_NUMBER_ID,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function getWhatsAppBusinessAccountId(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_WHATSAPP_BUSINESS_ACCOUNT_ID,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * Meta's own per-app secret, used only to verify Controller\WhatsApp\Webhook's incoming
+     * X-Hub-Signature-256 header — same decryption as getTwilioAuthToken() above.
+     */
+    public function getWhatsAppAppSecret(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_WHATSAPP_APP_SECRET,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * The arbitrary string this store's admin chose when registering the webhook URL in Meta's
+     * App Dashboard — Controller\WhatsApp\Webhook's GET handshake echoes back hub_challenge only
+     * if the request's hub_verify_token matches this exactly.
+     */
+    public function getWhatsAppWebhookVerifyToken(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );

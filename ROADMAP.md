@@ -29,6 +29,12 @@ scoped from real hands-on marketing automation experience.
   query, real `PiiHasher`) but swaps `SyncClientInterface` for a `RecordingSyncClient` — so the actual HTTP
   calls to `googleads.googleapis.com`/`graph.facebook.com` (OAuth token exchange, offline user data job
   lifecycle, Custom Audience creation/replace) have never been exercised against live credentials.
+- **`send_whatsapp` / WhatsApp templates have no test against a real Meta WhatsApp Business Account.** Same
+  shape again: unit tests (`WhatsAppSenderTest`/`WhatsAppTemplateClientTest`) drive the real Graph API
+  request-building/response-parsing logic via a fake `Curl`, and `WhatsAppSignatureValidatorTest`/`WebhookTest`
+  use a real HMAC-SHA256 signature — but template submission (`SubmitForReview`), approval polling
+  (`RefreshStatus`), and an actual template message send have never been exercised against a live WABA/phone
+  number, and the webhook receiver has never received a genuine callback from Meta.
 
 ### MFTF/scenario coverage
 
@@ -40,10 +46,6 @@ controller/cron gets a row there before it's considered done).
 
 Not a code review — a capability comparison against the category. Each is a real, separate stream of work:
 
-- **WhatsApp** (alongside the shipped SMS channel) — not "same API, `whatsapp:` prefix": outside a 24h
-  customer-service session window, only pre-approved message templates can be sent (separate Meta fees,
-  minutes-to-48h approval). Needs a template-authoring/approval-tracking admin UI, not just a new
-  `SmsSenderInterface`-style action.
 - **Push notifications** — not investigated yet.
 
 ## Localization

@@ -204,6 +204,7 @@
                 <item name="send_sms" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendSms</item>
                 <item name="notify" xsi:type="object">Ordo\Automation\Model\Campaign\Action\Notify</item>
                 <item name="nps_survey" xsi:type="object">Ordo\Automation\Model\Campaign\Action\NpsSurvey</item>
+                <item name="send_whatsapp" xsi:type="object">Ordo\Automation\Model\Campaign\Action\SendWhatsApp</item>
             </argument>
         </arguments>
     </type>

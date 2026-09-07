@@ -557,9 +557,9 @@
         <constraint xsi:type="primary" referenceId="PRIMARY"><column name="feed_code"/></constraint>
     </table>
 
-    <table name="ordo_message_log" resource="default" engine="innodb" comment="One row per individual outbound message a campaign action dispatched — deliberately channel-generic (not sms-specific) so a future SendGrid-backed send_email delivery-tracking slice can reuse the same table/webhook shape instead of a second one-off design">
+    <table name="ordo_message_log" resource="default" engine="innodb" comment="One row per individual outbound message a campaign action dispatched — deliberately channel-generic so sms/email/whatsapp all share the same table/webhook shape instead of a one-off design per channel">
         <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
-        <column xsi:type="varchar" name="channel" nullable="false" length="16" comment="Delivery channel: sms today, email reserved for a future SendGrid-backed slice"/>
+        <column xsi:type="varchar" name="channel" nullable="false" length="16" comment="Delivery channel: sms, email, or whatsapp"/>
         <column xsi:type="int" name="customer_id" padding="10" unsigned="true" nullable="true" comment="Recipient customer_id, if known"/>
         <column xsi:type="varchar" name="to_address" nullable="false" length="255" comment="Phone number or email address the message was sent to"/>
         <column xsi:type="varchar" name="provider_message_id" nullable="true" length="64" comment="The provider's own message ID (Twilio's Sid) — what a delivery-status webhook looks this row up by"/>
@@ -569,6 +569,26 @@
         <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP" comment="Last time a delivery-status callback updated this row"/>
         <constraint xsi:type="primary" referenceId="PRIMARY"><column name="entity_id"/></constraint>
         <constraint xsi:type="unique" referenceId="ORDO_MESSAGE_LOG_PROVIDER_MESSAGE_ID"><column name="provider_message_id"/></constraint>
+    </table>
+
+    <table name="ordo_whatsapp_template" resource="default" engine="innodb" comment="A WhatsApp message template - the WhatsApp Business Platform only allows sending a free-form message inside a 24-hour customer-service window; anything outside that window (which is most campaign sends) must use a pre-approved template registered with Meta via Model/WhatsApp/WhatsAppTemplateClient, tracked here through its own approval lifecycle before the send_whatsapp campaign action is allowed to use it">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
+        <column xsi:type="varchar" name="name" nullable="false" length="255" comment="Admin-facing name"/>
+        <column xsi:type="varchar" name="meta_template_name" nullable="false" length="512" comment="The name registered with Meta - lowercase letters/digits/underscores only, distinct from the admin-facing name above"/>
+        <column xsi:type="varchar" name="category" nullable="false" length="32" comment="marketing, utility, or authentication - see Model/Config/Source/WhatsAppTemplateCategory, drives Meta's own approval rules and per-message pricing"/>
+        <column xsi:type="varchar" name="language" nullable="false" length="16" default="en_US" comment="Meta locale code, e.g. en_US, pl_PL"/>
+        <column xsi:type="text" name="body_text" nullable="false" comment="The template body Meta approves - {{1}}, {{2}}, ... placeholders filled positionally by the send_whatsapp campaign action's own params at send time"/>
+        <column xsi:type="varchar" name="meta_template_id" nullable="true" length="64" comment="Meta's own template id, set once SubmitForReview succeeds - what RefreshStatus polls by"/>
+        <column xsi:type="varchar" name="status" nullable="false" length="16" default="draft" comment="draft, pending, approved, rejected, or disabled - see Model/WhatsAppTemplate::STATUS_* - only approved templates can be used by send_whatsapp"/>
+        <column xsi:type="varchar" name="rejection_reason" nullable="true" length="255" comment="Meta's own rejection reason, if status is rejected"/>
+        <column xsi:type="timestamp" name="submitted_at" nullable="true" comment="When SubmitForReview last sent this to Meta"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="ORDO_WHATSAPP_TEMPLATE_META_TEMPLATE_NAME">
+            <column name="meta_template_name"/>
+        </constraint>
     </table>
 
 </schema>

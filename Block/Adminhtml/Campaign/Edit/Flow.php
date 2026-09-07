@@ -21,6 +21,8 @@ use Ordo\Automation\Model\ResourceModel\Campaign\Action\CollectionFactory as Act
 use Ordo\Automation\Model\ResourceModel\Campaign\Condition\CollectionFactory as ConditionCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\CollectionFactory as TriggerCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory as ContentBlockCollectionFactory;
+use Ordo\Automation\Model\ResourceModel\WhatsAppTemplate\CollectionFactory as WhatsAppTemplateCollectionFactory;
+use Ordo\Automation\Model\WhatsAppTemplate;
 
 /**
  * Editable Drawflow (https://github.com/jerosoler/Drawflow) view of a campaign's trigger(s) →
@@ -51,6 +53,7 @@ class Flow extends Template
         private readonly ActionPool $actionPool,
         private readonly TypeLabels $typeLabels,
         private readonly ContentBlockCollectionFactory $contentBlockCollectionFactory,
+        private readonly WhatsAppTemplateCollectionFactory $whatsAppTemplateCollectionFactory,
         array $data = [],
         ?JsonHelper $jsonHelper = null,
         ?DirectoryHelper $directoryHelper = null
@@ -159,6 +162,30 @@ class Flow extends Template
     }
 
     /**
+     * entity_id => name for every APPROVED WhatsApp template — options for the send_whatsapp
+     * action's template_id field. Only approved templates: Meta's own API rejects a send using
+     * anything else, so offering a draft/pending/rejected one here would be a guaranteed-to-fail
+     * choice (same reasoning as Model\Config\Source\WhatsAppTemplateOptions, which this
+     * duplicates rather than reuses — that class is a UI-component OptionSourceInterface, this
+     * canvas reads plain PHP arrays like getContentBlockOptions() above).
+     *
+     * @return array<int, string>
+     */
+    public function getWhatsAppTemplateOptions(): array
+    {
+        $collection = $this->whatsAppTemplateCollectionFactory->create();
+        $collection->addApprovedFilter();
+
+        $options = [];
+        foreach ($collection as $template) {
+            /** @var WhatsAppTemplate $template */
+            $options[(int) $template->getEntityId()] = $template->getName();
+        }
+
+        return $options;
+    }
+
+    /**
      * Which of Save.php's DEDICATED_PARAM_FIELDS applies to each known condition/action type —
      * the same mapping ordo_campaign_form.xml's switcherConfig encodes for the native dynamicRows
      * form, duplicated here (not read from the XML) so the flow canvas can render the same
@@ -210,6 +237,25 @@ class Flow extends Template
                             'Include an opt-out instruction (e.g. "Reply STOP to unsubscribe") in the'
                             . ' first message to any recipient — required by Twilio\'s messaging policy'
                             . ' and, in the US, the TCPA.'
+                        ),
+                    ],
+                ],
+                'send_whatsapp' => [
+                    [
+                        'name' => 'template_id',
+                        'label' => (string) __('WhatsApp template'),
+                        'options' => $this->getWhatsAppTemplateOptions(),
+                        'notice' => (string) __(
+                            'Only APPROVED templates appear here — the WhatsApp Business Platform never'
+                            . ' allows a free-form message from a campaign send.'
+                        ),
+                    ],
+                    [
+                        'name' => 'params',
+                        'label' => (string) __('Template parameters (comma-separated, optional)'),
+                        'notice' => (string) __(
+                            'Fills the template\'s {{1}}, {{2}}, ... placeholders in order, e.g. for a'
+                            . ' template body of "Hi {{1}}, your order {{2}} shipped": John,ORD-1234'
                         ),
                     ],
                 ],
