@@ -210,14 +210,27 @@ class RfmCalculator
     {
         $connection = $this->resourceConnection->getConnection();
         $table = $this->resourceConnection->getTableName('ordo_customer_rfm_score');
+        $customerTable = $this->resourceConnection->getTableName('customer_entity');
 
+        // ordo_customer_rfm_score has no FK to customer_entity (same small-table, JOIN-mitigated
+        // design as CustomerScoreManager/CustomerTagManager - see those classes' own docblocks),
+        // so a customer deleted after Cron\RecomputeRfmScores last ran would otherwise still have
+        // a stale row here. Unlike those two, this table's rows are read directly as the matching
+        // set for a percentile segment condition (Segment\SegmentMemberResolver::
+        // resolvePercentileAtLeast()), not just looked up by an already-known id - a deleted
+        // customer's stale row would incorrectly count as a segment match until the next
+        // recompute. Found via a code audit: the live computation path (computePercentileRanks())
+        // already derives its customer universe from customer_entity via getAllCustomerIds(), so
+        // this join just makes the cached/stored path consistent with it.
         $rows = $connection->fetchAll(
-            $connection->select()->from($table, [
-                'customer_id',
-                'recency_percentile',
-                'frequency_percentile',
-                'monetary_percentile',
-            ])
+            $connection->select()
+                ->from(['s' => $table], [
+                    'customer_id',
+                    'recency_percentile',
+                    'frequency_percentile',
+                    'monetary_percentile',
+                ])
+                ->join(['c' => $customerTable], 's.customer_id = c.entity_id', [])
         );
 
         if ($rows === []) {

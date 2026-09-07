@@ -17,6 +17,7 @@ class RfmCalculatorTest extends TestCase
         $select = $this->createStub(Select::class);
         $select->method('from')->willReturnSelf();
         $select->method('where')->willReturnSelf();
+        $select->method('join')->willReturnSelf();
 
         return $select;
     }
@@ -376,6 +377,40 @@ class RfmCalculatorTest extends TestCase
             ],
         ]);
         $connection->expects(self::never())->method('fetchCol');
+
+        $calculator = $this->makeCalculator($connection);
+
+        self::assertSame(
+            [1 => ['recency_percentile' => 80.5, 'frequency_percentile' => 60.0, 'monetary_percentile' => 40.25]],
+            $calculator->getPercentileRanks()
+        );
+    }
+
+    /**
+     * Regression test for a real correctness bug a code audit found: this stored/cached read path
+     * used to select straight from ordo_customer_rfm_score with no join to customer_entity, so a
+     * customer deleted after the last Cron\RecomputeRfmScores run would still incorrectly count
+     * as a percentile-condition segment match (Segment\SegmentMemberResolver::
+     * resolvePercentileAtLeast() iterates this map directly) until the next recompute.
+     */
+    public function testGetPercentileRanksJoinsCustomerEntityOnTheStoredTableRead(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->expects(self::once())->method('join')
+            ->with(['c' => 'customer_entity'], 's.customer_id = c.entity_id', [])
+            ->willReturnSelf();
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('fetchAll')->willReturn([
+            [
+                'customer_id' => '1',
+                'recency_percentile' => '80.5',
+                'frequency_percentile' => '60.0',
+                'monetary_percentile' => '40.25',
+            ],
+        ]);
 
         $calculator = $this->makeCalculator($connection);
 
