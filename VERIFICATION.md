@@ -30,10 +30,18 @@ every local edit.
 
 ## 2. Static checks
 
+Run from this module's own checkout (`/absolute/path/to/mma`), not from inside the consuming
+Magento project: PHPStan/PHPUnit here analyze the module's own code and don't need a live
+Magento instance, and running them from the Magento project's `vendor/bin/` hits a real dependency
+conflict — Magento 2.4.9's own dev tooling (`magento/magento-coding-standard` → `rector/rector`)
+locks `phpstan/phpstan` to `^1.12`, while this module's `phpstan.neon` needs `bitexpert/phpstan-magento`
+`^0.43`, which requires `phpstan/phpstan ^2.0` — `composer require --dev` for that combination
+fails to resolve inside a real Magento checkout.
+
 ```bash
-composer require --dev phpstan/phpstan bitexpert/phpstan-magento phpunit/phpunit
-vendor/bin/phpstan analyse -c vendor/ordo/module-automation/phpstan.neon
-vendor/bin/phpunit vendor/ordo/module-automation/Test/Unit
+composer install
+vendor/bin/phpstan analyse -c phpstan.neon
+vendor/bin/phpunit Test/Unit
 ```
 
 - [ ] PHPStan completes clean

@@ -112,6 +112,29 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   action only, not every `TransportBuilder` call site in this Magento install (see that class's own docblock).
   New "Email Delivery Tracking (SendGrid)" config section holds the webhook's verification key.
 
+### Verification
+
+- `VERIFICATION.md`'s manual checklist re-run end to end against PHP 8.4.25 / Magento Open Source
+  2.4.9 (previous full pass was against 2.4.7/PHP 8.2 — see below) — install, static checks, admin UI
+  (real browser via Playwright, not just HTTP status codes), campaign engine wiring, and real
+  on-site tracking (`page_view` event through `tracker.js`, `POST /ordo/track/event`, DB row with
+  `customer_id IS NULL`) all pass. Found and fixed along the way:
+  - This module's own `vendor/` (dev tooling — phpunit/phpstan/codeception) was being copied into
+    consumer installs via Composer's `path` repository (`options.symlink: false` copies the whole
+    directory, not just the package), duplicate-declaring classes and crashing
+    `setup:di:compile`. Fixed with `.gitattributes` `export-ignore` rules.
+  - `phpstan.neon`'s `includes:` referenced `vendor/bitexpert/phpstan-magento/extension.neon`
+    relative to itself — only ever worked because of the bug above. Switched to `%rootDir%`-relative
+    so it resolves correctly wherever PHPStan itself is installed.
+  - `VERIFICATION.md`'s static-checks step instructed installing PHPStan into the *consuming*
+    Magento project — conflicts with Magento 2.4.9's own pinned dev tooling
+    (`magento/magento-coding-standard` → `rector` → `phpstan/phpstan ^1.12`, incompatible with this
+    module's `bitexpert/phpstan-magento ^0.43` → `phpstan/phpstan ^2.0`). Corrected to run from this
+    module's own checkout instead, matching what CI (`.github/workflows/ci.yml`) already does.
+  - `system.xml`'s comment on `tracking/enabled` was stale, claiming `tracker.js` "loads sitewide
+    regardless of this setting" — `view/frontend/layout/default.xml` was since changed to gate the
+    block on that setting (a real, deliberate improvement; the comment just never caught up).
+
 ### Fixed
 
 - **Double-execution race in `Cron\RunScheduledCampaignActions`** — claiming a due row was a plain
@@ -207,7 +230,32 @@ the original bug.
   leaked credential to Programmable Messaging instead of full account access. The Auth Token itself stays in
   config: `Controller\Sms\StatusCallback`'s webhook signature check always requires it (Twilio signs
   `X-Twilio-Signature` with the Auth Token regardless of how outbound calls are authenticated), so it
-  couldn't be retired.
+  couldn't be retired. Verified against a real Twilio trial account end to end, both directly
+  (`TwilioSmsSender::send()` against the live API, not just the unit tests' faked HTTP transport — message
+  delivered, status `delivered` per the Twilio API) and through the full campaign action
+  (`Model\Campaign\Action\SendSms::execute()` against a real customer/`ordo_sms_phone`/`ConsentManager`,
+  writing a real `ordo_message_log` row with `status=sent` and the live provider message id), and the
+  `Controller\Sms\StatusCallback` webhook (tunneled the local Docker setup's port through ngrok, pointed
+  `web/secure|unsecure/base_url` at the public URL so `CallbackUrlBuilder` produces a real reachable
+  callback, and confirmed Twilio's own genuine signed POST updated the `ordo_message_log` row from `sent` to
+  `delivered` — a real DB round trip driven by a real X-Twilio-Signature, not a computed-in-test one).
+
+### Fixed
+
+- **Every `type="obscure"` config field in `Helper\Config` was returning ciphertext, not the decrypted
+  secret, when read at runtime.** `Magento\Config\Model\Config\Backend\Encrypted` only decrypts when its
+  own `Value` object is loaded (the admin config edit form) — a plain `ScopeConfigInterface::getValue()`
+  call, which is what every getter in this class used, returns the raw encrypted string. Affected all 10
+  obscure fields: Twilio Auth Token, Twilio API Key Secret, the 3 Google Ads OAuth secrets, the Meta access
+  token, the SendGrid webhook verification key, and the 3 WhatsApp (Meta) secrets. In production this meant
+  every outbound API call using one of these credentials would have authenticated with ciphertext (Google
+  Ads/Meta/Twilio would reject it, as reproduced live via `TwilioSmsSender` before this fix — HTTP 401), and
+  every inbound webhook signature check (SMS, WhatsApp, SendGrid) would have compared against ciphertext,
+  silently rejecting every genuine callback. Fixed by routing every obscure-field getter through a new
+  `Config::decryptedConfig()` helper that explicitly calls `EncryptorInterface::decrypt()`. Found while
+  live-testing the Twilio API Key change above — never caught by the existing unit tests because they mock
+  `Config` directly with already-decrypted fixture values, never exercising the real encrypt/decrypt round
+  trip.
 - Deduplicated the `*PercentileAtLeast` campaign conditions and the customer-attribute Setup patches into shared
   base classes (`AbstractPercentileAtLeast`, `AbstractCustomerAttributePatch`) — no behavior change.
 - Extracted `Model/Cron/CronRunLogger.php` for the shared per-item-failure/run-summary log shape, adopted across

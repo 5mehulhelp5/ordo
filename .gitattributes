@@ -1,0 +1,22 @@
+# Composer's "path" repository type (used by VERIFICATION.md's install instructions, and by any
+# real consumer developing against this module via a local path repo) exports this repo's
+# contents via git-archive-style rules when copying (options.symlink=false), so anything listed
+# here as export-ignore is excluded from that copy - same as .gitignore is for git itself, but
+# also enforced for people who DO have these paths present locally (e.g. dev tooling already
+# installed) instead of just for a clean checkout.
+#
+# Found the hard way: without this, `vendor/` (this repo's own dev-tooling install - phpunit,
+# phpstan, codeception, etc., needed for CI but not part of the shipped module) got copied
+# straight into vendor/ordo/module-automation/vendor/ inside a consuming Magento install,
+# duplicate-declaring classes (e.g. Codeception's own SuiteInitSubscriberTrait) and crashing
+# `bin/magento setup:di:compile` with a fatal "Cannot redeclare trait" error.
+/*.log export-ignore
+/.idea/ export-ignore
+/.magento_cache/ export-ignore
+/.php-cs-fixer.cache export-ignore
+/.phpunit.result.cache export-ignore
+/.playwright-mcp/ export-ignore
+/clover.xml export-ignore
+/junit.xml export-ignore
+/node_modules/ export-ignore
+/vendor/ export-ignore

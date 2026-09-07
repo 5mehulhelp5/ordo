@@ -138,7 +138,7 @@
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Enabled</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment>The tracker.js snippet loads sitewide regardless of this setting (see view/frontend/layout/default.xml) — this only controls whether the /ordo/track/event endpoint stores anything.</comment>
+                    <comment>Controls whether the tracker.js snippet renders at all (view/frontend/layout/default.xml only adds the block when this is enabled) and whether the /ordo/track/event endpoint stores anything it receives.</comment>
                 </field>
                 <field id="view_threshold" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Tag a customer after this many views of the same item</label>

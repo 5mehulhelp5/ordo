@@ -1,5 +1,11 @@
 includes:
-    - vendor/bitexpert/phpstan-magento/extension.neon
+    # Resolved relative to wherever phpstan itself is installed (%rootDir% = vendor/phpstan/phpstan
+    # in whatever project runs this), NOT relative to this file - this module ships to consumers
+    # via a Composer path repository (see VERIFICATION.md) without its own vendor/ directory
+    # (.gitattributes export-ignores it, since shipping one caused a real setup:di:compile crash -
+    # see docs/CHANGELOG.md), so a plain relative "vendor/..." path here would only ever resolve
+    # inside a checkout that happens to have its own full dev install, not a real consumer's.
+    - %rootDir%/../../bitexpert/phpstan-magento/extension.neon
     - phpstan-baseline.neon
 
 parameters:

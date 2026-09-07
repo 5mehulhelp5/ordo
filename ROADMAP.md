@@ -9,28 +9,20 @@ scoped from real hands-on marketing automation experience.
 
 ## Test coverage
 
-- **`VERIFICATION.md`'s manual checklist was last run against Magento 2.4.7 / PHP 8.2.**
-  `composer.json` now requires PHP >=8.4 <8.6 and targets Magento 2.4.8/2.4.9 — the checklist
-  needs a fresh manual pass against that combination; CI's own MFTF/PHPUnit/PHPStan lanes
-  already run on the current versions, so this is specifically about the manual walkthrough
-  going stale, not a sign the module itself is untested on 2.4.8/2.4.9.
-- **`send_sms` has no test against a real Twilio account.** Unit tests (`TwilioSmsSenderTest`) drive the real SDK
-  request-building/error-parsing logic via a fake `Twilio\Http\Client`, and the integration test
-  (`CampaignSendSmsActionTest`) uses real DI/database but swaps out `SmsSenderInterface` for a
-  `RecordingTwilioSmsSender` — so the actual Twilio API call (auth, delivery, and the
-  `Controller\Sms\StatusCallback` webhook receiving a genuine signed callback) has never been exercised end to end
-  against a live/trial Twilio account. `StatusCallbackTest` is unit-level too: it uses a real
-  `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
-  mocked, so a real DB round trip (write on send → status update on callback) is untested.
-- **Ad-audience sync (`Cron\SyncAdAudiences`) has no test against a real Google Ads/Meta account.** Same shape
+- **Ad-audience sync (`Cron\SyncAdAudiences`) has no test against a real Google Ads/Meta account.** Note:
+  a since-fixed bug (docs/CHANGELOG.md "Fixed") meant `getGoogleAdsClientSecret()`/`getGoogleAdsRefreshToken()`/
+  `getGoogleAdsDeveloperToken()`/`getMetaAccessToken()` returned ciphertext at runtime, not the decrypted
+  secret — every real API call would have failed auth regardless of this gap. Same shape
   as `send_sms` above: unit tests (`GoogleAdsSyncClientTest`/`MetaSyncClientTest`/`GoogleOAuthTokenProviderTest`)
   drive the real request-building/response-parsing logic via a fake `Curl`, and the integration test
   (`SyncAdAudiencesTest`) uses real DI/database (real segment/tag/customer rows, real `SegmentMemberResolver`
   query, real `PiiHasher`) but swaps `SyncClientInterface` for a `RecordingSyncClient` — so the actual HTTP
   calls to `googleads.googleapis.com`/`graph.facebook.com` (OAuth token exchange, offline user data job
   lifecycle, Custom Audience creation/replace) have never been exercised against live credentials.
-- **`send_whatsapp` / WhatsApp templates have no test against a real Meta WhatsApp Business Account.** Same
-  shape again: unit tests (`WhatsAppSenderTest`/`WhatsAppTemplateClientTest`) drive the real Graph API
+- **`send_whatsapp` / WhatsApp templates have no test against a real Meta WhatsApp Business Account.** Note:
+  the same since-fixed bug meant `getWhatsAppAccessToken()`/`getWhatsAppAppSecret()` returned ciphertext at
+  runtime — every real Graph API call and every webhook signature check would have failed regardless of this
+  gap. Same shape again: unit tests (`WhatsAppSenderTest`/`WhatsAppTemplateClientTest`) drive the real Graph API
   request-building/response-parsing logic via a fake `Curl`, and `WhatsAppSignatureValidatorTest`/`WebhookTest`
   use a real HMAC-SHA256 signature — but template submission (`SubmitForReview`), approval polling
   (`RefreshStatus`), and an actual template message send have never been exercised against a live WABA/phone
