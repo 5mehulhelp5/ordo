@@ -432,29 +432,21 @@ jobs:
         # block, so it can't break out of the shell command (GitHub's own script-injection
         # guidance for untrusted ${{ }} expressions).
         #
-        # Retries the WHOLE attempt up to twice more on failure — general resilience against a
-        # transient runner/Docker networking gap or similar one-off infra hiccup, safe because
-        # every fixture MFTF ships (and every one this suite's own tests use) already generates
-        # unique values for anything with a uniqueness constraint (emails, SKUs, etc.), so a
-        # rerun never collides with a previous attempt's leftovers. NOT a fix for every failure
-        # mode seen so far, though — one real run (34088473174) failed identically on ALL THREE
-        # attempts (Simple_US_Customer/SimpleProduct2 creation specifically, root-caused not to
-        # infra flakiness but to a since-reverted MFTF metadata file, see
-        # AdminContentBlockRecommendationsOnSiteTest's own description) - a genuinely broken
-        # config or code change will still fail every attempt here, exactly as it should.
+        # Deliberately NO retry-on-failure here (tried once, removed) — every real failure this
+        # workflow has actually hit turned out to be either a genuine, deterministic test/code
+        # problem (fails identically every attempt) or a broader infra issue that a same-leg
+        # retry can't fix either, so a 3x retry only ever multiplied the wall-clock time before
+        # seeing that same result, never changed the outcome. fail-fast: false at the job level
+        # already gives every leg an independent chance regardless.
         working-directory: magento
         env:
           TEST_FILTER: ${{ inputs.test_filter }}
         run: |
-          for attempt in 1 2 3; do
-            if [ -n "$TEST_FILTER" ]; then
-              vendor/bin/mftf run:test $TEST_FILTER && exit 0
-            else
-              vendor/bin/mftf run:group ${{ matrix.group }} && exit 0
-            fi
-            echo "::warning::MFTF attempt $attempt/3 failed - retrying the whole leg (see this step's own comment for why a retry, rather than a fix, is the right response here)."
-          done
-          exit 1
+          if [ -n "$TEST_FILTER" ]; then
+            vendor/bin/mftf run:test $TEST_FILTER
+          else
+            vendor/bin/mftf run:group ${{ matrix.group }}
+          fi
 
       - name: Copy nginx/PHP-FPM logs for the failure artifact
         if: failure()
