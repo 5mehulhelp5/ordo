@@ -67,6 +67,35 @@ class CampaignCalendarViewModelTest extends TestCase
         self::assertSame([$campaign], $viewModel->getCampaigns());
     }
 
+    /**
+     * campaignIds is empty only via getCampaigns() itself, when the campaign collection is
+     * empty - the per-campaign lookups below never build this case on their own since they
+     * always query with a single, non-empty campaign id.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCampaignsWithNoCampaignsCachesEmptyLookups(): void
+    {
+        $collection = $this->createStub(CampaignCollection::class);
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignCollectionFactory = $this->createStub(CampaignCollectionFactory::class);
+        $campaignCollectionFactory->method('create')->willReturn($collection);
+
+        $campaignTriggerCollectionFactory = $this->createMock(CampaignTriggerCollectionFactory::class);
+        $campaignTriggerCollectionFactory->expects(self::never())->method('create');
+        $campaignActionCollectionFactory = $this->createMock(CampaignActionCollectionFactory::class);
+        $campaignActionCollectionFactory->expects(self::never())->method('create');
+
+        $viewModel = $this->makeViewModel(
+            $campaignCollectionFactory,
+            $campaignTriggerCollectionFactory,
+            $campaignActionCollectionFactory
+        );
+
+        self::assertSame([], $viewModel->getCampaigns());
+        self::assertSame('No trigger configured', $viewModel->getTriggerLabelsForCampaign(5));
+        self::assertSame([], $viewModel->getActionTimelineForCampaign(5));
+    }
+
     public function testGetTriggerLabelsForCampaignJoinsMultipleTriggers(): void
     {
         $triggerOne = $this->createStub(CampaignTrigger::class);

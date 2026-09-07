@@ -70,6 +70,17 @@ class GoogleAdsSyncClientTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testSyncThrowsWhenCreateJobResponseHasNoResourceName(): void
+    {
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->curl->method('getBody')->willReturn(json_encode([]));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Google Ads offlineUserDataJobs:create response had no resourceName.');
+        $this->client->sync('customers/1234567890/userLists/555', ['hash1']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testSyncThrowsOnNonSuccessHttpStatus(): void
     {
         $this->curl->method('getStatus')->willReturn(400);

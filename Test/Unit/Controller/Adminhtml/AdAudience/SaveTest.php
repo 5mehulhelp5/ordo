@@ -76,6 +76,37 @@ class SaveTest extends AbstractAdminActionTestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteLoadsExistingAdAudienceAndRedirectsBackWhenRequested(): void
+    {
+        $controller = $this->makeController();
+        $postData = [
+            'entity_id' => '7',
+            'name' => 'Test Audience',
+            'segment_id' => '3',
+            'platform' => 'google_ads',
+            'external_audience_id' => '',
+            'enabled' => '1',
+            'back' => '1',
+        ];
+        $this->request->method('getPostValue')->willReturn($postData);
+        $this->request->method('getParam')->willReturnMap([['back', null, '1']]);
+
+        $redirect = $this->createMock(Redirect::class);
+        $redirect->expects(self::once())->method('setPath')
+            ->with('*/*/edit', ['entity_id' => 7])->willReturnSelf();
+        $this->resultRedirectFactory->method('create')->willReturn($redirect);
+
+        $adAudience = $this->createMock(AdAudience::class);
+        $adAudience->method('getEntityId')->willReturn(7);
+        $this->adAudienceFactory->method('create')->willReturn($adAudience);
+
+        $this->adAudienceResource->expects(self::once())->method('load')->with($adAudience, 7);
+        $this->adAudienceResource->expects(self::once())->method('save')->with($adAudience);
+
+        self::assertSame($redirect, $controller->execute());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testExecuteRedirectsWithErrorWhenSaveThrows(): void
     {
         $controller = $this->makeController();

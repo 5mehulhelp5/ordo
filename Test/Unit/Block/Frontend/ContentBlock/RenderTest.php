@@ -108,6 +108,29 @@ class RenderTest extends TestCase
         self::assertSame('<p>Anon</p>', $this->makeBlock(['identifier' => 'homepage_recs'])->getContentHtml());
     }
 
+    /**
+     * _toHtml() is Template's own hook (AbstractBlock::toHtml()'s pipeline calls it, never a
+     * test directly) - reflection is the only way to exercise this one-line delegation without
+     * wiring up that entire pipeline (event manager, scope config, block cache) for no reason.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testToHtmlDelegatesToGetContentHtml(): void
+    {
+        $block = $this->makeContentBlock('recommendations', true);
+        $this->contentBlockRepository->method('getByIdentifier')->willReturn($block);
+        $this->customerSession->method('isLoggedIn')->willReturn(false);
+
+        $producer = $this->createStub(ProducerInterface::class);
+        $producer->method('render')->willReturn('<p>Rec</p>');
+        $this->producerPool->method('get')->willReturn($producer);
+
+        $render = $this->makeBlock(['identifier' => 'homepage_recs']);
+
+        $toHtml = new \ReflectionMethod($render, '_toHtml');
+
+        self::assertSame('<p>Rec</p>', $toHtml->invoke($render));
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testLoggedInCustomerIdIsForwardedInContext(): void
     {
