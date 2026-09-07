@@ -133,7 +133,11 @@
              actual click Controller/Track/SubmitSurveyResponse.php records. -->
         <waitForElementVisible selector="#ordo-survey-prompt" time="90" stepKey="waitForSurveyPrompt"/>
         <see selector="#ordo-survey-prompt" userInput="How likely are you to recommend us to a friend?" stepKey="seeSurveyQuestion"/>
-        <click selector="#ordo-survey-prompt button:nth-of-type(10)" stepKey="clickScoreNine"/>
+        <!-- executeJS, not a native click - a real CI run caught WebDriver's coordinate-based
+             click landing on the question div instead of the button (ElementClickIntercepted),
+             same class of overlap issue this suite's own sticky-toolbar workaround elsewhere
+             already documents; a direct JS click is immune to it. -->
+        <executeJS function="document.querySelector('#ordo-survey-prompt button:nth-of-type(10)').click();" stepKey="clickScoreNine"/>
         <dontSeeElement selector="#ordo-survey-prompt" stepKey="dontSeeSurveyPromptAfterAnswering"/>
 
         <!-- The answer click's own POST is deliberately fire-and-forget (tracker.js removes the
