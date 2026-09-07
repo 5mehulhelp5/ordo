@@ -67,6 +67,35 @@ class ConsentManager
         return $states;
     }
 
+    /**
+     * Batch variant of hasConsent() - one query for the whole set instead of one per customer,
+     * for the reminder crons (SendAbandonedCartReminders, SendCreditLimitAlerts,
+     * SendOfferExpiryReminders, SendReorderReminders, SendWinBackEmails) that otherwise call
+     * hasConsent() once per row inside a loop that can run to thousands of candidates - the same
+     * batching CreditLimitCalculator::getUsedCreditForCustomers() already does for used-credit.
+     *
+     * @param int[] $customerIds
+     * @return array<int, bool> customerId => consented, for every id in $customerIds (defaults to
+     *     true - consented - for any id with no explicit opt-out row, same as hasConsent()).
+     */
+    public function hasConsentForCustomers(array $customerIds, ConsentChannel $channel): array
+    {
+        $states = array_fill_keys($customerIds, true);
+        if ($customerIds === []) {
+            return $states;
+        }
+
+        $collection = $this->customerConsentCollectionFactory->create();
+        $collection->addCustomerIdsAndChannelFilter($customerIds, $channel->value);
+
+        foreach ($collection as $consent) {
+            /** @var CustomerConsent $consent */
+            $states[$consent->getCustomerId()] = $consent->isConsented();
+        }
+
+        return $states;
+    }
+
     private function findConsent(int $customerId, ConsentChannel $channel): ?CustomerConsent
     {
         $collection = $this->customerConsentCollectionFactory->create();

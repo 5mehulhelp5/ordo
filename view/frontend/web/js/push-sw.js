@@ -53,21 +53,29 @@ self.addEventListener('notificationclick', function (event) {
  * The browser itself decided this subscription needs replacing (key rotation, expiry) - it
  * hands the service worker a brand-new subscription directly, without ever going through
  * tracker.js/window at all, so this is the only place that can register the replacement.
+ *
+ * event.newSubscription is frequently absent even when a replacement is genuinely needed
+ * (observed on both Chrome and Firefox) - per spec, the service worker is then expected to
+ * re-subscribe itself using the old subscription's own options, not treat the event as a no-op.
  */
 self.addEventListener('pushsubscriptionchange', function (event) {
-    var endpoint = event.newSubscription && event.newSubscription.endpoint;
-    if (!endpoint) {
-        return;
-    }
-
-    var p256dh = arrayBufferToBase64Url(event.newSubscription.getKey('p256dh'));
-    var auth = arrayBufferToBase64Url(event.newSubscription.getKey('auth'));
+    var subscriptionPromise = event.newSubscription
+        ? Promise.resolve(event.newSubscription)
+        : self.registration.pushManager.subscribe(event.oldSubscription.options);
 
     event.waitUntil(
-        fetch('/ordo/track/registerpushsubscription', {
-            method: 'POST',
-            body: new URLSearchParams({ endpoint: endpoint, p256dh: p256dh, auth: auth })
-        }).catch(function () {})
+        subscriptionPromise
+            .then(function (subscription) {
+                return fetch('/ordo/track/registerpushsubscription', {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        endpoint: subscription.endpoint,
+                        p256dh: arrayBufferToBase64Url(subscription.getKey('p256dh')),
+                        auth: arrayBufferToBase64Url(subscription.getKey('auth'))
+                    })
+                });
+            })
+            .catch(function () {})
     );
 });
 

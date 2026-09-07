@@ -38,13 +38,20 @@ class PushServiceWorker extends Action implements HttpGetActionInterface
         $fileName = 'push-sw.js';
 
         $directory = $this->filesystem->getDirectoryReadByPath($modulePath . '/frontend/web/js');
-        $contents = $directory->isExist($fileName) ? (string) $directory->readFile($fileName) : '';
 
         $result = $this->resultRawFactory->create();
+        if (!$directory->isExist($fileName)) {
+            // A missing file here means every visitor's serviceWorker.register() call quietly
+            // "succeeds" with an empty, no-op worker that never fires push/notificationclick -
+            // a real 404 at least surfaces the misconfiguration instead of an empty 200 body.
+            $result->setHttpResponseCode(404);
+            return $result;
+        }
+
         $result->setHeader('Content-Type', 'application/javascript; charset=UTF-8');
         $result->setHeader('Service-Worker-Allowed', '/');
         $result->setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        $result->setContents($contents);
+        $result->setContents((string) $directory->readFile($fileName));
 
         return $result;
     }

@@ -62,6 +62,10 @@ class SendOfferExpiryReminders
         }
 
         $customerMap = $this->customerMapBuilder->build($customerIds);
+        // One query for the whole batch instead of one hasConsent() call per offer inside the
+        // loop below - found via a performance audit, same reasoning as
+        // CreditLimitCalculator::getUsedCreditForCustomers().
+        $consentByCustomer = $this->consentManager->hasConsentForCustomers($customerIds, ConsentChannel::Email);
 
         $sent = 0;
         foreach ($offers as $offer) {
@@ -77,7 +81,7 @@ class SendOfferExpiryReminders
 
             // A customer who opted out of email must never receive this reminder, same consent
             // gate every other channel's send action applies before sending anything.
-            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+            if (!($consentByCustomer[$customerId] ?? true)) {
                 continue;
             }
 
@@ -121,7 +125,7 @@ class SendOfferExpiryReminders
             'offer_currency' => $offer->getCurrencyCode(),
             'offer_expires_at' => $offer->getExpiresAt(),
             'can_self_extend' => $offer->canSelfExtend($this->config->getOfferMaxSelfExtensions()),
-        ], $this->salesRepEmailContext->getForCustomer($offer->getCustomerId()));
+        ], $this->salesRepEmailContext->getForLoadedCustomer($customer));
     }
 
     private function reminderAlreadySent(int $offerId, string $type): bool

@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Model\AdAudience;
 
-use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Http\JsonApiClient;
 
 /**
  * Syncs a hashed-email list to Google Ads as a Customer Match user list via the REST-mapped
@@ -26,10 +26,9 @@ use Ordo\Automation\Helper\Config;
 class GoogleAdsSyncClient implements SyncClientInterface
 {
     private const string API_VERSION = 'v17';
-    private const int TIMEOUT_SECONDS = 30;
 
     public function __construct(
-        private readonly Curl $curl,
+        private readonly JsonApiClient $jsonApiClient,
         private readonly Config $config,
         private readonly GoogleOAuthTokenProvider $tokenProvider
     ) {
@@ -139,23 +138,9 @@ class GoogleAdsSyncClient implements SyncClientInterface
      */
     private function request(string $url, array $payload, string $accessToken): array
     {
-        $this->curl->setTimeout(self::TIMEOUT_SECONDS);
-        $this->curl->setOption(CURLOPT_FOLLOWLOCATION, false);
-        $this->curl->addHeader('Content-Type', 'application/json');
-        $this->curl->addHeader('Authorization', 'Bearer ' . $accessToken);
-        $this->curl->addHeader('developer-token', $this->config->getGoogleAdsDeveloperToken());
-        $this->curl->post($url, (string) json_encode($payload));
-
-        $status = $this->curl->getStatus();
-        $responseBody = (string) $this->curl->getBody();
-
-        if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException(
-                sprintf('Google Ads API request to %s failed (HTTP %d): %s', $url, $status, $responseBody)
-            );
-        }
-
-        $decoded = json_decode($responseBody, true);
-        return is_array($decoded) ? $decoded : [];
+        return $this->jsonApiClient->postJson($url, $payload, [
+            'Authorization' => 'Bearer ' . $accessToken,
+            'developer-token' => $this->config->getGoogleAdsDeveloperToken(),
+        ], 'Google Ads API');
     }
 }

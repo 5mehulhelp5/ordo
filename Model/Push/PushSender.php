@@ -18,12 +18,14 @@ class PushSender
 {
     private const int TIMEOUT_SECONDS = 30;
     private const int TTL_SECONDS = 4 * 3600;
+    private const int MAX_LOGGED_RESPONSE_LENGTH = 200;
 
     public function __construct(
         private readonly Curl $curl,
         private readonly Config $config,
         private readonly VapidTokenBuilder $vapidTokenBuilder,
-        private readonly WebPushCrypto $webPushCrypto
+        private readonly WebPushCrypto $webPushCrypto,
+        private readonly PushEndpointValidator $pushEndpointValidator
     ) {
     }
 
@@ -35,13 +37,25 @@ class PushSender
      */
     public function send(PushSubscription $subscription, string $payloadJson): void
     {
+        $endpoint = $subscription->getEndpoint();
+
+        // Re-validated here, not just at registration time (Controller\Track\
+        // RegisterPushSubscription) - a campaign can fire long after a subscription was stored,
+        // and DNS for an otherwise-legitimate-looking hostname could be repointed at an internal
+        // address in the meantime (DNS rebinding). This is the request that actually leaves the
+        // server, so it's the one that must never be skipped.
+        if (!$this->pushEndpointValidator->isAllowed($endpoint)) {
+            throw new RuntimeException(
+                sprintf('Push subscription #%d has an endpoint that failed validation.', (int) $subscription->getEntityId())
+            );
+        }
+
         $body = $this->webPushCrypto->encrypt(
             $payloadJson,
             $subscription->getP256dhKey(),
             $subscription->getAuthKey()
         );
 
-        $endpoint = $subscription->getEndpoint();
         $authorization = $this->vapidTokenBuilder->buildAuthorizationHeader(
             $endpoint,
             $this->config->getVapidPublicKey(),
@@ -64,9 +78,16 @@ class PushSender
             );
         }
         if ($status < 200 || $status >= 300) {
-            throw new RuntimeException(
-                sprintf('Push service request failed (HTTP %d): %s', $status, (string) $this->curl->getBody())
-            );
+            // Deliberately not including the response body verbatim - $endpoint is
+            // customer-controlled input (see PushEndpointValidator), so an arbitrary host's
+            // response text ending up in this module's own logs would be an information
+            // disclosure amplifier for whatever that host returns. A short, length-capped
+            // snippet is enough to diagnose real push-service errors without that risk.
+            throw new RuntimeException(sprintf(
+                'Push service request failed (HTTP %d): %s',
+                $status,
+                substr((string) $this->curl->getBody(), 0, self::MAX_LOGGED_RESPONSE_LENGTH)
+            ));
         }
     }
 }

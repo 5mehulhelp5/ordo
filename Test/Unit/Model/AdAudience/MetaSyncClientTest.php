@@ -6,6 +6,7 @@ namespace Ordo\Automation\Test\Unit\Model\AdAudience;
 use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\AdAudience\MetaSyncClient;
+use Ordo\Automation\Model\Http\JsonApiClient;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -25,7 +26,7 @@ class MetaSyncClientTest extends TestCase
         $this->config->method('getMetaAdAccountId')->willReturn('9999');
         $this->logger = $this->createMock(LoggerInterface::class);
 
-        $this->client = new MetaSyncClient($this->curl, $this->config, $this->logger);
+        $this->client = new MetaSyncClient(new JsonApiClient($this->curl), $this->config, $this->logger);
     }
 
     #[AllowMockObjectsWithoutExpectations]

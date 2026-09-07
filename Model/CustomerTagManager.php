@@ -83,6 +83,33 @@ class CustomerTagManager implements CustomerTagManagementInterface
     }
 
     /**
+     * Batch variant of hasTag() - one query for the whole set instead of one per customer, for
+     * crons (TagInactiveCustomers, SendWinBackEmails) that otherwise call hasTag() once per
+     * candidate inside a loop that can run to thousands of rows.
+     *
+     * @param int[] $customerIds
+     * @return int[] the subset of $customerIds that already carry $tag
+     */
+    public function getCustomerIdsWithTagFromSet(array $customerIds, string $tag): array
+    {
+        if ($customerIds === []) {
+            return [];
+        }
+
+        $connection = $this->resourceConnection->getConnection();
+        $table = $this->resourceConnection->getTableName('ordo_customer_tag');
+
+        $ids = $connection->fetchCol(
+            $connection->select()
+                ->from($table, 'customer_id')
+                ->where('customer_id IN (?)', $customerIds)
+                ->where('tag = ?', $tag)
+        );
+
+        return array_map('intval', $ids);
+    }
+
+    /**
      * All customers currently carrying a given tag — the basic building block for targeting
      * a campaign at a segment ("send this to everyone tagged 'vip'").
      *

@@ -106,6 +106,39 @@ class ConsentManagerTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testHasConsentForCustomersDefaultsToTrueForRowsWithNoExplicitOptOut(): void
+    {
+        $this->collectionFactory->method('create')->willReturn($this->makeCollection(null));
+
+        self::assertSame(
+            [1 => true, 2 => true],
+            $this->manager->hasConsentForCustomers([1, 2], ConsentChannel::Email)
+        );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testHasConsentForCustomersReflectsExplicitOptOutRow(): void
+    {
+        $row = $this->createStub(CustomerConsent::class);
+        $row->method('getCustomerId')->willReturn(2);
+        $row->method('isConsented')->willReturn(false);
+        $this->collectionFactory->method('create')->willReturn($this->makeCollection($row));
+
+        self::assertSame(
+            [1 => true, 2 => false],
+            $this->manager->hasConsentForCustomers([1, 2], ConsentChannel::Email)
+        );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testHasConsentForCustomersReturnsEmptyArrayForEmptyInputWithoutQuerying(): void
+    {
+        $this->collectionFactory->expects(self::never())->method('create');
+
+        self::assertSame([], $this->manager->hasConsentForCustomers([], ConsentChannel::Email));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testGetConsentStatesReturnsChannelMap(): void
     {
         $row = $this->createStub(CustomerConsent::class);

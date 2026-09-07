@@ -40,7 +40,9 @@ class SendAbandonedCartRemindersTest extends TestCase
     private function makeConsentManager(bool $hasConsent = true): ConsentManager
     {
         $consentManager = $this->createStub(ConsentManager::class);
-        $consentManager->method('hasConsent')->willReturn($hasConsent);
+        $consentManager->method('hasConsentForCustomers')->willReturnCallback(
+            fn (array $customerIds) => array_fill_keys($customerIds, $hasConsent)
+        );
 
         return $consentManager;
     }
@@ -129,7 +131,7 @@ class SendAbandonedCartRemindersTest extends TestCase
         $dispatcher->expects(self::never())->method('dispatch');
 
         $consentManager = $this->createMock(ConsentManager::class);
-        $consentManager->expects(self::once())->method('hasConsent')->with(5, ConsentChannel::Email)->willReturn(false);
+        $consentManager->expects(self::once())->method('hasConsentForCustomers')->with([5], ConsentChannel::Email)->willReturn([5 => false]);
 
         (new SendAbandonedCartReminders(
             $config,

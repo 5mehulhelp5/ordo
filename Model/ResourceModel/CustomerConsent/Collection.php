@@ -27,4 +27,14 @@ class Collection extends AbstractCollection
         $this->setPageSize(1);
         return $this;
     }
+
+    /**
+     * @param int[] $customerIds
+     */
+    public function addCustomerIdsAndChannelFilter(array $customerIds, string $channel): self
+    {
+        $this->addFieldToFilter('customer_id', ['in' => $customerIds]);
+        $this->addFieldToFilter('channel', ['eq' => $channel]);
+        return $this;
+    }
 }

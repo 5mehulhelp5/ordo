@@ -100,6 +100,40 @@ class SalesRepEmailContextTest extends TestCase
         self::assertFalse($result['has_assigned_rep']);
     }
 
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetForLoadedCustomerNeverCallsTheRepository(): void
+    {
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getCustomAttribute')->willReturnMap([
+            [AddSalesRepAttributes::ATTRIBUTE_REP_NAME, $this->attribute('Anna Kowalski')],
+            [AddSalesRepAttributes::ATTRIBUTE_REP_EMAIL, $this->attribute('anna@example.com')],
+            [AddSalesRepAttributes::ATTRIBUTE_REP_PHONE, $this->attribute('+1 555 0100')],
+        ]);
+        $this->customerRepository->expects(self::never())->method('getById');
+
+        $result = $this->context->getForLoadedCustomer($customer);
+
+        self::assertSame('Anna Kowalski', $result['sender_name']);
+        self::assertTrue($result['has_assigned_rep']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetForLoadedCustomerFallsBackWhenNoRepAssigned(): void
+    {
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getCustomAttribute')->willReturn(null);
+        $this->customerRepository->expects(self::never())->method('getById');
+
+        $store = $this->createStub(StoreInterface::class);
+        $store->method('getName')->willReturn('Acme Supplies');
+        $this->storeManager->method('getStore')->willReturn($store);
+
+        $result = $this->context->getForLoadedCustomer($customer);
+
+        self::assertSame('Acme Supplies Team', $result['sender_name']);
+        self::assertFalse($result['has_assigned_rep']);
+    }
+
     private function attribute(string $value): AttributeInterface
     {
         $attribute = $this->createStub(AttributeInterface::class);

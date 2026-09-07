@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Model;
 
 use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Setup\Patch\Data\AddSalesRepAttributes;
@@ -33,6 +34,19 @@ class SalesRepEmailContext
             return $this->getFallback();
         }
 
+        return $this->getForLoadedCustomer($customer);
+    }
+
+    /**
+     * Same as getForCustomer(), but for a caller that already has the customer loaded (every
+     * reminder cron in this module builds a CustomerMapBuilder map before its own loop) - avoids
+     * a second, redundant EAV round trip through customerRepository->getById() for every
+     * customer, the same fix CreditLimitCalculator::getCreditLimitFromCustomer() already applies.
+     *
+     * @return array{sender_name: string, sender_email: string, sender_phone: string, has_assigned_rep: bool}
+     */
+    public function getForLoadedCustomer(CustomerInterface $customer): array
+    {
         $name = $this->getAttributeValue($customer, AddSalesRepAttributes::ATTRIBUTE_REP_NAME);
         $email = $this->getAttributeValue($customer, AddSalesRepAttributes::ATTRIBUTE_REP_EMAIL);
         $phone = $this->getAttributeValue($customer, AddSalesRepAttributes::ATTRIBUTE_REP_PHONE);
@@ -49,7 +63,7 @@ class SalesRepEmailContext
         ];
     }
 
-    private function getAttributeValue($customer, string $code): string
+    private function getAttributeValue(CustomerInterface $customer, string $code): string
     {
         $attribute = $customer->getCustomAttribute($code);
         return $attribute ? (string) $attribute->getValue() : '';

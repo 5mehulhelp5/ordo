@@ -5,6 +5,59 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **SSRF via a customer-controlled Web Push `endpoint`** — `Controller\Track\RegisterPushSubscription`
+  persisted whatever URL a client supplied with zero validation, and `Model\Push\PushSender` later made a
+  real server-side HTTP request to it (carrying a VAPID `Authorization` header) on every subsequent
+  `send_push` campaign send — an attacker could register an internal-only host (e.g. a cloud metadata
+  endpoint) as their "push subscription" and have the server request it later. Fixed with
+  `Model\Push\PushEndpointValidator` (HTTPS-only, rejects private/loopback/link-local IP ranges after
+  resolving the hostname), enforced both at registration and again immediately before every send (defends
+  against DNS rebinding between the two).
+- **Push-subscription hijack via CSRF for logged-in customers** — `RegisterPushSubscription` disabled CSRF
+  entirely, matching `Controller\Track\Event`'s own anonymous-analytics trust model, but unlike `Event` it
+  binds an attacker-supplied endpoint/keys to a real, authenticated `customer_id` — a cross-site page could
+  register its own device against a logged-in victim's account, then receive every personalized `send_push`
+  campaign (cart reminders, discount codes) meant for that customer. Fixed by requiring the request's
+  Origin (falling back to Referer) to match this site's own host whenever a customer is logged in;
+  anonymous registrations are unaffected.
+- Response bodies from arbitrary (customer-controlled) push endpoints no longer land verbatim in this
+  module's own logs on a failed send — capped to 200 characters, reducing the information-disclosure
+  amplification the SSRF issue above would otherwise have had.
+- Unbounded Web Push subscription growth — `PushSubscriptionManager::register()` now caps each
+  customer/visitor at 20 registered devices, evicting the least-recently-active one on overflow.
+- A race between two concurrent `register()` calls for the same brand-new push endpoint (e.g. a service
+  worker's own `pushsubscriptionchange` firing at the same moment `tracker.js`'s `subscribeToPush()`
+  resolves) surfaced an unhandled unique-constraint error instead of the second call cleanly updating the
+  row the first one just inserted.
+- `push-sw.js`'s `pushsubscriptionchange` handler did nothing when the browser omitted
+  `event.newSubscription` (observed on both Chrome and Firefox even when a replacement genuinely is
+  needed) — it now re-subscribes itself using the old subscription's own options, per spec.
+- `Controller\Track\PushServiceWorker` returned an empty `200 application/javascript` body instead of a
+  `404` when the underlying file was missing, silently registering a no-op service worker.
+- **N+1 query patterns found via a performance audit**, each fixed with a batch method mirroring
+  `CreditLimitCalculator::getUsedCreditForCustomers()`'s existing shape:
+  - `ConsentManager::hasConsentForCustomers()` (new) — one query per cron run instead of one `hasConsent()`
+    call per candidate, used by `SendAbandonedCartReminders`, `SendCreditLimitAlerts`,
+    `SendOfferExpiryReminders`, `SendReorderReminders`, and `SendWinBackEmails`.
+  - `CustomerTagManager::getCustomerIdsWithTagFromSet()` (new) — same shape for tag-membership checks in
+    `TagInactiveCustomers` and `SendWinBackEmails`.
+  - `SalesRepEmailContext::getForLoadedCustomer()` (new) — skips a redundant second EAV load in
+    `SendCreditLimitAlerts`/`SendOfferExpiryReminders`/`SendReorderReminders`, which already have the
+    customer loaded by the time they build the email's sales-rep signature block.
+  - `EscalateStalePendingApprovals` now batch-loads every stale approval's order in one `IN (...)` query
+    instead of one query per approval.
+
+### Changed
+
+- Extracted `Model\Http\JsonApiClient` (POST JSON, check status, decode JSON response) out of
+  `GoogleAdsSyncClient`, `MetaSyncClient`, and `WhatsAppSender`, which each had an identical, independently
+  hand-rolled copy of that same HTTP-mechanics shape. Each class keeps its own request-building and
+  response-interpreting logic (that genuinely differs per API); only the duplicated boilerplate underneath
+  moved. `Model\Push\PushSender` was deliberately left as-is — its pre-encrypted binary payload doesn't fit
+  a "postJson" abstraction.
+
 ### Added
 
 - Web Push notifications — a full third messaging channel (`send_push` campaign action), closing the

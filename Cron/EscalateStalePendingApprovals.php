@@ -52,19 +52,33 @@ class EscalateStalePendingApprovals
         $collection = $this->orderApprovalCollectionFactory->create();
         $collection->addStalePendingFilter($cutoff);
 
-        $sent = 0;
+        $approvals = [];
         foreach ($collection as $approval) {
             /** @var OrderApproval $approval */
-            if ($approval->getRemindersSent() >= self::MAX_ESCALATIONS) {
-                continue;
+            if ($approval->getRemindersSent() < self::MAX_ESCALATIONS) {
+                $approvals[] = $approval;
             }
+        }
 
-            /** @var Order $order */
-            $order = $this->orderCollectionFactory->create()
-                ->addFieldToFilter('entity_id', $approval->getOrderId())
-                ->getFirstItem();
+        // One batched IN(...) load for every stale approval's order instead of one query per
+        // approval inside the loop below - found via a performance audit, same shape
+        // CustomerMapBuilder::build() already uses for its own batch customer load.
+        $orderIds = array_map(static fn ($approval): int => (int) $approval->getOrderId(), $approvals);
+        $orderMap = [];
+        if ($orderIds !== []) {
+            $orderCollection = $this->orderCollectionFactory->create();
+            $orderCollection->addFieldToFilter('entity_id', ['in' => $orderIds]);
+            foreach ($orderCollection as $order) {
+                /** @var Order $order */
+                $orderMap[(int) $order->getEntityId()] = $order;
+            }
+        }
 
-            if (!$order->getId()) {
+        $sent = 0;
+        foreach ($approvals as $approval) {
+            /** @var OrderApproval $approval */
+            $order = $orderMap[(int) $approval->getOrderId()] ?? null;
+            if ($order === null) {
                 continue;
             }
 

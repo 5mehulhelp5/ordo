@@ -61,7 +61,9 @@ class SendWinBackEmailsTest extends TestCase
     private function makeConsentManager(bool $hasConsent = true): ConsentManager
     {
         $consentManager = $this->createStub(ConsentManager::class);
-        $consentManager->method('hasConsent')->willReturn($hasConsent);
+        $consentManager->method('hasConsentForCustomers')->willReturnCallback(
+            fn (array $customerIds) => array_fill_keys($customerIds, $hasConsent)
+        );
 
         return $consentManager;
     }
@@ -121,7 +123,7 @@ class SendWinBackEmailsTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturnMap([[TagInactiveCustomers::TAG_INACTIVE, [5]]]);
-        $tagManager->method('hasTag')->willReturnMap([[5, SendWinBackEmails::TAG_WIN_BACK_SENT, true]]);
+        $tagManager->method('getCustomerIdsWithTagFromSet')->willReturn([5]);
         $tagManager->expects(self::never())->method('addTag');
 
         $this->makeCron($config, $tagManager)->execute();
@@ -134,7 +136,7 @@ class SendWinBackEmailsTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
-        $tagManager->method('hasTag')->willReturn(false);
+        $tagManager->method('getCustomerIdsWithTagFromSet')->willReturn([]);
         $tagManager->expects(self::once())->method('addTag')->with(5, SendWinBackEmails::TAG_WIN_BACK_SENT);
 
         $this->makeCron($config, $tagManager)->execute();
@@ -152,7 +154,7 @@ class SendWinBackEmailsTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
-        $tagManager->method('hasTag')->willReturn(false);
+        $tagManager->method('getCustomerIdsWithTagFromSet')->willReturn([]);
         $tagManager->expects(self::never())->method('addTag');
 
         $customer = $this->createStub(CustomerInterface::class);
@@ -160,8 +162,8 @@ class SendWinBackEmailsTest extends TestCase
         $customerMapBuilder = $this->makeCustomerMapBuilder([$customer]);
 
         $consentManager = $this->createMock(ConsentManager::class);
-        $consentManager->expects(self::once())->method('hasConsent')
-            ->with(5, ConsentChannel::Email)->willReturn(false);
+        $consentManager->expects(self::once())->method('hasConsentForCustomers')
+            ->with([5], ConsentChannel::Email)->willReturn([5 => false]);
 
         $transportBuilder = $this->createMock(TransportBuilder::class);
         $transportBuilder->expects(self::never())->method('setTemplateIdentifier');
@@ -185,7 +187,7 @@ class SendWinBackEmailsTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
-        $tagManager->method('hasTag')->willReturn(false);
+        $tagManager->method('getCustomerIdsWithTagFromSet')->willReturn([]);
         // Claimed (tagged) BEFORE the send attempt, then rolled back since the send fails - see
         // SendWinBackEmails' own "claim before sending" comment.
         $tagManager->expects(self::once())->method('addTag')->with(5, SendWinBackEmails::TAG_WIN_BACK_SENT);
@@ -220,7 +222,7 @@ class SendWinBackEmailsTest extends TestCase
 
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
-        $tagManager->method('hasTag')->willReturn(false);
+        $tagManager->method('getCustomerIdsWithTagFromSet')->willReturn([]);
         $tagManager->expects(self::never())->method('addTag');
 
         $customerMapBuilder = $this->makeCustomerMapBuilder([]);

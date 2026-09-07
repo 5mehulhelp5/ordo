@@ -41,10 +41,15 @@ class SendWinBackEmails
 
         $customerIds = $this->customerTagManager->getCustomerIdsWithTag(TagInactiveCustomers::TAG_INACTIVE);
         $customerMap = $this->customerMapBuilder->build($customerIds);
+        // One query each for the whole batch instead of one hasTag()/hasConsent() call per
+        // candidate below - found via a performance audit, same reasoning as
+        // ConsentManager::hasConsentForCustomers().
+        $alreadySent = array_flip($this->customerTagManager->getCustomerIdsWithTagFromSet($customerIds, self::TAG_WIN_BACK_SENT));
+        $consentByCustomer = $this->consentManager->hasConsentForCustomers($customerIds, ConsentChannel::Email);
 
         $sent = 0;
         foreach ($customerIds as $customerId) {
-            if ($this->customerTagManager->hasTag($customerId, self::TAG_WIN_BACK_SENT)) {
+            if (isset($alreadySent[$customerId])) {
                 continue;
             }
 
@@ -54,7 +59,7 @@ class SendWinBackEmails
 
             // A customer who opted out of email must never receive this marketing email, same
             // consent gate every other channel's send action applies before sending anything.
-            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+            if (!($consentByCustomer[$customerId] ?? true)) {
                 continue;
             }
 

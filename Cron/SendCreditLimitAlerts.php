@@ -55,6 +55,9 @@ class SendCreditLimitAlerts
         // the loop below (Model\CreditLimitCalculator::getUsedCredit() would do that) - found via
         // a performance audit, real impact at a few thousand credit-limit customers.
         $usedCreditByCustomer = $this->creditLimitCalculator->getUsedCreditForCustomers($customerIds);
+        // One query for the whole batch instead of one hasConsent() call per customer inside the
+        // loop below - found via a performance audit, same reasoning as getUsedCreditForCustomers().
+        $consentByCustomer = $this->consentManager->hasConsentForCustomers($customerIds, ConsentChannel::Email);
 
         foreach ($customerIds as $customerId) {
             if (!isset($customerMap[$customerId])) {
@@ -80,7 +83,7 @@ class SendCreditLimitAlerts
 
             // A customer who opted out of email must never receive this alert, same consent gate
             // every other channel's send action applies before sending anything.
-            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+            if (!($consentByCustomer[$customerId] ?? true)) {
                 continue;
             }
 
@@ -92,7 +95,7 @@ class SendCreditLimitAlerts
             $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, $alertLogRow);
 
             try {
-                $this->sendAlert($customer, $customerId, $utilization, $limit, $used, $band);
+                $this->sendAlert($customer, $utilization, $limit, $used, $band);
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_CREDIT_LIMIT_ALERT, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
@@ -134,7 +137,6 @@ class SendCreditLimitAlerts
 
     private function sendAlert(
         CustomerInterface $customer,
-        int $customerId,
         float $utilization,
         float $limit,
         float $used,
@@ -149,7 +151,7 @@ class SendCreditLimitAlerts
                 'used_credit' => $used,
                 'is_over_limit' => $band >= self::OVER_LIMIT_BAND,
                 'is_within_limit' => $band < self::OVER_LIMIT_BAND,
-            ], $this->salesRepEmailContext->getForCustomer($customerId)),
+            ], $this->salesRepEmailContext->getForLoadedCustomer($customer)),
             $customer->getEmail(),
             $customer->getFirstname()
         );

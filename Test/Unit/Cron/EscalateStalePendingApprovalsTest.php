@@ -118,7 +118,7 @@ class EscalateStalePendingApprovalsTest extends TestCase
 
         $orderCollection = $this->createStub(OrderCollection::class);
         $orderCollection->method('addFieldToFilter')->willReturnSelf();
-        $orderCollection->method('getFirstItem')->willReturn($order);
+        $orderCollection->method('getIterator')->willReturn(new \ArrayIterator([$order]));
         $this->orderCollectionFactory->method('create')->willReturn($orderCollection);
 
         $store = $this->createStub(Store::class);
@@ -159,12 +159,9 @@ class EscalateStalePendingApprovalsTest extends TestCase
         $collection->method('getIterator')->willReturn(new \ArrayIterator([$approval]));
         $this->approvalCollectionFactory->method('create')->willReturn($collection);
 
-        $order = $this->createStub(Order::class);
-        $order->method('getId')->willReturn(null);
-
         $orderCollection = $this->createStub(OrderCollection::class);
         $orderCollection->method('addFieldToFilter')->willReturnSelf();
-        $orderCollection->method('getFirstItem')->willReturn($order);
+        $orderCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
         $this->orderCollectionFactory->method('create')->willReturn($orderCollection);
 
         $this->orderApprovalResource->expects(self::never())->method('save');
@@ -201,7 +198,7 @@ class EscalateStalePendingApprovalsTest extends TestCase
 
         $orderCollection = $this->createStub(OrderCollection::class);
         $orderCollection->method('addFieldToFilter')->willReturnSelf();
-        $orderCollection->method('getFirstItem')->willReturn($order);
+        $orderCollection->method('getIterator')->willReturn(new \ArrayIterator([$order]));
         $this->orderCollectionFactory->method('create')->willReturn($orderCollection);
 
         $this->storeManager->method('getStore')->willThrowException(new \RuntimeException('no store'));

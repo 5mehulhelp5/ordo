@@ -8,6 +8,7 @@ use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\Push\Base64Url;
 use Ordo\Automation\Model\Push\Exception\SubscriptionGoneException;
 use Ordo\Automation\Model\Push\Der;
+use Ordo\Automation\Model\Push\PushEndpointValidator;
 use Ordo\Automation\Model\Push\PushSender;
 use Ordo\Automation\Model\Push\VapidTokenBuilder;
 use Ordo\Automation\Model\Push\WebPushCrypto;
@@ -20,6 +21,7 @@ class PushSenderTest extends TestCase
     private Curl&\PHPUnit\Framework\MockObject\MockObject $curl;
     private Config $config;
     private VapidTokenBuilder&\PHPUnit\Framework\MockObject\MockObject $vapidTokenBuilder;
+    private PushEndpointValidator $pushEndpointValidator;
     private PushSender $sender;
     private PushSubscription $subscription;
 
@@ -32,9 +34,17 @@ class PushSenderTest extends TestCase
         $this->config->method('getVapidSubject')->willReturn('mailto:ops@example.com');
         $this->vapidTokenBuilder = $this->createMock(VapidTokenBuilder::class);
         $this->vapidTokenBuilder->method('buildAuthorizationHeader')->willReturn('vapid t=jwt, k=public-key');
+        $this->pushEndpointValidator = $this->createStub(PushEndpointValidator::class);
+        $this->pushEndpointValidator->method('isAllowed')->willReturn(true);
 
         $base64Url = new Base64Url();
-        $this->sender = new PushSender($this->curl, $this->config, $this->vapidTokenBuilder, new WebPushCrypto(new Der(), $base64Url));
+        $this->sender = new PushSender(
+            $this->curl,
+            $this->config,
+            $this->vapidTokenBuilder,
+            new WebPushCrypto(new Der(), $base64Url),
+            $this->pushEndpointValidator
+        );
 
         $key = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
         $details = openssl_pkey_get_details($key);
@@ -101,5 +111,37 @@ class PushSenderTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->sender->send($this->subscription, '{"title":"Hi"}');
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSendRejectsAnEndpointThatFailsRevalidation(): void
+    {
+        $this->pushEndpointValidator = $this->createStub(PushEndpointValidator::class);
+        $this->pushEndpointValidator->method('isAllowed')->willReturn(false);
+        $this->sender = new PushSender(
+            $this->curl,
+            $this->config,
+            $this->vapidTokenBuilder,
+            new WebPushCrypto(new Der(), new Base64Url()),
+            $this->pushEndpointValidator
+        );
+
+        $this->curl->expects(self::never())->method('post');
+        $this->expectException(\RuntimeException::class);
+        $this->sender->send($this->subscription, '{"title":"Hi"}');
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testSendTruncatesResponseBodyInFailureMessage(): void
+    {
+        $this->curl->method('getStatus')->willReturn(500);
+        $this->curl->method('getBody')->willReturn(str_repeat('x', 1000));
+
+        try {
+            $this->sender->send($this->subscription, '{"title":"Hi"}');
+            self::fail('Expected a RuntimeException.');
+        } catch (\RuntimeException $e) {
+            self::assertLessThan(300, strlen($e->getMessage()));
+        }
     }
 }

@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Model\AdAudience;
 
-use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Http\JsonApiClient;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -24,11 +24,10 @@ use Psr\Log\LoggerInterface;
 class MetaSyncClient implements SyncClientInterface
 {
     private const string API_VERSION = 'v19.0';
-    private const int TIMEOUT_SECONDS = 30;
     private const string SCHEMA = 'EMAIL_SHA256';
 
     public function __construct(
-        private readonly Curl $curl,
+        private readonly JsonApiClient $jsonApiClient,
         private readonly Config $config,
         private readonly LoggerInterface $logger
     ) {
@@ -110,21 +109,6 @@ class MetaSyncClient implements SyncClientInterface
      */
     private function request(string $url, array $payload): array
     {
-        $this->curl->setTimeout(self::TIMEOUT_SECONDS);
-        $this->curl->setOption(CURLOPT_FOLLOWLOCATION, false);
-        $this->curl->addHeader('Content-Type', 'application/json');
-        $this->curl->post($url, (string) json_encode($payload));
-
-        $status = $this->curl->getStatus();
-        $responseBody = (string) $this->curl->getBody();
-
-        if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException(
-                sprintf('Meta Marketing API request to %s failed (HTTP %d): %s', $url, $status, $responseBody)
-            );
-        }
-
-        $decoded = json_decode($responseBody, true);
-        return is_array($decoded) ? $decoded : [];
+        return $this->jsonApiClient->postJson($url, $payload, [], 'Meta Marketing API');
     }
 }

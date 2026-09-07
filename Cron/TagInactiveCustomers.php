@@ -57,9 +57,13 @@ class TagInactiveCustomers
 
         $stillInactiveIds = array_map(static fn (int|string $id): int => (int) $id, $customerIds);
 
+        // One query for the whole batch instead of one hasTag() call per candidate below - found
+        // via a performance audit, same reasoning as ConsentManager::hasConsentForCustomers().
+        $alreadyTagged = array_flip($this->customerTagManager->getCustomerIdsWithTagFromSet($stillInactiveIds, self::TAG_INACTIVE));
+
         $tagged = 0;
         foreach ($stillInactiveIds as $customerId) {
-            if (!$this->customerTagManager->hasTag($customerId, self::TAG_INACTIVE)) {
+            if (!isset($alreadyTagged[$customerId])) {
                 $this->customerTagManager->addTag($customerId, self::TAG_INACTIVE);
                 $tagged++;
             }

@@ -89,14 +89,20 @@ class SendAbandonedCartReminders
         /** @var array<int, AbandonedCartRow> $rows */
         $rows = $connection->fetchAll($select);
 
+        // One query for the whole batch instead of one hasConsent() call per row below - found
+        // via a performance audit, same reasoning as ConsentManager::hasConsentForCustomers().
+        $customerIds = array_values(array_unique(array_map(
+            static fn (array $row): int => (int) $row['customer_id'],
+            array_filter($rows, static fn (array $row): bool => !empty($row['customer_id']))
+        )));
+        $consentByCustomer = $this->consentManager->hasConsentForCustomers($customerIds, ConsentChannel::Email);
+
         $sent = 0;
         foreach ($rows as $row) {
             // A registered customer (guest quotes have no customer_id and aren't covered by the
             // consent register at all) who opted out of email must never receive this reminder,
             // same consent gate every other channel's send action applies before sending.
-            if (!empty($row['customer_id'])
-                && !$this->consentManager->hasConsent((int) $row['customer_id'], ConsentChannel::Email)
-            ) {
+            if (!empty($row['customer_id']) && !($consentByCustomer[(int) $row['customer_id']] ?? true)) {
                 continue;
             }
 

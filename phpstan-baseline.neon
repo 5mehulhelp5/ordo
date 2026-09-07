@@ -657,13 +657,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
-			count: 1
-			path: Cron/EscalateStalePendingApprovals.php
-
-		-
-			message: '#^Parameter \#2 \$condition of method Magento\\Framework\\Data\\Collection\\AbstractDb\:\:addFieldToFilter\(\) expects array\|string\|null, int given\.$#'
-			identifier: argument.type
-			count: 1
+			count: 2
 			path: Cron/EscalateStalePendingApprovals.php
 
 		-
@@ -796,19 +790,13 @@ parameters:
 			message: '#^Parameter \#1 \$name of method Magento\\Framework\\HTTP\\Client\\Curl\:\:setOption\(\) expects string, int given\.$#'
 			identifier: argument.type
 			count: 1
-			path: Model/AdAudience/GoogleAdsSyncClient.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Magento\\Framework\\HTTP\\Client\\Curl\:\:setOption\(\) expects string, int given\.$#'
-			identifier: argument.type
-			count: 1
 			path: Model/AdAudience/GoogleOAuthTokenProvider.php
 
 		-
 			message: '#^Parameter \#1 \$name of method Magento\\Framework\\HTTP\\Client\\Curl\:\:setOption\(\) expects string, int given\.$#'
 			identifier: argument.type
 			count: 1
-			path: Model/AdAudience/MetaSyncClient.php
+			path: Model/Http/JsonApiClient.php
 
 		-
 			message: '#^Cannot cast mixed to int\.$#'
@@ -1491,7 +1479,7 @@ parameters:
 		-
 			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, ''intval'' given\.$#'
 			identifier: argument.type
-			count: 1
+			count: 2
 			path: Model/CustomerTagManager.php
 
 		-
@@ -2173,26 +2161,8 @@ parameters:
 			path: Model/Rule/Action/Discount/QualifyingSetTracker.php
 
 		-
-			message: '#^Cannot call method getCustomAttribute\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: Model/SalesRepEmailContext.php
-
-		-
-			message: '#^Cannot call method getValue\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: Model/SalesRepEmailContext.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 1
-			path: Model/SalesRepEmailContext.php
-
-		-
-			message: '#^Method Ordo\\Automation\\Model\\SalesRepEmailContext\:\:getAttributeValue\(\) has parameter \$customer with no type specified\.$#'
-			identifier: missingType.parameter
 			count: 1
 			path: Model/SalesRepEmailContext.php
 
@@ -2733,12 +2703,6 @@ parameters:
 			message: '#^Parameter \#1 \$name of method Magento\\Framework\\HTTP\\Client\\Curl\:\:setOption\(\) expects string, int given\.$#'
 			identifier: argument.type
 			count: 1
-			path: Model/WhatsApp/WhatsAppSender.php
-
-		-
-			message: '#^Parameter \#1 \$name of method Magento\\Framework\\HTTP\\Client\\Curl\:\:setOption\(\) expects string, int given\.$#'
-			identifier: argument.type
-			count: 1
 			path: Model/WhatsApp/WhatsAppTemplateClient.php
 
 		-
@@ -2839,7 +2803,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
-			count: 1
+			count: 2
 			path: Model/Push/PushSender.php
 
 		-
@@ -2865,6 +2829,24 @@ parameters:
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: Model/Push/WebPushCrypto.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getHeader\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Controller/Track/RegisterPushSubscription.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getHttpHost\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Controller/Track/RegisterPushSubscription.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: Model/Push/PushSubscriptionManager.php
 
 		-
 			message: '#^Cannot cast mixed to int\.$#'

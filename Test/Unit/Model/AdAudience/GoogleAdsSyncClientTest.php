@@ -6,6 +6,7 @@ namespace Ordo\Automation\Test\Unit\Model\AdAudience;
 use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\AdAudience\GoogleAdsSyncClient;
+use Ordo\Automation\Model\Http\JsonApiClient;
 use Ordo\Automation\Model\AdAudience\GoogleOAuthTokenProvider;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
@@ -26,7 +27,7 @@ class GoogleAdsSyncClientTest extends TestCase
         $this->tokenProvider = $this->createMock(GoogleOAuthTokenProvider::class);
         $this->tokenProvider->method('getAccessToken')->willReturn('access-123');
 
-        $this->client = new GoogleAdsSyncClient($this->curl, $this->config, $this->tokenProvider);
+        $this->client = new GoogleAdsSyncClient(new JsonApiClient($this->curl), $this->config, $this->tokenProvider);
     }
 
     #[AllowMockObjectsWithoutExpectations]

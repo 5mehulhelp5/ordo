@@ -63,11 +63,12 @@ class PushServiceWorkerTest extends AbstractFrontendActionTestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
-    public function testExecuteServesEmptyContentsWhenFileMissing(): void
+    public function testExecuteReturns404WhenFileMissing(): void
     {
         $this->directory->method('isExist')->willReturn(false);
 
-        $this->rawResult->expects(self::once())->method('setContents')->with('');
+        $this->rawResult->expects(self::once())->method('setHttpResponseCode')->with(404);
+        $this->rawResult->expects(self::never())->method('setContents');
 
         $this->makeController()->execute();
     }

@@ -5,6 +5,7 @@ namespace Ordo\Automation\Test\Unit\Model\WhatsApp;
 
 use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Http\JsonApiClient;
 use Ordo\Automation\Model\WhatsApp\WhatsAppSender;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +23,7 @@ class WhatsAppSenderTest extends TestCase
         $this->config->method('getWhatsAppAccessToken')->willReturn('access-token');
         $this->config->method('getWhatsAppPhoneNumberId')->willReturn('1234567890');
 
-        $this->sender = new WhatsAppSender($this->curl, $this->config);
+        $this->sender = new WhatsAppSender(new JsonApiClient($this->curl), $this->config);
     }
 
     #[AllowMockObjectsWithoutExpectations]

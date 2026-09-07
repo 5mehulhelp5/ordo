@@ -120,4 +120,31 @@ class CustomerTagManagerTest extends TestCase
         $manager = new CustomerTagManager($resourceConnection, $this->createStub(EventManagerInterface::class));
         self::assertSame([1, 2], $manager->getCustomerIdsWithTag('vip'));
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCustomerIdsWithTagFromSetReturnsOnlyTaggedSubset(): void
+    {
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchCol')->willReturn(['2']);
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $manager = new CustomerTagManager($resourceConnection, $this->createStub(EventManagerInterface::class));
+        self::assertSame([2], $manager->getCustomerIdsWithTagFromSet([1, 2, 3], 'inactive'));
+    }
+
+    public function testGetCustomerIdsWithTagFromSetReturnsEmptyArrayForEmptyInputWithoutQuerying(): void
+    {
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->expects(self::never())->method('select');
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+
+        $manager = new CustomerTagManager($resourceConnection, $this->createStub(EventManagerInterface::class));
+        self::assertSame([], $manager->getCustomerIdsWithTagFromSet([], 'inactive'));
+    }
 }

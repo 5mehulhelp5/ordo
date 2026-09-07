@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Model\WhatsApp;
 
-use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Http\JsonApiClient;
 
 /**
  * Sends a single WhatsApp template message via the real Meta Graph API - real HTTP, no SDK, same
@@ -18,10 +18,9 @@ use Ordo\Automation\Helper\Config;
 class WhatsAppSender
 {
     private const string API_VERSION = 'v20.0';
-    private const int TIMEOUT_SECONDS = 30;
 
     public function __construct(
-        private readonly Curl $curl,
+        private readonly JsonApiClient $jsonApiClient,
         private readonly Config $config
     ) {
     }
@@ -77,22 +76,8 @@ class WhatsAppSender
      */
     private function request(string $url, array $payload): array
     {
-        $this->curl->setTimeout(self::TIMEOUT_SECONDS);
-        $this->curl->setOption(CURLOPT_FOLLOWLOCATION, false);
-        $this->curl->addHeader('Content-Type', 'application/json');
-        $this->curl->addHeader('Authorization', 'Bearer ' . $this->config->getWhatsAppAccessToken());
-        $this->curl->post($url, (string) json_encode($payload));
-
-        $status = $this->curl->getStatus();
-        $responseBody = (string) $this->curl->getBody();
-
-        if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException(
-                sprintf('Meta Graph API request to %s failed (HTTP %d): %s', $url, $status, $responseBody)
-            );
-        }
-
-        $decoded = json_decode($responseBody, true);
-        return is_array($decoded) ? $decoded : [];
+        return $this->jsonApiClient->postJson($url, $payload, [
+            'Authorization' => 'Bearer ' . $this->config->getWhatsAppAccessToken(),
+        ], 'Meta Graph API');
     }
 }
