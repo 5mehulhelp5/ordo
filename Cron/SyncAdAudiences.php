@@ -71,7 +71,9 @@ class SyncAdAudiences
     {
         $client = $this->syncClientPool->get($adAudience->getPlatform());
         if (!$client instanceof SyncClientInterface) {
-            throw new \RuntimeException(sprintf('No sync client registered for platform "%s".', $adAudience->getPlatform()));
+            throw new \RuntimeException(
+                sprintf('No sync client registered for platform "%s".', $adAudience->getPlatform())
+            );
         }
 
         $customerIds = $this->segmentMemberResolver->getMatchingCustomerIds($adAudience->getSegmentId());

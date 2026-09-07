@@ -33,6 +33,8 @@ class PruneVisitorEvents
 
         $deleted = $connection->delete($table, ['created_at < ?' => $cutoff]);
 
-        $this->cronRunLogger->logSummary(sprintf('pruned %d visitor events older than %d days', $deleted, $retentionDays));
+        $this->cronRunLogger->logSummary(
+            sprintf('pruned %d visitor events older than %d days', $deleted, $retentionDays)
+        );
     }
 }

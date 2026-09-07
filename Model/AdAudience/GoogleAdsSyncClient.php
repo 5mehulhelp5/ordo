@@ -54,8 +54,11 @@ class GoogleAdsSyncClient implements SyncClientInterface
         return null;
     }
 
-    private function createOfflineUserDataJob(string $customerId, string $userListResourceName, string $accessToken): string
-    {
+    private function createOfflineUserDataJob(
+        string $customerId,
+        string $userListResourceName,
+        string $accessToken
+    ): string {
         $body = $this->request(
             sprintf(
                 'https://googleads.googleapis.com/%s/customers/%s/offlineUserDataJobs:create',
@@ -134,7 +137,9 @@ class GoogleAdsSyncClient implements SyncClientInterface
         $responseBody = (string) $this->curl->getBody();
 
         if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException(sprintf('Google Ads API request to %s failed (HTTP %d): %s', $url, $status, $responseBody));
+            throw new \RuntimeException(
+                sprintf('Google Ads API request to %s failed (HTTP %d): %s', $url, $status, $responseBody)
+            );
         }
 
         $decoded = json_decode($responseBody, true);

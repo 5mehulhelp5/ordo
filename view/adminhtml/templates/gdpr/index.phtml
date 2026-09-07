@@ -27,10 +27,13 @@
 </div>
 
 <?php if ($block->isCustomerResolved()): ?>
-    <?php $consent = $block->getConsentStates(); ?>
+    <?php
+    $consent = $block->getConsentStates();
+    $consentTitle = __('Consent - customer #%1 (%2)', $block->getCustomerId(), $block->getCustomerEmail());
+    ?>
 <div class="admin__fieldset-wrapper" style="margin-top: 20px;">
     <div class="admin__fieldset-wrapper-title">
-        <strong><?= $escaper->escapeHtml(__('Consent - customer #%1 (%2)', $block->getCustomerId(), $block->getCustomerEmail())) ?></strong>
+        <strong><?= $escaper->escapeHtml($consentTitle) ?></strong>
     </div>
     <div class="admin__fieldset-wrapper-content">
         <form action="<?= $escaper->escapeUrl($block->getSetConsentFormAction()) ?>" method="post">
@@ -39,9 +42,9 @@
             <input type="hidden" name="email" value="<?= $escaper->escapeHtmlAttr($block->getCustomerEmail()) ?>"/>
             <?php foreach ($consent as $channel => $consented): ?>
                 <div class="admin__field">
-                    <label class="admin__field-label">
+                    <span class="admin__field-label">
                         <span><?= $escaper->escapeHtml(ucfirst($channel)) ?></span>
-                    </label>
+                    </span>
                     <div class="admin__field-control">
                         <?= $escaper->escapeHtml($consented ? __('Opted in') : __('Opted out')) ?>
                         <button type="submit" name="channel" value="<?= $escaper->escapeHtmlAttr($channel) ?>"
@@ -65,8 +68,11 @@
         <a class="action-secondary" href="<?= $escaper->escapeUrl($block->getExportUrl()) ?>">
             <span><?= $escaper->escapeHtml(__('Export all data (JSON)')) ?></span>
         </a>
+        <?php $eraseConfirm = __(
+            'Permanently erase all Ordo Automation data for this customer? This cannot be undone.'
+        ); ?>
         <form action="<?= $escaper->escapeUrl($block->getEraseFormAction()) ?>" method="post"
-              onsubmit="return confirm('<?= $escaper->escapeJs(__('Permanently erase all Ordo Automation data for this customer? This cannot be undone.')) ?>');"
+              onsubmit="return confirm('<?= $escaper->escapeJs($eraseConfirm) ?>');"
               style="display:inline-block; margin-left: 10px;">
             <?= $block->getBlockHtml('formkey') ?>
             <input type="hidden" name="customer_id" value="<?= (int) $block->getCustomerId() ?>"/>

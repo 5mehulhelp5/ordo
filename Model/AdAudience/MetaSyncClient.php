@@ -102,7 +102,9 @@ class MetaSyncClient implements SyncClientInterface
         $responseBody = (string) $this->curl->getBody();
 
         if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException(sprintf('Meta Marketing API request to %s failed (HTTP %d): %s', $url, $status, $responseBody));
+            throw new \RuntimeException(
+                sprintf('Meta Marketing API request to %s failed (HTTP %d): %s', $url, $status, $responseBody)
+            );
         }
 
         $decoded = json_decode($responseBody, true);
