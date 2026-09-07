@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\CustomerMapBuilder;
@@ -25,6 +27,7 @@ class SendWinBackEmails
         private readonly CustomerTagManager $customerTagManager,
         private readonly CustomerMapBuilder $customerMapBuilder,
         private readonly ReminderEmailSender $emailSender,
+        private readonly ConsentManager $consentManager,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
         private readonly CronRunLogger $cronRunLogger
     ) {
@@ -49,6 +52,17 @@ class SendWinBackEmails
                 continue;
             }
 
+            // A customer who opted out of email must never receive this marketing email, same
+            // consent gate every other channel's send action applies before sending anything.
+            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+                continue;
+            }
+
+            // Claim (tag) BEFORE sending, not after - a crash between a successful send and the
+            // tag write must never cause a resend on the next tick. If the send itself then
+            // fails, the tag is removed so this customer is retried next run.
+            $this->customerTagManager->addTag($customerId, self::TAG_WIN_BACK_SENT);
+
             try {
                 $customer = $customerMap[$customerId];
                 $this->emailSender->send(
@@ -57,10 +71,10 @@ class SendWinBackEmails
                     $customer->getEmail(),
                     $customer->getFirstname()
                 );
-                $this->customerTagManager->addTag($customerId, self::TAG_WIN_BACK_SENT);
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_WIN_BACK, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
+                $this->customerTagManager->removeTag($customerId, self::TAG_WIN_BACK_SENT);
                 $this->cronRunLogger->logFailure(
                     sprintf('send win-back email to customer #%d', $customerId),
                     $e

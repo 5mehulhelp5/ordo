@@ -16,6 +16,8 @@ use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\SendAbandonedCartReminders;
 use Ordo\Automation\Helper\Config;
 use Ordo\Automation\Model\CampaignDispatcher;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
@@ -33,6 +35,14 @@ class SendAbandonedCartRemindersTest extends TestCase
         $select->method('having')->willReturnSelf();
 
         return $select;
+    }
+
+    private function makeConsentManager(bool $hasConsent = true): ConsentManager
+    {
+        $consentManager = $this->createStub(ConsentManager::class);
+        $consentManager->method('hasConsent')->willReturn($hasConsent);
+
+        return $consentManager;
     }
 
     public function testExecuteSkipsWhenDisabled(): void
@@ -82,6 +92,56 @@ class SendAbandonedCartRemindersTest extends TestCase
         $logger->expects(self::once())->method('info')->with(self::stringContains('1 abandoned cart reminders'));
 
         $this->makeCron($config, $resourceConnection, $dispatcher, $logger)->execute();
+    }
+
+    /**
+     * Regression test for a real consent-bypass bug a code audit found: this cron used to have no
+     * ConsentManager check at all for registered customers (guest quotes have no customer_id and
+     * aren't covered by the consent register at all, so they're unaffected).
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsReminderWhenRegisteredCustomerWithdrewEmailConsent(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isAbandonedCartEnabled')->willReturn(true);
+        $config->method('getAbandonedCartDelayMinutes')->willReturn(120);
+        $config->method('getAbandonedCartMinSubtotal')->willReturn(0.0);
+        $config->method('getAbandonedCartMaxReminders')->willReturn(1);
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([
+            [
+                'entity_id' => 10,
+                'customer_id' => 5,
+                'customer_email' => 'jan@example.com',
+                'customer_firstname' => 'Jan',
+                'subtotal' => 150.0,
+            ],
+        ]);
+        $connection->expects(self::never())->method('insert');
+
+        $resourceConnection = $this->createMock(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $dispatcher = $this->createMock(CampaignDispatcher::class);
+        $dispatcher->expects(self::never())->method('dispatch');
+
+        $consentManager = $this->createMock(ConsentManager::class);
+        $consentManager->expects(self::once())->method('hasConsent')->with(5, ConsentChannel::Email)->willReturn(false);
+
+        (new SendAbandonedCartReminders(
+            $config,
+            $resourceConnection,
+            $this->createStub(QuoteFactory::class),
+            $this->createStub(TransportBuilder::class),
+            $this->createStub(StoreManagerInterface::class),
+            $this->createStub(StateInterface::class),
+            $dispatcher,
+            $consentManager,
+            new CronRunLogger($this->createStub(LoggerInterface::class))
+        ))->execute();
     }
 
     #[AllowMockObjectsWithoutExpectations]
@@ -157,6 +217,7 @@ class SendAbandonedCartRemindersTest extends TestCase
             $this->createStub(StoreManagerInterface::class),
             $this->createStub(StateInterface::class),
             $dispatcher,
+            $this->makeConsentManager(),
             new CronRunLogger($logger)
         ))->execute();
     }
@@ -199,6 +260,7 @@ class SendAbandonedCartRemindersTest extends TestCase
             $storeManager,
             $this->createStub(StateInterface::class),
             $dispatcher ?? $this->createStub(CampaignDispatcher::class),
+            $this->makeConsentManager(),
             new CronRunLogger($logger ?? $this->createStub(LoggerInterface::class))
         );
     }

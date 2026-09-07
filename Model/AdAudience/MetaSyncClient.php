@@ -6,6 +6,7 @@ namespace Ordo\Automation\Model\AdAudience;
 use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Helper\Config;
+use Psr\Log\LoggerInterface;
 
 /**
  * Syncs a hashed-email list to Meta as a Custom Audience: creates the audience the first time
@@ -28,7 +29,8 @@ class MetaSyncClient implements SyncClientInterface
 
     public function __construct(
         private readonly Curl $curl,
-        private readonly Config $config
+        private readonly Config $config,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -75,7 +77,7 @@ class MetaSyncClient implements SyncClientInterface
      */
     private function replaceUsers(string $audienceId, array $hashedEmails, string $accessToken): void
     {
-        $this->request(
+        $body = $this->request(
             sprintf('https://graph.facebook.com/%s/%s/usersreplace', self::API_VERSION, $audienceId),
             [
                 'payload' => [
@@ -85,6 +87,21 @@ class MetaSyncClient implements SyncClientInterface
                 'access_token' => $accessToken,
             ]
         );
+
+        // Meta returns HTTP 200 here even when it silently rejected some of the batch (malformed
+        // hashes, mostly) - num_invalid_entries is the only place that shows up. Without this,
+        // Cron\SyncAdAudiences records a full success (based on count($hashedEmails), the batch
+        // size sent, not the batch size accepted) even when Meta accepted none of it.
+        $rawNumInvalid = $body['num_invalid_entries'] ?? 0;
+        $numInvalid = is_numeric($rawNumInvalid) ? (int) $rawNumInvalid : 0;
+        if ($numInvalid > 0) {
+            $this->logger->warning(sprintf(
+                'Ordo_Automation: Meta rejected %d of %d entries as invalid for audience %s.',
+                $numInvalid,
+                count($hashedEmails),
+                $audienceId
+            ));
+        }
     }
 
     /**

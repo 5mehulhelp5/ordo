@@ -76,20 +76,17 @@ class EvaluateCustomerScoreRules implements ObserverInterface
     private function evaluate(int $customerId, CustomerInterface $customer): void
     {
         $newDemographicScore = $this->scoreRuleEvaluator->getMatchingRulePoints($customer);
-        $oldDemographicScore = $this->customerScoreManager->getDemographicScore($customerId);
 
-        $delta = $newDemographicScore - $oldDemographicScore;
-        if ($delta === 0) {
+        // Atomic read-modify-write (see CustomerScoreManager::applyDemographicScore()'s own
+        // docblock) - two overlapping customer_save_after events must never both read the same
+        // stale old value and each apply the same delta twice.
+        $result = $this->customerScoreManager->applyDemographicScore($customerId, $newDemographicScore);
+        if ($result['delta'] === 0) {
             return;
         }
 
-        $scoreBefore = $this->customerScoreManager->getScore($customerId);
-        $this->customerScoreManager->addPoints($customerId, $delta);
-        $this->customerScoreManager->setDemographicScore($customerId, $newDemographicScore);
-        $scoreAfter = $scoreBefore + $delta;
-
         $threshold = $this->config->getScoreThreshold();
-        if ($scoreBefore < $threshold && $scoreAfter >= $threshold) {
+        if ($result['scoreBefore'] < $threshold && $result['scoreAfter'] >= $threshold) {
             $this->eventManager->dispatch('ordo_customer_score_threshold_crossed', ['customer_id' => $customerId]);
         }
     }

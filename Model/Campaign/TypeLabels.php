@@ -41,6 +41,7 @@ class TypeLabels
         'send_sms' => 'Send SMS',
         'notify' => 'Persistent Notification',
         'nps_survey' => 'NPS Survey',
+        'send_whatsapp' => 'Send WhatsApp',
     ];
 
     public function conditionLabel(string $type): string

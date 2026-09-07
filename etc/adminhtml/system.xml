@@ -320,6 +320,40 @@
                     <comment>Base64-encoded ECDSA public key from the SendGrid account's Event Webhook settings page (Signed Event Webhook Requests). Register "/ordo/email/statuscallback" as that account's Event Webhook URL to receive delivered/bounce/dropped status updates for "send_email" campaign actions into the same message log "Send SMS" already writes to.</comment>
                 </field>
             </group>
+            <group id="whatsapp" translate="label" type="text" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>WhatsApp (Meta Cloud API)</label>
+                <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Master switch for the "Send WhatsApp" campaign action. Requires setting "SMS Phone" on customers you want to reach (the same attribute send_sms uses) and at least one APPROVED template under Ordo Automation &gt; WhatsApp Templates.</comment>
+                </field>
+                <field id="access_token" translate="label" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Access Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="phone_number_id" translate="label" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Phone Number ID</label>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="business_account_id" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>WhatsApp Business Account (WABA) ID</label>
+                    <comment>Where new templates are registered (Model\WhatsApp\WhatsAppTemplateClient::submitTemplate()).</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="app_secret" translate="label comment" type="obscure" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>App Secret</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>From the Meta App Dashboard - verifies the "X-Hub-Signature-256" header on every incoming webhook call.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="webhook_verify_token" translate="label comment" type="obscure" sortOrder="60" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Webhook Verify Token</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>An arbitrary string you choose here and enter again when registering "/ordo/whatsapp/webhook" as the Callback URL in the Meta App Dashboard's Webhooks settings - proves the one-time subscription handshake is really Meta.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+            </group>
         </section>
     </system>
 </config>

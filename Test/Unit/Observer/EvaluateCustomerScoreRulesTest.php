@@ -75,7 +75,7 @@ class EvaluateCustomerScoreRulesTest extends TestCase
     {
         $this->config->method('isLeadScoringEnabled')->willReturn(false);
 
-        $this->customerScoreManager->expects(self::never())->method('addPoints');
+        $this->customerScoreManager->expects(self::never())->method('applyDemographicScore');
         $this->eventManager->expects(self::never())->method('dispatch');
 
         $observer = $this->makeObserver($this->makeCustomer(42));
@@ -88,10 +88,9 @@ class EvaluateCustomerScoreRulesTest extends TestCase
         $this->config->method('isLeadScoringEnabled')->willReturn(true);
         $customer = $this->makeCustomer(42);
         $this->scoreRuleEvaluator->method('getMatchingRulePoints')->willReturn(10);
-        $this->customerScoreManager->method('getDemographicScore')->willReturnMap([[42, 10]]);
+        $this->customerScoreManager->expects(self::once())->method('applyDemographicScore')->with(42, 10)
+            ->willReturn(['delta' => 0, 'scoreBefore' => 50, 'scoreAfter' => 50]);
 
-        $this->customerScoreManager->expects(self::never())->method('addPoints');
-        $this->customerScoreManager->expects(self::never())->method('setDemographicScore');
         $this->eventManager->expects(self::never())->method('dispatch');
 
         $this->makeObserverInstance()->execute($this->makeObserver($customer));
@@ -103,11 +102,9 @@ class EvaluateCustomerScoreRulesTest extends TestCase
         $this->config->method('getScoreThreshold')->willReturn(100);
         $customer = $this->makeCustomer(42);
         $this->scoreRuleEvaluator->method('getMatchingRulePoints')->willReturn(5);
-        $this->customerScoreManager->method('getDemographicScore')->willReturnMap([[42, 15]]);
-        $this->customerScoreManager->method('getScore')->willReturnMap([[42, 50]]);
+        $this->customerScoreManager->expects(self::once())->method('applyDemographicScore')->with(42, 5)
+            ->willReturn(['delta' => -10, 'scoreBefore' => 50, 'scoreAfter' => 40]);
 
-        $this->customerScoreManager->expects(self::once())->method('addPoints')->with(42, -10);
-        $this->customerScoreManager->expects(self::once())->method('setDemographicScore')->with(42, 5);
         $this->eventManager->expects(self::never())->method('dispatch');
 
         $this->makeObserverInstance()->execute($this->makeObserver($customer));
@@ -119,10 +116,8 @@ class EvaluateCustomerScoreRulesTest extends TestCase
         $this->config->method('getScoreThreshold')->willReturn(100);
         $customer = $this->makeCustomer(42);
         $this->scoreRuleEvaluator->method('getMatchingRulePoints')->willReturn(30);
-        $this->customerScoreManager->method('getDemographicScore')->willReturnMap([[42, 0]]);
-        $this->customerScoreManager->method('getScore')->willReturnMap([[42, 90]]);
-
-        $this->customerScoreManager->expects(self::once())->method('addPoints')->with(42, 30);
+        $this->customerScoreManager->expects(self::once())->method('applyDemographicScore')->with(42, 30)
+            ->willReturn(['delta' => 30, 'scoreBefore' => 90, 'scoreAfter' => 120]);
 
         $this->eventManager->expects(self::once())->method('dispatch')->with(
             'ordo_customer_score_threshold_crossed',
@@ -139,8 +134,8 @@ class EvaluateCustomerScoreRulesTest extends TestCase
         $this->config->method('getScoreThreshold')->willReturn(100);
         $customer = $this->makeCustomer(42);
         $this->scoreRuleEvaluator->method('getMatchingRulePoints')->willReturn(30);
-        $this->customerScoreManager->method('getDemographicScore')->willReturnMap([[42, 10]]);
-        $this->customerScoreManager->method('getScore')->willReturnMap([[42, 150]]);
+        $this->customerScoreManager->method('applyDemographicScore')
+            ->willReturn(['delta' => 20, 'scoreBefore' => 150, 'scoreAfter' => 170]);
 
         $this->eventManager->expects(self::never())->method('dispatch');
 
@@ -154,8 +149,8 @@ class EvaluateCustomerScoreRulesTest extends TestCase
         $this->config->method('getScoreThreshold')->willReturn(100);
         $customer = $this->makeCustomer(42);
         $this->scoreRuleEvaluator->method('getMatchingRulePoints')->willReturn(15);
-        $this->customerScoreManager->method('getDemographicScore')->willReturnMap([[42, 10]]);
-        $this->customerScoreManager->method('getScore')->willReturnMap([[42, 20]]);
+        $this->customerScoreManager->method('applyDemographicScore')
+            ->willReturn(['delta' => 5, 'scoreBefore' => 20, 'scoreAfter' => 25]);
 
         $this->eventManager->expects(self::never())->method('dispatch');
 
@@ -167,7 +162,7 @@ class EvaluateCustomerScoreRulesTest extends TestCase
     {
         $this->config->method('isLeadScoringEnabled')->willReturn(true);
 
-        $this->customerScoreManager->expects(self::never())->method('addPoints');
+        $this->customerScoreManager->expects(self::never())->method('applyDemographicScore');
 
         $this->makeObserverInstance()->execute($this->makeObserver(null));
     }

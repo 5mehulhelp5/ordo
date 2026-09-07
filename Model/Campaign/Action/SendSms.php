@@ -6,6 +6,7 @@ namespace Ordo\Automation\Model\Campaign\Action;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
 use Ordo\Automation\Model\Sms\OptedOutException;
@@ -77,7 +78,7 @@ class SendSms implements ActionInterface
             return;
         }
 
-        if (!$this->consentManager->hasConsent($customerId, ConsentManager::CHANNEL_SMS)) {
+        if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Sms)) {
             $this->logger->info(sprintf(
                 'Ordo_Automation: send_sms action skipped for customer #%d, SMS consent withdrawn.',
                 $customerId

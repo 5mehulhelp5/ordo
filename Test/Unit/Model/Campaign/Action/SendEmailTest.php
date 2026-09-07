@@ -12,6 +12,7 @@ use Magento\Framework\Translate\Inline\StateInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Model\Campaign\Action\SendEmail;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Email\MessageIdGenerator;
 use Ordo\Automation\Model\Email\PendingMessageIdHolder;
@@ -72,7 +73,7 @@ class SendEmailTest extends TestCase
     {
         $this->consentManager = $this->createMock(ConsentManager::class);
         $this->consentManager->expects(self::once())->method('hasConsent')
-            ->with(42, ConsentManager::CHANNEL_EMAIL)->willReturn(false);
+            ->with(42, ConsentChannel::Email)->willReturn(false);
         $this->customerRepository->expects(self::never())->method('getById');
         $this->logger->expects(self::once())->method('info');
 

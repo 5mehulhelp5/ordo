@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCreateWhatsAppTemplateTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="Admin can create, see in the grid, and delete a WhatsApp template"/>
+            <description value="Closes ROADMAP.md's WhatsApp gap for the admin CRUD surface. Covers the new ordo_whatsapp_template admin CRUD (Model/WhatsAppTemplate + Controller/Adminhtml/WhatsAppTemplate/*): create a template (starts as draft), confirm it appears in the grid, then delete it. Submitting to Meta for approval (SubmitForReview/RefreshStatus) and an actual template send both require a real Meta/WhatsApp Business Account and are out of MFTF's own scope, same reasoning as send_sms's/ad-audience sync's own ROADMAP.md notes - covered instead by WhatsAppTemplateClientTest/WhatsAppSenderTest (fake HTTP client) and the SubmitForReviewTest/RefreshStatusTest controller unit tests."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the WhatsApp template row under test. -->
+        <amOnPage url="admin/ordo/whatsapptemplate/new" stepKey="goToNewTemplatePage"/>
+        <waitForPageLoad stepKey="waitForNewTemplatePage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Test Order Shipped" stepKey="fillName"/>
+        <fillField selector="[name='meta_template_name']" userInput="test_order_shipped_v1" stepKey="fillMetaTemplateName"/>
+        <selectOption selector="[name='category']" userInput="Utility" stepKey="selectCategory"/>
+        <fillField selector="[name='language']" userInput="en_US" stepKey="fillLanguage"/>
+        <fillField selector="[name='body_text']" userInput="Hi {{1}}, your order {{2}} shipped" stepKey="fillBodyText"/>
+
+        <!-- "Save & Continue Edit", not plain "Save" (which redirects to the grid with no
+             entity_id in the URL for grabFromCurrentUrl to capture) - same reasoning as every
+             other admin form in this suite. -->
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The WhatsApp template has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabTemplateId"/>
+
+        <!-- New/unsubmitted templates start as draft (WhatsAppTemplate::STATUS_DRAFT). -->
+        <seeInField selector="[name='status']" userInput="draft" stepKey="seeDraftStatus"/>
+
+        <!-- Step 2: the grid reflects the real, just-saved row. waitForElementVisible, not just
+             waitForPageLoad - this is this fresh instance's first-ever load of a brand new
+             ui_component (ordo_whatsapptemplate_listing), same "cold first load" reasoning
+             AdminCreateAdAudienceTest.xml documents for its own first grid load. -->
+        <amOnPage url="admin/ordo/whatsapptemplate/index" stepKey="goToTemplateGrid"/>
+        <waitForPageLoad stepKey="waitForGrid"/>
+        <waitForElementVisible selector="table.data-grid" stepKey="waitForDataGrid"/>
+        <see selector="table.data-grid" userInput="Test Order Shipped" stepKey="seeTemplateInGrid"/>
+        <see selector="table.data-grid" userInput="test_order_shipped_v1" stepKey="seeMetaTemplateNameInGrid"/>
+
+        <!-- Step 3: delete it for real. -->
+        <amOnPage url="admin/ordo/whatsapptemplate/delete/entity_id/{$grabTemplateId}" stepKey="deleteTemplate"/>
+        <waitForPageLoad stepKey="waitForDeleteTemplate"/>
+        <see selector=".message-success" userInput="The WhatsApp template has been deleted." stepKey="seeDeleteSuccessMessage"/>
+        <amOnPage url="admin/ordo/whatsapptemplate/index" stepKey="goToTemplateGridAfterDelete"/>
+        <waitForPageLoad stepKey="waitForGridAfterDelete"/>
+        <waitForElementVisible selector="table.data-grid" stepKey="waitForDataGridAfterDelete"/>
+        <dontSee selector="table.data-grid" userInput="Test Order Shipped" stepKey="dontSeeTemplateInGrid"/>
+    </test>
+</tests>

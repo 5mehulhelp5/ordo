@@ -19,10 +19,6 @@ use Ordo\Automation\Model\ResourceModel\CustomerConsent\CollectionFactory as Cus
  */
 class ConsentManager
 {
-    public const CHANNEL_EMAIL = 'email';
-    public const CHANNEL_SMS = 'sms';
-    public const CHANNEL_PUSH = 'push';
-
     public function __construct(
         private readonly CustomerConsentCollectionFactory $customerConsentCollectionFactory,
         private readonly CustomerConsentFactory $customerConsentFactory,
@@ -30,7 +26,7 @@ class ConsentManager
     ) {
     }
 
-    public function hasConsent(int $customerId, string $channel): bool
+    public function hasConsent(int $customerId, ConsentChannel $channel): bool
     {
         $consent = $this->findConsent($customerId, $channel);
 
@@ -39,11 +35,11 @@ class ConsentManager
         return !$consent instanceof CustomerConsent || $consent->isConsented();
     }
 
-    public function setConsent(int $customerId, string $channel, bool $consented, ?string $source = null): void
+    public function setConsent(int $customerId, ConsentChannel $channel, bool $consented, ?string $source = null): void
     {
         $consent = $this->findConsent($customerId, $channel) ?? $this->customerConsentFactory->create();
         $consent->setCustomerId($customerId);
-        $consent->setChannel($channel);
+        $consent->setChannel($channel->value);
         $consent->setConsented($consented);
         $consent->setSource($source);
 
@@ -51,9 +47,11 @@ class ConsentManager
     }
 
     /**
-     * @return array<string, bool> channel => consented, for every channel this customer has an
-     *     explicit row for — channels with no row are simply absent (default-consented, see
-     *     class doc), not listed as true.
+     * @return array<string, bool> channel value => consented, for every channel this customer
+     *     has an explicit row for — channels with no row are simply absent (default-consented,
+     *     see class doc), not listed as true. Stays string-keyed rather than ConsentChannel-keyed
+     *     since this is also the shape Controller\Adminhtml\Gdpr\Export serializes verbatim into
+     *     a data-subject's JSON export.
      */
     public function getConsentStates(int $customerId): array
     {
@@ -69,10 +67,10 @@ class ConsentManager
         return $states;
     }
 
-    private function findConsent(int $customerId, string $channel): ?CustomerConsent
+    private function findConsent(int $customerId, ConsentChannel $channel): ?CustomerConsent
     {
         $collection = $this->customerConsentCollectionFactory->create();
-        $collection->addCustomerAndChannelFilter($customerId, $channel);
+        $collection->addCustomerAndChannelFilter($customerId, $channel->value);
 
         /** @var CustomerConsent $consent getFirstItem() always returns a model instance - a
          *  fresh, id-less one when nothing matches, never false/null. */

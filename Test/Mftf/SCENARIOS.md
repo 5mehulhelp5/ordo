@@ -78,6 +78,7 @@ cases separately from the type-by-type ones.
 | `add_dynamic_content`         | `{content_block_id, output_key}`       | ✅ `AdminCampaignDynamicContentSnippetActionTest` (`snippet` content-block type only — see §10 for `rss`/`product_feed`)                                                                                                                                                                   |
 | `send_sms`                    | `{message}`                            | ✅ `Test/Integration/CampaignSendSmsActionTest.php` — real DI/database, `SmsSenderInterface` swapped for a recording fake (real Twilio account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope (no browser-visible effect for a browser to check) |
 | `send_email` SendGrid delivery tracking (`Controller/Email/StatusCallback.php`) | ✅ `Test/Unit/Controller/Email/StatusCallbackTest.php` / `SendGridSignatureValidatorTest` / `EmailMessageMessageIdPluginTest` / `MessageIdGeneratorTest` — writes to the same `ordo_message_log` `send_sms` already writes to (a per-send `Message-ID` header, set via a plugin since `TransportBuilder` exposes no public seam of its own to reach the message it builds, is what a later SendGrid Event Webhook call correlates against); correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above (a real SendGrid account is needed for the actual webhook call, see ROADMAP.md) |
+| `send_whatsapp`               | `{template_id, params}`                | ✅ `Test/Unit/Model/Campaign/Action/SendWhatsAppTest.php` — approved-template gate, phone/consent/E.164 checks, sender success/failure paths (real Meta account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above |
 
 ### 1d. Structural cases (not type-specific)
 
@@ -263,6 +264,17 @@ module's.
 | `Model/AdAudience/PiiHasher` — email normalization + SHA-256 hashing matches the shared Google/Meta spec           | ✅ `PiiHasherTest` (known hash vector)                           |
 | `GoogleAdsSyncClient`/`MetaSyncClient`/`GoogleOAuthTokenProvider` — real request-building/response-parsing         | ✅ `GoogleAdsSyncClientTest` / `MetaSyncClientTest` / `GoogleOAuthTokenProviderTest` (fake `Curl`) |
 | A real sync against a live Google Ads/Meta account                                                                | See ROADMAP.md's own note — out of MFTF's scope, same reasoning as `send_sms`'s equivalent gap |
+
+## 15. WhatsApp templates (`Model/WhatsAppTemplate`, `Controller/Adminhtml/WhatsAppTemplate/`, `Controller/WhatsApp/Webhook.php`)
+
+| Scenario                                                                                                          | Status                                                          |
+|---------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| Admin CRUD (create/grid/delete) for an `ordo_whatsapp_template` row                                                | ✅ `AdminCreateWhatsAppTemplateTest`                              |
+| `SubmitForReview`/`RefreshStatus` controllers — approval-lifecycle transitions (draft→pending, pending→approved/rejected/disabled), body-text edit resets an already-submitted template back to draft | ✅ `Test/Unit/Controller/Adminhtml/WhatsAppTemplate/{SubmitForReviewTest,RefreshStatusTest,SaveTest}.php` |
+| `WhatsAppTemplateClient`/`WhatsAppSender` — real Graph API request-building/response-parsing                       | ✅ `WhatsAppTemplateClientTest` / `WhatsAppSenderTest` (fake `Curl`) |
+| `WhatsAppSignatureValidator` — real HMAC-SHA256 signature verification                                             | ✅ `WhatsAppSignatureValidatorTest` (real crypto, not a hand-faked signature) |
+| `Controller\WhatsApp\Webhook` — GET verification handshake, POST signature rejection, message/template status-update correlation | ✅ `Test/Unit/Controller/WhatsApp/WebhookTest.php` |
+| An actual template submission/approval/send against a live Meta/WhatsApp Business Account                          | See ROADMAP.md's own note — out of MFTF's scope, same reasoning as `send_sms`'s equivalent gap |
 
 ## Suggested next batch (highest signal per test written)
 

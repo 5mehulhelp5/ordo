@@ -9,6 +9,8 @@ use Ordo\Automation\Cron\SyncAdAudiences;
 use Ordo\Automation\Model\AdAudience;
 use Ordo\Automation\Model\AdAudience\PiiHasher;
 use Ordo\Automation\Model\AdAudience\SyncClientPool;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\ResourceModel\AdAudience as AdAudienceResource;
@@ -26,6 +28,7 @@ class SyncAdAudiencesTest extends TestCase
     private SegmentMemberResolver&\PHPUnit\Framework\MockObject\MockObject $segmentMemberResolver;
     private CustomerMapBuilder&\PHPUnit\Framework\MockObject\MockObject $customerMapBuilder;
     private SyncClientPool&\PHPUnit\Framework\MockObject\MockObject $syncClientPool;
+    private ConsentManager&\PHPUnit\Framework\MockObject\MockObject $consentManager;
     private LoggerInterface&\PHPUnit\Framework\MockObject\MockObject $logger;
     private SyncAdAudiences $cron;
 
@@ -36,6 +39,8 @@ class SyncAdAudiencesTest extends TestCase
         $this->segmentMemberResolver = $this->createMock(SegmentMemberResolver::class);
         $this->customerMapBuilder = $this->createMock(CustomerMapBuilder::class);
         $this->syncClientPool = $this->createMock(SyncClientPool::class);
+        $this->consentManager = $this->createMock(ConsentManager::class);
+        $this->consentManager->method('hasConsent')->willReturn(true);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->cron = new SyncAdAudiences(
@@ -45,6 +50,7 @@ class SyncAdAudiencesTest extends TestCase
             $this->customerMapBuilder,
             new PiiHasher(),
             $this->syncClientPool,
+            $this->consentManager,
             new CronRunLogger($this->createStub(LoggerInterface::class)),
             $this->logger
         );
@@ -86,6 +92,57 @@ class SyncAdAudiencesTest extends TestCase
         $adAudience->expects(self::once())->method('setLastSyncStatus')->with(AdAudience::STATUS_SUCCESS);
         $adAudience->expects(self::never())->method('setExternalAudienceId');
         $this->adAudienceResource->expects(self::once())->method('save')->with($adAudience);
+
+        $this->cron->execute();
+    }
+
+    /**
+     * Regression test for a real consent-bypass bug a code audit found: this cron used to have no
+     * ConsentManager check at all, so a customer who withdrew ad-sharing consent still had their
+     * (hashed) email uploaded to the ad platform.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteExcludesCustomerWhoWithdrewAdsConsent(): void
+    {
+        $adAudience = $this->createMock(AdAudience::class);
+        $adAudience->method('getEntityId')->willReturn(1);
+        $adAudience->method('getPlatform')->willReturn('google_ads');
+        $adAudience->method('getSegmentId')->willReturn(5);
+        $adAudience->method('getExternalAudienceId')->willReturn('existing-list');
+        $this->collectionFactory->method('create')->willReturn($this->makeCollection([$adAudience]));
+
+        $this->segmentMemberResolver->method('getMatchingCustomerIds')->willReturn([42, 43]);
+
+        $consentedCustomer = $this->createStub(CustomerInterface::class);
+        $consentedCustomer->method('getEmail')->willReturn('jan@example.com');
+        $optedOutCustomer = $this->createStub(CustomerInterface::class);
+        $optedOutCustomer->method('getEmail')->willReturn('opted-out@example.com');
+        $this->customerMapBuilder->method('build')->willReturn([42 => $consentedCustomer, 43 => $optedOutCustomer]);
+
+        $this->consentManager = $this->createMock(ConsentManager::class);
+        $this->consentManager->method('hasConsent')->willReturnMap([
+            [42, ConsentChannel::Ads, true],
+            [43, ConsentChannel::Ads, false],
+        ]);
+        $this->cron = new SyncAdAudiences(
+            $this->collectionFactory,
+            $this->adAudienceResource,
+            $this->segmentMemberResolver,
+            $this->customerMapBuilder,
+            new PiiHasher(),
+            $this->syncClientPool,
+            $this->consentManager,
+            new CronRunLogger($this->createStub(LoggerInterface::class)),
+            $this->logger
+        );
+
+        // Only the consented customer's hashed email reaches the sync client - the opted-out
+        // one's is never even hashed.
+        $client = $this->createMock(SyncClientInterface::class);
+        $client->expects(self::once())->method('sync')
+            ->with('existing-list', [(new PiiHasher())->hashEmail('jan@example.com')])
+            ->willReturn(null);
+        $this->syncClientPool->method('get')->willReturn($client);
 
         $this->cron->execute();
     }

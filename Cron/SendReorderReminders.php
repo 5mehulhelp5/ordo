@@ -5,6 +5,8 @@ namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Cron\CronRunLogger;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\Cron\ReminderLogStore;
@@ -31,6 +33,7 @@ class SendReorderReminders
         private readonly ReminderEmailSender $emailSender,
         private readonly ReminderLogStore $reminderLogStore,
         private readonly SalesRepEmailContext $salesRepEmailContext,
+        private readonly ConsentManager $consentManager,
         private readonly TriggerOutcomeLogger $triggerOutcomeLogger,
         private readonly CronRunLogger $cronRunLogger
     ) {
@@ -70,6 +73,19 @@ class SendReorderReminders
                 continue;
             }
 
+            // A customer who opted out of email must never receive this reminder, same consent
+            // gate every other channel's send action applies before sending anything.
+            if (!$this->consentManager->hasConsent($customerId, ConsentChannel::Email)) {
+                continue;
+            }
+
+            // Claim (log) BEFORE sending, not after - see ReminderLogStore::deleteMatching()'s
+            // own docblock for why: a crash between a successful send and the log write must
+            // never cause a resend next tick, and a genuine send failure rolls the claim back so
+            // this cycle is retried.
+            $reminderLogRow = $this->buildReminderLogRow((int) $cycle->getEntityId());
+            $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, $reminderLogRow);
+
             try {
                 $customer = $customerMap[$customerId];
                 $this->emailSender->send(
@@ -78,10 +94,10 @@ class SendReorderReminders
                     $customer->getEmail(),
                     $customer->getFirstname()
                 );
-                $this->logReminderSent((int) $cycle->getEntityId());
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_REORDER_REMINDER, $customerId);
                 $sent++;
             } catch (\Throwable $e) {
+                $this->reminderLogStore->deleteMatching(self::REMINDER_LOG_TABLE, $reminderLogRow);
                 $this->cronRunLogger->logFailure(
                     sprintf('send reorder reminder for cycle #%d', (int) $cycle->getEntityId()),
                     $e
@@ -112,11 +128,14 @@ class SendReorderReminders
         ]) > 0;
     }
 
-    private function logReminderSent(int $reorderCycleId): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildReminderLogRow(int $reorderCycleId): array
     {
-        $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, [
+        return [
             'reorder_cycle_id' => $reorderCycleId,
             'sent_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
     }
 }

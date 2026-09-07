@@ -17,6 +17,7 @@ use Ordo\Automation\Model\CampaignCondition;
 use Ordo\Automation\Model\CampaignTrigger;
 use Ordo\Automation\Model\Config\Source\TriggerEvent;
 use Ordo\Automation\Model\ContentBlock;
+use Ordo\Automation\Model\WhatsAppTemplate;
 use Ordo\Automation\Model\ResourceModel\Campaign\Action\Collection as ActionCollection;
 use Ordo\Automation\Model\ResourceModel\Campaign\Action\CollectionFactory as ActionCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\Campaign\Condition\Collection as ConditionCollection;
@@ -25,6 +26,8 @@ use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\Collection as TriggerCo
 use Ordo\Automation\Model\ResourceModel\Campaign\Trigger\CollectionFactory as TriggerCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\Collection as ContentBlockCollection;
 use Ordo\Automation\Model\ResourceModel\ContentBlock\CollectionFactory as ContentBlockCollectionFactory;
+use Ordo\Automation\Model\ResourceModel\WhatsAppTemplate\Collection as WhatsAppTemplateCollection;
+use Ordo\Automation\Model\ResourceModel\WhatsAppTemplate\CollectionFactory as WhatsAppTemplateCollectionFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
@@ -38,6 +41,7 @@ class FlowTest extends TestCase
     private ConditionPool $conditionPool;
     private ActionPool $actionPool;
     private ContentBlockCollectionFactory $contentBlockCollectionFactory;
+    private WhatsAppTemplateCollectionFactory $whatsAppTemplateCollectionFactory;
 
     protected function setUp(): void
     {
@@ -50,6 +54,11 @@ class FlowTest extends TestCase
         $contentBlockCollection->method('addFieldToFilter')->willReturnSelf();
         $contentBlockCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
         $this->contentBlockCollectionFactory->method('create')->willReturn($contentBlockCollection);
+        $this->whatsAppTemplateCollectionFactory = $this->createStub(WhatsAppTemplateCollectionFactory::class);
+        $whatsAppTemplateCollection = $this->createStub(WhatsAppTemplateCollection::class);
+        $whatsAppTemplateCollection->method('addApprovedFilter')->willReturnSelf();
+        $whatsAppTemplateCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $this->whatsAppTemplateCollectionFactory->method('create')->willReturn($whatsAppTemplateCollection);
         $this->triggerEventSource = $this->createStub(TriggerEvent::class);
         $this->triggerEventSource->method('toOptionArray')->willReturn([
             ['value' => 'order_placed', 'label' => __('Order Placed')],
@@ -80,6 +89,7 @@ class FlowTest extends TestCase
             $this->actionPool,
             new TypeLabels(),
             $this->contentBlockCollectionFactory,
+            $this->whatsAppTemplateCollectionFactory,
             [],
             $this->createStub(JsonHelper::class),
             $this->createStub(DirectoryHelper::class)
@@ -395,5 +405,44 @@ class FlowTest extends TestCase
             [7 => 'Welcome Snippet (snippet)'],
             $this->makeBlock()->getContentBlockOptions()
         );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetWhatsAppTemplateOptionsMapsEntityIdToNameAndFiltersToApproved(): void
+    {
+        $template = $this->createStub(WhatsAppTemplate::class);
+        $template->method('getEntityId')->willReturn(3);
+        $template->method('getName')->willReturn('Order Shipped');
+
+        $whatsAppTemplateCollection = $this->createMock(WhatsAppTemplateCollection::class);
+        $whatsAppTemplateCollection->expects(self::once())->method('addApprovedFilter')->willReturnSelf();
+        $whatsAppTemplateCollection->method('getIterator')->willReturn(new \ArrayIterator([$template]));
+        $this->whatsAppTemplateCollectionFactory = $this->createStub(WhatsAppTemplateCollectionFactory::class);
+        $this->whatsAppTemplateCollectionFactory->method('create')->willReturn($whatsAppTemplateCollection);
+
+        self::assertSame(
+            [3 => 'Order Shipped'],
+            $this->makeBlock()->getWhatsAppTemplateOptions()
+        );
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetFieldsConfigListsSendWhatsAppTemplateAndParamsFields(): void
+    {
+        $template = $this->createStub(WhatsAppTemplate::class);
+        $template->method('getEntityId')->willReturn(3);
+        $template->method('getName')->willReturn('Order Shipped');
+
+        $whatsAppTemplateCollection = $this->createStub(WhatsAppTemplateCollection::class);
+        $whatsAppTemplateCollection->method('addApprovedFilter')->willReturnSelf();
+        $whatsAppTemplateCollection->method('getIterator')->willReturn(new \ArrayIterator([$template]));
+        $this->whatsAppTemplateCollectionFactory = $this->createStub(WhatsAppTemplateCollectionFactory::class);
+        $this->whatsAppTemplateCollectionFactory->method('create')->willReturn($whatsAppTemplateCollection);
+
+        $config = $this->makeBlock()->getFieldsConfig()['action']['send_whatsapp'];
+
+        self::assertSame('template_id', $config[0]['name']);
+        self::assertSame([3 => 'Order Shipped'], $config[0]['options']);
+        self::assertSame('params', $config[1]['name']);
     }
 }

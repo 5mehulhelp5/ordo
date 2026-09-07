@@ -172,12 +172,23 @@ class EscalateStalePendingApprovalsTest extends TestCase
         $this->makeCron()->execute();
     }
 
+    /**
+     * The counter is claimed (incremented + saved) BEFORE the send attempt, not after - a crash
+     * between a successful send and this save must never cause a duplicate escalation next tick.
+     * When the send then genuinely fails, the counter must be rolled back to its pre-claim value
+     * and saved again, so this approval is retried next run instead of quietly losing an
+     * escalation attempt it never actually sent.
+     */
     #[AllowMockObjectsWithoutExpectations]
     public function testExecuteLogsErrorWhenEmailSendingThrows(): void
     {
         $approval = $this->createMock(OrderApproval::class);
         $approval->method('getRemindersSent')->willReturn(0);
         $approval->method('getOrderId')->willReturn(7);
+        $setDataCalls = [];
+        $approval->method('setData')->willReturnCallback(function ($key, $value) use (&$setDataCalls) {
+            $setDataCalls[] = [$key, $value];
+        });
 
         $collection = $this->createStub(ApprovalCollection::class);
         $collection->method('addStalePendingFilter');
@@ -195,9 +206,11 @@ class EscalateStalePendingApprovalsTest extends TestCase
 
         $this->storeManager->method('getStore')->willThrowException(new \RuntimeException('no store'));
 
-        $this->orderApprovalResource->expects(self::never())->method('save');
+        $this->orderApprovalResource->expects(self::exactly(2))->method('save')->with($approval);
         $this->logger->expects(self::once())->method('error');
 
         $this->makeCron()->execute();
+
+        self::assertSame([['reminders_sent', 1], ['reminders_sent', 0]], $setDataCalls);
     }
 }

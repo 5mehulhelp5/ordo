@@ -6,7 +6,9 @@ namespace Ordo\Automation\Block\Adminhtml\Gdpr;
 use Magento\Backend\Block\Template;
 use Magento\Backend\Block\Template\Context;
 use Magento\Framework\Registry;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
+use Ordo\Automation\Model\Gdpr\ConsentStates;
 
 class Index extends Template
 {
@@ -37,18 +39,17 @@ class Index extends Template
         return $this->getCustomerId() > 0;
     }
 
-    /**
-     * @return array{email: bool, sms: bool, push: bool}
-     */
-    public function getConsentStates(): array
+    public function getConsentStates(): ConsentStates
     {
         $states = $this->consentManager->getConsentStates($this->getCustomerId());
 
-        return [
-            ConsentManager::CHANNEL_EMAIL => $states[ConsentManager::CHANNEL_EMAIL] ?? true,
-            ConsentManager::CHANNEL_SMS => $states[ConsentManager::CHANNEL_SMS] ?? true,
-            ConsentManager::CHANNEL_PUSH => $states[ConsentManager::CHANNEL_PUSH] ?? true,
-        ];
+        return new ConsentStates(
+            email: $states[ConsentChannel::Email->value] ?? true,
+            sms: $states[ConsentChannel::Sms->value] ?? true,
+            push: $states[ConsentChannel::Push->value] ?? true,
+            whatsapp: $states[ConsentChannel::WhatsApp->value] ?? true,
+            ads: $states[ConsentChannel::Ads->value] ?? true,
+        );
     }
 
     public function getSearchFormAction(): string

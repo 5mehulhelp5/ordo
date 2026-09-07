@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Model;
 
-use Ordo\Automation\Model\ConsentManager;
+use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\CustomerConsent;
 
 class CustomerConsentTest extends AbstractModelTestCase
@@ -23,7 +23,7 @@ class CustomerConsentTest extends AbstractModelTestCase
     public function testChannelRoundTrip(): void
     {
         $model = $this->makeModel();
-        $model->setChannel(ConsentManager::CHANNEL_EMAIL);
+        $model->setChannel(ConsentChannel::Email->value);
         self::assertSame('email', $model->getChannel());
     }
 

@@ -18,6 +18,8 @@ use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\SendCreditLimitAlerts;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\CreditLimitCalculator;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
@@ -62,6 +64,14 @@ class SendCreditLimitAlertsTest extends TestCase
     private function makeReminderLogStore(ResourceConnection $resourceConnection): ReminderLogStore
     {
         return new ReminderLogStore($resourceConnection);
+    }
+
+    private function makeConsentManager(bool $hasConsent = true): ConsentManager
+    {
+        $consentManager = $this->createStub(ConsentManager::class);
+        $consentManager->method('hasConsent')->willReturn($hasConsent);
+
+        return $consentManager;
     }
 
     public function testExecuteSkipsWhenDisabled(): void
@@ -136,6 +146,56 @@ class SendCreditLimitAlertsTest extends TestCase
         $this->makeCron($config, $calculator, $resourceConnection, $logger)->execute();
     }
 
+    /**
+     * Regression test for a real consent-bypass bug a code audit found: this cron used to have no
+     * ConsentManager check at all.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteSkipsCustomerWhoWithdrewEmailConsent(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isCreditLimitAlertEnabled')->willReturn(true);
+        $config->method('getCreditLimitWarningThreshold')->willReturn(80);
+        $config->method('getCreditLimitAlertCooldownDays')->willReturn(7);
+
+        $calculator = $this->createMock(CreditLimitCalculator::class);
+        $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 850.0]);
+        $calculator->method('getCreditLimitFromCustomer')->willReturn(1000.0);
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchOne')->willReturn(0);
+        $connection->expects(self::never())->method('insert');
+
+        $resourceConnection = $this->createMock(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getId')->willReturn(5);
+        $customerMapBuilder = $this->makeCustomerMapBuilder([$customer]);
+
+        $consentManager = $this->createMock(ConsentManager::class);
+        $consentManager->expects(self::once())->method('hasConsent')->with(5, ConsentChannel::Email)->willReturn(false);
+
+        (new SendCreditLimitAlerts(
+            $config,
+            $calculator,
+            $customerMapBuilder,
+            new ReminderEmailSender(
+                $this->createStub(TransportBuilder::class),
+                $this->createStub(StoreManagerInterface::class),
+                $this->createStub(StateInterface::class)
+            ),
+            $this->makeReminderLogStore($resourceConnection),
+            $this->createStub(SalesRepEmailContext::class),
+            $consentManager,
+            $this->createStub(TriggerOutcomeLogger::class),
+            new CronRunLogger($this->createStub(LoggerInterface::class))
+        ))->execute();
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testExecuteSkipsWhenAlertedRecently(): void
     {
@@ -203,6 +263,7 @@ class SendCreditLimitAlertsTest extends TestCase
             new ReminderEmailSender($transportBuilder, $storeManager, $this->createStub(StateInterface::class)),
             $this->makeReminderLogStore($resourceConnection),
             $salesRepEmailContext,
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -247,6 +308,7 @@ class SendCreditLimitAlertsTest extends TestCase
             ),
             $this->makeReminderLogStore($resourceConnection),
             $this->createStub(SalesRepEmailContext::class),
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -288,6 +350,7 @@ class SendCreditLimitAlertsTest extends TestCase
             new ReminderEmailSender($transportBuilder, $storeManager, $this->createStub(StateInterface::class)),
             $this->makeReminderLogStore($resourceConnection),
             $salesRepEmailContext,
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger ?? $this->createStub(LoggerInterface::class))
         );

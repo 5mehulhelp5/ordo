@@ -16,6 +16,8 @@ use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Cron\SendWinBackEmails;
 use Ordo\Automation\Cron\TagInactiveCustomers;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\ConsentChannel;
+use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\Cron\ReminderEmailSender;
 use Ordo\Automation\Model\CustomerTagManager;
@@ -54,6 +56,14 @@ class SendWinBackEmailsTest extends TestCase
         $storeManager->method('getStore')->willReturn($store);
 
         return new ReminderEmailSender($transportBuilder, $storeManager, $this->createStub(StateInterface::class));
+    }
+
+    private function makeConsentManager(bool $hasConsent = true): ConsentManager
+    {
+        $consentManager = $this->createStub(ConsentManager::class);
+        $consentManager->method('hasConsent')->willReturn($hasConsent);
+
+        return $consentManager;
     }
 
     private function makeWorkingTransportBuilder(): TransportBuilder
@@ -98,6 +108,7 @@ class SendWinBackEmailsTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $emailSender,
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -129,6 +140,43 @@ class SendWinBackEmailsTest extends TestCase
         $this->makeCron($config, $tagManager)->execute();
     }
 
+    /**
+     * Regression test for a real consent-bypass bug a code audit found: this cron used to have no
+     * ConsentManager check at all, so a customer who opted out of email via the GDPR admin screen
+     * still received this marketing email.
+     */
+    public function testExecuteSkipsCustomerWhoWithdrewEmailConsent(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isLifecycleEmailsEnabled')->willReturn(true);
+
+        $tagManager = $this->createMock(CustomerTagManager::class);
+        $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
+        $tagManager->method('hasTag')->willReturn(false);
+        $tagManager->expects(self::never())->method('addTag');
+
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getId')->willReturn(5);
+        $customerMapBuilder = $this->makeCustomerMapBuilder([$customer]);
+
+        $consentManager = $this->createMock(ConsentManager::class);
+        $consentManager->expects(self::once())->method('hasConsent')
+            ->with(5, ConsentChannel::Email)->willReturn(false);
+
+        $transportBuilder = $this->createMock(TransportBuilder::class);
+        $transportBuilder->expects(self::never())->method('setTemplateIdentifier');
+
+        (new SendWinBackEmails(
+            $config,
+            $tagManager,
+            $customerMapBuilder,
+            $this->makeEmailSender($transportBuilder),
+            $consentManager,
+            $this->createStub(TriggerOutcomeLogger::class),
+            new CronRunLogger($this->createStub(LoggerInterface::class))
+        ))->execute();
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testExecuteLogsErrorWhenSendingThrows(): void
     {
@@ -138,7 +186,10 @@ class SendWinBackEmailsTest extends TestCase
         $tagManager = $this->createMock(CustomerTagManager::class);
         $tagManager->method('getCustomerIdsWithTag')->willReturn([5]);
         $tagManager->method('hasTag')->willReturn(false);
-        $tagManager->expects(self::never())->method('addTag');
+        // Claimed (tagged) BEFORE the send attempt, then rolled back since the send fails - see
+        // SendWinBackEmails' own "claim before sending" comment.
+        $tagManager->expects(self::once())->method('addTag')->with(5, SendWinBackEmails::TAG_WIN_BACK_SENT);
+        $tagManager->expects(self::once())->method('removeTag')->with(5, SendWinBackEmails::TAG_WIN_BACK_SENT);
 
         $customer = $this->createStub(CustomerInterface::class);
         $customer->method('getId')->willReturn(5);
@@ -155,6 +206,7 @@ class SendWinBackEmailsTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $this->makeEmailSender($transportBuilder),
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -181,6 +233,7 @@ class SendWinBackEmailsTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $this->makeEmailSender($this->createStub(TransportBuilder::class)),
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($logger)
         ))->execute();
@@ -201,6 +254,7 @@ class SendWinBackEmailsTest extends TestCase
             $tagManager,
             $customerMapBuilder,
             $emailSender,
+            $this->makeConsentManager(),
             $this->createStub(TriggerOutcomeLogger::class),
             new CronRunLogger($this->createStub(LoggerInterface::class))
         );

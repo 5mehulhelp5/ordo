@@ -210,14 +210,27 @@ class RfmCalculator
     {
         $connection = $this->resourceConnection->getConnection();
         $table = $this->resourceConnection->getTableName('ordo_customer_rfm_score');
+        $customerTable = $this->resourceConnection->getTableName('customer_entity');
 
+        // ordo_customer_rfm_score has no FK to customer_entity (same small-table, JOIN-mitigated
+        // design as CustomerScoreManager/CustomerTagManager - see those classes' own docblocks),
+        // so a customer deleted after Cron\RecomputeRfmScores last ran would otherwise still have
+        // a stale row here. Unlike those two, this table's rows are read directly as the matching
+        // set for a percentile segment condition (Segment\SegmentMemberResolver::
+        // resolvePercentileAtLeast()), not just looked up by an already-known id - a deleted
+        // customer's stale row would incorrectly count as a segment match until the next
+        // recompute. Found via a code audit: the live computation path (computePercentileRanks())
+        // already derives its customer universe from customer_entity via getAllCustomerIds(), so
+        // this join just makes the cached/stored path consistent with it.
         $rows = $connection->fetchAll(
-            $connection->select()->from($table, [
-                'customer_id',
-                'recency_percentile',
-                'frequency_percentile',
-                'monetary_percentile',
-            ])
+            $connection->select()
+                ->from(['s' => $table], [
+                    'customer_id',
+                    'recency_percentile',
+                    'frequency_percentile',
+                    'monetary_percentile',
+                ])
+                ->join(['c' => $customerTable], 's.customer_id = c.entity_id', [])
         );
 
         if ($rows === []) {
@@ -337,6 +350,16 @@ class RfmCalculator
                 : (float) $aggregate['recency_days'];
         }
 
+        // Only customers with at least one non-canceled order (aggregates has a row for them)
+        // are ranked by the count-based formulas below - a zero-order customer is always
+        // percentile 0 by definition, not computed from where they'd land among the count-based
+        // formula's own ties. That formula degenerates on a dataset where every customer (or
+        // every customer minus this one) has an identical value: a single zero-order customer in
+        // a single-customer store, or a store where literally no one has ordered yet, would
+        // otherwise count as "<= me"/">= me" against itself and land at percentile 100 - the
+        // exact opposite of the "never a top spender with zero orders" guarantee this method's
+        // own docblock promises. Bypassing the formula entirely for zero-order customers is
+        // correct regardless of how the rest of the customer base is distributed.
         $sortedFrequencies = array_values($frequencies);
         $sortedMonetaries = array_values($monetaries);
         $sortedRecencies = array_values($recencies);
@@ -346,13 +369,18 @@ class RfmCalculator
 
         $ranks = [];
         foreach ($customerIds as $customerId) {
+            $hasOrders = isset($aggregates[$customerId]);
+
             $ranks[$customerId] = [
-                'recency_percentile' =>
-                    $this->countAtLeast($sortedRecencies, $recencies[$customerId]) / $total * 100.0,
-                'frequency_percentile' =>
-                    $this->countAtMost($sortedFrequencies, $frequencies[$customerId]) / $total * 100.0,
-                'monetary_percentile' =>
-                    $this->countAtMost($sortedMonetaries, $monetaries[$customerId]) / $total * 100.0,
+                'recency_percentile' => $hasOrders
+                    ? $this->countAtLeast($sortedRecencies, $recencies[$customerId]) / $total * 100.0
+                    : 0.0,
+                'frequency_percentile' => $hasOrders
+                    ? $this->countAtMost($sortedFrequencies, $frequencies[$customerId]) / $total * 100.0
+                    : 0.0,
+                'monetary_percentile' => $hasOrders
+                    ? $this->countAtMost($sortedMonetaries, $monetaries[$customerId]) / $total * 100.0
+                    : 0.0,
             ];
         }
 
