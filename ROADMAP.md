@@ -71,6 +71,14 @@ controller/cron gets a row there before it's considered done).
     - The Flow canvas's own connection curves look poor when nodes are placed close together
       (Drawflow's default bezier control-point math doesn't adapt to short distances) - needs
       either curve-parameter tuning or a different connection-rendering approach.
+    - The native campaign edit form's own Triggers/Conditions/Actions dynamicRows tables
+      (`ordo_campaign_form.xml`, what a "New Campaign" load lands on before anyone touches the
+      Flow canvas) read as bare, unstyled grey grid rows with a plain "Type" dropdown and a raw
+      JSON params textarea for anything the grid doesn't have a dedicated column for - reported
+      as "not simple at all" directly from a real "New Campaign" screenshot. The Flow canvas
+      above it already solves this (labeled fields per type, visual graph) but this native form
+      is still the first thing a new campaign lands on and needs its own pass, not just a
+      pointer to "use the other editor instead."
   - Needs a real scoping pass (which admin screens are in/out, whether this touches only CSS/
     templates or also UI component layouts, a11y/contrast check against the new palette) before
     implementation starts - this entry exists to make sure that scoping happens deliberately
