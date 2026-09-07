@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Extends Magento_Cms's own "CreateCMSPage" operation (module-cms/Test/Mftf/Metadata/CmsMeta.xml)
+with the one extra field AdminContentBlockRecommendationsOnSiteTest actually needs -
+layout_update_xml. MFTF merges <object>/<field> declarations across every module's metadata
+file sharing the same operation "name", so this doesn't touch or duplicate Magento_Cms's own
+file - real root cause of that test's second real failure (after the {{widget}} directive was
+already ruled out): CmsMeta.xml's own field whitelist for this operation only lists identifier/
+title/content_heading/active/content, so a plain <data key="layout_update_xml"> on a cms_page
+entity was being silently dropped from the actual /V1/cmsPage request body - not a Magento bug,
+an MFTF metadata gap this module's own entity data ran into. Found by downloading the real CI
+failure screenshot (see this feature's own commit messages) and seeing the CMS page render with
+ONLY its default sample content, proving the field never reached the API at all.
+-->
+<operations xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:mftf:DataGenerator/etc/dataOperation.xsd">
+    <operation name="CreateCMSPage" dataType="cms_page" type="create" auth="adminOauth" url="/V1/cmsPage" method="POST">
+        <contentType>application/json</contentType>
+        <object key="page" dataType="cms_page">
+            <field key="layout_update_xml">string</field>
+        </object>
+    </operation>
+</operations>
