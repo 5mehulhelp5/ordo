@@ -169,22 +169,14 @@ class CustomerScoreManager
 
         $connection->beginTransaction();
         try {
-            // Ensure both rows exist (a customer being scored for the first time has neither),
-            // without changing their value, so the FOR UPDATE lock below always has a row to
-            // lock.
-            $connection->query(
-                // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
-                'INSERT INTO ' . $connection->quoteIdentifier($demographicTable) . ' (customer_id, score) '
-                . 'VALUES (?, 0) ON DUPLICATE KEY UPDATE score = score',
-                [$customerId]
-            );
-            $connection->query(
-                // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
-                'INSERT INTO ' . $connection->quoteIdentifier($scoreTable) . ' (customer_id, score) '
-                . 'VALUES (?, 0) ON DUPLICATE KEY UPDATE score = score',
-                [$customerId]
-            );
-
+            // No row for a customer who has never had a nonzero demographic/running score is
+            // the normal, expected state (see this class's own docblock: "one row per customer,
+            // never a separate ledger row") - unlike the earlier version of this method, nothing
+            // here creates a placeholder row just to have something to lock. FOR UPDATE on a
+            // still-nonexistent row locks nothing, which is fine: the only concurrent-write race
+            // this guards against is two overlapping saves both reading the same EXISTING row's
+            // stale value, and MySQL's own unique-key insert locking already serializes two
+            // concurrent first-ever INSERTs for the same customer_id.
             $oldDemographicScore = (int) $connection->fetchOne(
                 $connection->select()
                     ->from($demographicTable, 'score')
@@ -202,15 +194,20 @@ class CustomerScoreManager
             $scoreAfter = $scoreBefore + $delta;
 
             if ($delta !== 0) {
-                $connection->update(
-                    $demographicTable,
-                    ['score' => $newDemographicScore],
-                    $connection->quoteInto('customer_id = ?', $customerId)
+                // Upsert, not update() - a customer whose first-ever matching rule just fired
+                // has no row in either table yet, and a plain update() silently affects zero rows
+                // in that case instead of creating one.
+                $connection->query(
+                    // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
+                    'INSERT INTO ' . $connection->quoteIdentifier($demographicTable) . ' (customer_id, score) '
+                    . 'VALUES (?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score)',
+                    [$customerId, $newDemographicScore]
                 );
-                $connection->update(
-                    $scoreTable,
-                    ['score' => $scoreAfter],
-                    $connection->quoteInto('customer_id = ?', $customerId)
+                $connection->query(
+                    // phpcs:ignore Magento2.SQL.RawQuery.FoundRawSql
+                    'INSERT INTO ' . $connection->quoteIdentifier($scoreTable) . ' (customer_id, score) '
+                    . 'VALUES (?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score)',
+                    [$customerId, $scoreAfter]
                 );
             }
 

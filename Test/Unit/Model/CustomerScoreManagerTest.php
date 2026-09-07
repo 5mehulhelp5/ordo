@@ -200,13 +200,13 @@ class CustomerScoreManagerTest extends TestCase
         $connection = $this->createMock(AdapterInterface::class);
         $connection->expects(self::once())->method('beginTransaction');
         $connection->method('select')->willReturn($select);
+        $connection->method('quoteIdentifier')->willReturnArgument(0);
         // First fetchOne is the demographic score (old = 10), second is the running total (old = 50).
         $connection->method('fetchOne')->willReturnOnConsecutiveCalls('10', '50');
 
-        $updates = [];
-        $connection->method('update')->willReturnCallback(function ($table, $bind) use (&$updates) {
-            $updates[] = [$table, $bind];
-            return 1;
+        $queries = [];
+        $connection->method('query')->willReturnCallback(function ($sql, $bind) use (&$queries) {
+            $queries[] = [$sql, $bind];
         });
         $connection->expects(self::once())->method('commit');
         $connection->expects(self::never())->method('rollBack');
@@ -219,10 +219,22 @@ class CustomerScoreManagerTest extends TestCase
         $result = $manager->applyDemographicScore(42, 15);
 
         self::assertSame(['delta' => 5, 'scoreBefore' => 50, 'scoreAfter' => 55], $result);
-        self::assertContains(['ordo_customer_demographic_score', ['score' => 15]], $updates);
-        self::assertContains(['ordo_customer_score', ['score' => 55]], $updates);
+        self::assertCount(2, $queries);
+        self::assertSame([42, 15], $queries[0][1]);
+        self::assertStringContainsString('ordo_customer_demographic_score', $queries[0][0]);
+        self::assertSame([42, 55], $queries[1][1]);
+        self::assertStringContainsString('ordo_customer_score', $queries[1][0]);
     }
 
+    /**
+     * Regression test for a real bug this atomic replacement itself introduced (caught by a real
+     * MFTF run, not by these unit tests): an earlier version of applyDemographicScore()
+     * unconditionally INSERTed a placeholder score=0 row into BOTH tables before computing the
+     * delta, "just to have something to lock" - so every customer this observer ever evaluated
+     * ended up with a permanent ordo_customer_score row, even ones who never matched any scoring
+     * rule and previously had no row at all. A customer whose demographic score genuinely doesn't
+     * change must get no writes to either table - not a row with score=0.
+     */
     #[AllowMockObjectsWithoutExpectations]
     public function testApplyDemographicScoreSkipsWritesAndCommitsWhenDeltaIsZero(): void
     {
@@ -234,6 +246,7 @@ class CustomerScoreManagerTest extends TestCase
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($select);
         $connection->method('fetchOne')->willReturnOnConsecutiveCalls('10', '50');
+        $connection->expects(self::never())->method('query');
         $connection->expects(self::never())->method('update');
         $connection->expects(self::once())->method('commit');
 
@@ -245,6 +258,38 @@ class CustomerScoreManagerTest extends TestCase
         $result = $manager->applyDemographicScore(42, 10);
 
         self::assertSame(['delta' => 0, 'scoreBefore' => 50, 'scoreAfter' => 50], $result);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testApplyDemographicScoreCreatesRowsOnACustomersFirstEverNonzeroScore(): void
+    {
+        $select = $this->createStub(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->method('where')->willReturnSelf();
+        $select->method('forUpdate')->willReturnSelf();
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('quoteIdentifier')->willReturnArgument(0);
+        // No existing row in either table - fetchOne() returns false for both.
+        $connection->method('fetchOne')->willReturnOnConsecutiveCalls(false, false);
+
+        $queries = [];
+        $connection->method('query')->willReturnCallback(function ($sql, $bind) use (&$queries) {
+            $queries[] = [$sql, $bind];
+        });
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $manager = new CustomerScoreManager($resourceConnection);
+        $result = $manager->applyDemographicScore(42, 20);
+
+        self::assertSame(['delta' => 20, 'scoreBefore' => 0, 'scoreAfter' => 20], $result);
+        self::assertCount(2, $queries);
+        self::assertStringContainsString('ON DUPLICATE KEY UPDATE', $queries[0][0]);
+        self::assertStringContainsString('ON DUPLICATE KEY UPDATE', $queries[1][0]);
     }
 
     #[AllowMockObjectsWithoutExpectations]
