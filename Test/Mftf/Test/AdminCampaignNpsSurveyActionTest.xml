@@ -49,7 +49,7 @@
              via the "Params (JSON)" fallback (same dedicated-field-free precedent as
              AdminLoyaltyTierAtLeastConditionTest.xml's loyalty_tier_at_least), action=add_tag -
              the smallest, most directly DB-observable side effect. This can only fire once the
-             real score answered in Step 4 below is already committed. -->
+             real score answered in Step 5 below is already committed. -->
         <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignBPage"/>
         <waitForPageLoad stepKey="waitForNewCampaignBPage"/>
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
@@ -78,34 +78,12 @@
         <waitForPageLoad stepKey="waitForSaveB"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
 
-        <!-- Step 3: a REAL order, through REAL storefront checkout, as a REAL customer. -->
-        <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
-        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
-            <argument name="Customer" value="$$createCustomer$$"/>
-        </actionGroup>
-        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
-        <waitForPageLoad stepKey="waitForProductPage"/>
-        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
-            <argument name="productName" value="$createProduct.name$"/>
-        </actionGroup>
-        <amOnPage url="checkout/cart" stepKey="goToCart"/>
-        <waitForPageLoad stepKey="waitForCartPage"/>
-        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
-
-        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
-
-        <!-- Step 4: the survey widget appears - same long wait reasoning as
-             AdminCampaignPopupActionTest.xml (tracker.js's first poll tick fires after 2s, then
-             falls back to a full poll-interval cycle) - and the visitor picks a real 9, the
-             actual click Controller/Track/SubmitSurveyResponse.php records. -->
-        <waitForElementVisible selector="#ordo-survey-prompt" time="90" stepKey="waitForSurveyPrompt"/>
-        <see selector="#ordo-survey-prompt" userInput="How likely are you to recommend us to a friend?" stepKey="seeSurveyQuestion"/>
-        <click selector="#ordo-survey-prompt button:nth-of-type(10)" stepKey="clickScoreNine"/>
-        <dontSeeElement selector="#ordo-survey-prompt" stepKey="dontSeeSurveyPromptAfterAnswering"/>
-
-        <!-- Step 5: a demographic score rule + segment matching this customer's default group,
-             purely as the vehicle to apply a real tag from the admin UI - exact same mechanism
-             AdminCampaignTagAddedTriggerTest.xml already proves reliable. -->
+        <!-- Step 3: a demographic score rule + segment matching this customer's default group,
+             purely as the vehicle to apply a real tag from the admin UI later - exact same
+             mechanism AdminCampaignTagAddedTriggerTest.xml already proves reliable. Created
+             BEFORE the customer below (not after) - EvaluateCustomerScoreRules only evaluates
+             existing rules on customer_save_after, so a rule created after the customer already
+             exists would never score them, leaving the segment permanently empty. -->
         <amOnPage url="admin/ordo/scorerule/new" stepKey="goToNewScoreRulePage"/>
         <waitForPageLoad stepKey="waitForNewScoreRulePage"/>
         <executeJS function="require(['uiRegistry'], function (uiRegistry) { uiRegistry.get('ordo_scorerule_form.ordo_scorerule_form.general.attribute_code', function (field) { field.value('group_id'); }); });" stepKey="fillAttributeCode"/>
@@ -131,6 +109,45 @@
         <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
 
+        <!-- Step 4: a REAL order, through REAL storefront checkout, as a REAL customer - created
+             AFTER the score rule above, so customer_save_after actually evaluates it and this
+             customer's ordo_customer_score reaches 80 (>= the segment's 40 threshold). -->
+        <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 5: the survey widget appears - same long wait reasoning as
+             AdminCampaignPopupActionTest.xml (tracker.js's first poll tick fires after 2s, then
+             falls back to a full poll-interval cycle) - and the visitor picks a real 9, the
+             actual click Controller/Track/SubmitSurveyResponse.php records. -->
+        <waitForElementVisible selector="#ordo-survey-prompt" time="90" stepKey="waitForSurveyPrompt"/>
+        <see selector="#ordo-survey-prompt" userInput="How likely are you to recommend us to a friend?" stepKey="seeSurveyQuestion"/>
+        <click selector="#ordo-survey-prompt button:nth-of-type(10)" stepKey="clickScoreNine"/>
+        <dontSeeElement selector="#ordo-survey-prompt" stepKey="dontSeeSurveyPromptAfterAnswering"/>
+
+        <!-- The answer click's own POST is deliberately fire-and-forget (tracker.js removes the
+             widget from the DOM immediately, keepalive:true, never awaited) - dontSeeElement
+             above only proves the CLIENT side, not that the server has actually written
+             score/responded_at yet. A short settle wait closes that race before the bulk action
+             below reads the customer's segment membership (which doesn't itself depend on the
+             score, but the point of ordering is that the answer must be committed before
+             Campaign B's condition is ever evaluated). -->
+        <wait time="2" stepKey="waitForResponsePostToLand"/>
+
+        <!-- Step 6: apply the real tag from the admin UI via the segment's bulk-actions form -
+             the only admin-UI path to CustomerTagManager::addTag(), which fires the tag_added
+             trigger Campaign B is listening for. -->
         <amOnPage url="admin/ordo/segment/edit/entity_id/{$grabSegmentId}" stepKey="goToSegmentEditPage"/>
         <waitForPageLoad stepKey="waitForSegmentEditPage"/>
         <waitForElementVisible selector="#ordo-segment-bulk-action-type" stepKey="waitForBulkActionForm"/>
@@ -148,12 +165,12 @@
              exact count is safe). -->
         <see selector=".message-success" userInput="Queued &quot;Add Tag&quot;" stepKey="seeQueuedMessage"/>
 
-        <!-- Step 6: drain both queues in order, same reasoning as AdminCampaignTagAddedTriggerTest.xml. -->
+        <!-- Step 7: drain both queues in order, same reasoning as AdminCampaignTagAddedTriggerTest.xml. -->
         <magentoCLI command="queue:consumers:start ordo.automation.segment.bulk_action --max-messages=50" stepKey="runSegmentBulkActionConsumer"/>
         <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runSecondCampaignDispatchConsumer"/>
 
-        <!-- Step 7: the actual proof - a real ordo_customer_tag row that only Campaign B's
-             nps_score_at_least condition, reading the real score=9 response Step 4 committed
+        <!-- Step 8: the actual proof - a real ordo_customer_tag row that only Campaign B's
+             nps_score_at_least condition, reading the real score=9 response Step 5 committed
              and correctly resolving 9 >= 9, could have allowed through. -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\VisitorEventHelper" method="assertCustomerTagAddedByEmail" stepKey="assertNpsPromoterTagAdded">
             <argument name="email">$createCustomer.email$</argument>

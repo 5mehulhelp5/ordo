@@ -37,7 +37,10 @@
         <selectOption selector="[name='platform']" userInput="Google Ads" stepKey="selectPlatform"/>
         <fillField selector="[name='external_audience_id']" userInput="customers/123/userLists/456" stepKey="fillExternalAudienceId"/>
 
-        <click selector="#save" stepKey="clickSave"/>
+        <!-- "Save & Continue Edit", not plain "Save" (which redirects to the grid with no
+             entity_id in the URL for grabFromCurrentUrl to capture) - same reasoning as every
+             other admin form in this suite. -->
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The ad audience has been saved." stepKey="seeSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabAdAudienceId"/>
