@@ -7,6 +7,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- `send_push` was missing from `Block\Adminhtml\Campaign\Edit\Flow::getFieldsConfig()` and
+  `Model\Campaign\TypeLabels` — the action itself worked end to end (confirmed against a real
+  browser subscription and a real push service delivery), but the Flow canvas editor had no
+  dedicated title/body/url fields for it, only the generic JSON fallback every unlisted type gets.
+- The Flow canvas's connection arrowheads (`campaign-flow-editor.js`'s injected SVG `<marker>`)
+  rendered detached from, and misaligned with, the connection line — `markerUnits` defaulted to
+  `strokeWidth`, which Drawflow's connection paths don't set consistently, so the marker's actual
+  rendered size (and therefore its position relative to the path's endpoint) varied per
+  connection. Fixed with `markerUnits="userSpaceOnUse"` and an explicit absolute size.
 - **SSRF via a customer-controlled Web Push `endpoint`** — `Controller\Track\RegisterPushSubscription`
   persisted whatever URL a client supplied with zero validation, and `Model\Push\PushSender` later made a
   real server-side HTTP request to it (carrying a VAPID `Authorization` header) on every subsequent

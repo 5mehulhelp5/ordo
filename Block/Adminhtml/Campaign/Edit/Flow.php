@@ -259,6 +259,18 @@ class Flow extends Template
                         ),
                     ],
                 ],
+                'send_push' => [
+                    ['name' => 'title', 'label' => (string) __('Notification title')],
+                    ['name' => 'body', 'label' => (string) __('Notification body')],
+                    [
+                        'name' => 'url',
+                        'label' => (string) __('URL to open on click (optional)'),
+                        'notice' => (string) __(
+                            'Opened by push-sw.js\'s notificationclick handler when the browser'
+                            . ' notification is clicked - defaults to "/" if left blank.'
+                        ),
+                    ],
+                ],
             ],
         ];
     }

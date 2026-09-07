@@ -445,4 +445,14 @@ class FlowTest extends TestCase
         self::assertSame([3 => 'Order Shipped'], $config[0]['options']);
         self::assertSame('params', $config[1]['name']);
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetFieldsConfigListsSendPushTitleBodyAndUrlFields(): void
+    {
+        $config = $this->makeBlock()->getFieldsConfig()['action']['send_push'];
+
+        self::assertSame('title', $config[0]['name']);
+        self::assertSame('body', $config[1]['name']);
+        self::assertSame('url', $config[2]['name']);
+    }
 }

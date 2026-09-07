@@ -46,11 +46,17 @@ define([
 
                 marker.setAttribute('id', 'ordo-flow-arrowhead');
                 marker.setAttribute('viewBox', '0 0 10 10');
-                marker.setAttribute('refX', '9');
+                marker.setAttribute('refX', '8');
                 marker.setAttribute('refY', '5');
-                marker.setAttribute('markerWidth', '3.5');
-                marker.setAttribute('markerHeight', '3.5');
-                marker.setAttribute('orient', 'auto-start-reverse');
+                // Absolute pixel size, not a multiple of the path's own stroke-width (the
+                // default markerUnits) - Drawflow's connection paths don't set a consistent
+                // stroke-width, so the marker was rendering at wildly different, tiny sizes
+                // depending on the connection, which looked like a detached, misplaced arrow
+                // rather than one cleanly capping the line.
+                marker.setAttribute('markerUnits', 'userSpaceOnUse');
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '10');
+                marker.setAttribute('orient', 'auto');
 
                 path.setAttribute('d', 'M0,0 L10,5 L0,10 z');
                 path.setAttribute('fill', '#8493a0');

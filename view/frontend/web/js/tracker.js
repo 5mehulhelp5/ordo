@@ -469,6 +469,14 @@
         var vapidPublicKey = currentScript.getAttribute('data-push-vapid-public-key');
 
         return navigator.serviceWorker.register('/ordo/track/pushserviceworker', { scope: '/' })
+            .then(function () {
+                // pushManager.subscribe() requires an ACTIVE worker, not just a registered one -
+                // register()'s own returned registration can still be "installing" at this point
+                // (a real, reproducible race, not theoretical - Chrome throws "no active Service
+                // Worker" if subscribe() is called too early). navigator.serviceWorker.ready only
+                // resolves once a worker actually reaches the active state.
+                return navigator.serviceWorker.ready;
+            })
             .then(function (registration) {
                 return registration.pushManager.subscribe({
                     userVisibleOnly: true,

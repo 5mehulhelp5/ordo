@@ -18,6 +18,11 @@ class TypeLabelsTest extends TestCase
         self::assertSame('Send Email', (new TypeLabels())->actionLabel('send_email'));
     }
 
+    public function testActionLabelUsesSendPushMapping(): void
+    {
+        self::assertSame('Send Push', (new TypeLabels())->actionLabel('send_push'));
+    }
+
     public function testConditionLabelHumanizesUnknownType(): void
     {
         self::assertSame('Custom Loyalty Tier', (new TypeLabels())->conditionLabel('custom_loyalty_tier'));
