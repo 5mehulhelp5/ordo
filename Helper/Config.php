@@ -78,6 +78,9 @@ class Config
     private const string XML_PATH_SHOPPING_FEED_TITLE = 'ordo_automation/shopping_feed/title';
     private const string XML_PATH_SHOPPING_FEED_DESCRIPTION = 'ordo_automation/shopping_feed/description';
 
+    private const string XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY
+        = 'ordo_automation/email/sendgrid_webhook_verification_key';
+
     public function __construct(private readonly ScopeConfigInterface $scopeConfig)
     {
     }
@@ -479,6 +482,22 @@ class Config
     {
         return (string) $this->scopeConfig->getValue(
             self::XML_PATH_SHOPPING_FEED_DESCRIPTION,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * SendGrid's own base64-encoded ECDSA (prime256v1) public verification key from the account's
+     * Event Webhook settings page — Model\Email\SendGridSignatureValidator wraps this in PEM
+     * armor before handing it to openssl_verify(). Decrypted automatically by
+     * ScopeConfigInterface::getValue() — same backend_model-driven decryption as
+     * getTwilioAuthToken() above.
+     */
+    public function getSendGridWebhookVerificationKey(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );

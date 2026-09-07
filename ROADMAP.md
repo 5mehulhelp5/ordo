@@ -54,9 +54,6 @@ Not a code review — a capability comparison against the category. Each is a re
   minutes-to-48h approval). Needs a template-authoring/approval-tracking admin UI, not just a new
   `SmsSenderInterface`-style action.
 - **Push notifications** — not investigated yet.
-- **SendGrid-backed email delivery tracking** — `send_email` currently fire-and-forget via `TransportBuilder`;
-  SendGrid's Event Webhook could track delivery the same way `send_sms` now does. Separate architectural
-  decision — `TransportBuilder` is called from more places than just `SendEmail`.
 
 ## Localization
 

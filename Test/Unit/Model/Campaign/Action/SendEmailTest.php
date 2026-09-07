@@ -13,6 +13,9 @@ use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Model\Campaign\Action\SendEmail;
 use Ordo\Automation\Model\ConsentManager;
+use Ordo\Automation\Model\Email\MessageIdGenerator;
+use Ordo\Automation\Model\Email\PendingMessageIdHolder;
+use Ordo\Automation\Model\Sms\MessageLogWriter;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -24,6 +27,9 @@ class SendEmailTest extends TestCase
     private StoreManagerInterface $storeManager;
     private StateInterface $inlineTranslation;
     private ConsentManager $consentManager;
+    private MessageIdGenerator $messageIdGenerator;
+    private PendingMessageIdHolder&\PHPUnit\Framework\MockObject\MockObject $pendingMessageIdHolder;
+    private MessageLogWriter&\PHPUnit\Framework\MockObject\MockObject $messageLogWriter;
     private LoggerInterface $logger;
     private StoreInterface $store;
 
@@ -35,6 +41,10 @@ class SendEmailTest extends TestCase
         $this->inlineTranslation = $this->createMock(StateInterface::class);
         $this->consentManager = $this->createStub(ConsentManager::class);
         $this->consentManager->method('hasConsent')->willReturn(true);
+        $this->messageIdGenerator = $this->createStub(MessageIdGenerator::class);
+        $this->messageIdGenerator->method('generate')->willReturn('abc123@example.com');
+        $this->pendingMessageIdHolder = $this->createMock(PendingMessageIdHolder::class);
+        $this->messageLogWriter = $this->createMock(MessageLogWriter::class);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->store = $this->createStub(StoreInterface::class);
@@ -50,6 +60,9 @@ class SendEmailTest extends TestCase
             $this->storeManager,
             $this->inlineTranslation,
             $this->consentManager,
+            $this->messageIdGenerator,
+            $this->pendingMessageIdHolder,
+            $this->messageLogWriter,
             $this->logger
         );
     }
@@ -87,6 +100,11 @@ class SendEmailTest extends TestCase
 
         $this->inlineTranslation->expects(self::once())->method('suspend');
         $this->inlineTranslation->expects(self::once())->method('resume');
+
+        $this->pendingMessageIdHolder->expects(self::once())->method('set')->with('abc123@example.com');
+        $this->pendingMessageIdHolder->expects(self::once())->method('consume');
+        $this->messageLogWriter->expects(self::once())->method('recordSent')
+            ->with('email', 42, 'jan@example.com', '<abc123@example.com>');
 
         $context = ['customer_id' => 42];
         $this->makeAction()->execute($context, ['template' => 'ordo_campaign_generic']);
@@ -173,6 +191,9 @@ class SendEmailTest extends TestCase
 
         $this->inlineTranslation->expects(self::once())->method('resume');
         $this->logger->expects(self::once())->method('error');
+        $this->messageLogWriter->expects(self::once())->method('recordFailed')
+            ->with('email', 42, 'jan@example.com');
+        $this->messageLogWriter->expects(self::never())->method('recordSent');
 
         $context = ['customer_id' => 42];
         $this->makeAction()->execute($context, ['template' => 'ordo_campaign_generic']);

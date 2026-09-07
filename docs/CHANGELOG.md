@@ -69,6 +69,17 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   running total (the same score `score_at_least` already reads) into Bronze/Silver/Gold, configurable via two new
   `lead_scoring` config thresholds. New `loyalty_tier_at_least` campaign/segment condition (`{tier}`, no dedicated
   admin field yet — via the Params JSON fallback) and a new dashboard stat showing the customer count per tier.
+- SendGrid-backed `send_email` delivery tracking — closes the gap this file's own ROADMAP.md previously
+  flagged. Writes to the same channel-generic `ordo_message_log` `send_sms` already writes to: a per-send
+  `Message-ID` header (`Model/Email/MessageIdGenerator.php`) is set via `Plugin/Email/
+  EmailMessageMessageIdPlugin.php` on `Magento\Framework\Mail\EmailMessageInterfaceFactory::create()` — the
+  only reachable interception point, since `TransportBuilder` itself exposes no public seam to reach the
+  message it builds (no `getMessage()`, `prepareMessage()` is protected) — then `Controller/Email/
+  StatusCallback.php` (public, unauthenticated, ECDSA-signature-verified via `Model/Email/
+  SendGridSignatureValidator.php`, same trust model as `send_sms`'s own Twilio callback) correlates a later
+  SendGrid Event Webhook delivery/bounce/dropped event back to that row. Scoped to the `send_email` campaign
+  action only, not every `TransportBuilder` call site in this Magento install (see that class's own docblock).
+  New "Email Delivery Tracking (SendGrid)" config section holds the webhook's verification key.
 
 ### Fixed
 

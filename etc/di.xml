@@ -31,6 +31,10 @@
     <preference for="Ordo\Automation\Api\CreditLimitManagementInterface" type="Ordo\Automation\Model\CreditLimitManagement"/>
     <preference for="Ordo\Automation\Model\Sms\SmsSenderInterface" type="Ordo\Automation\Model\Sms\TwilioSmsSender"/>
 
+    <type name="Magento\Framework\Mail\EmailMessageInterfaceFactory">
+        <plugin name="ordo_automation_email_message_id" type="Ordo\Automation\Plugin\Email\EmailMessageMessageIdPlugin"/>
+    </type>
+
     <type name="Ordo\Automation\Model\AdAudience\SyncClientPool">
         <arguments>
             <argument name="clients" xsi:type="array">

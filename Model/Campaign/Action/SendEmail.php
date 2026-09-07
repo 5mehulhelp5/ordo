@@ -10,6 +10,9 @@ use Magento\Framework\Translate\Inline\StateInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
 use Ordo\Automation\Model\ConsentManager;
+use Ordo\Automation\Model\Email\MessageIdGenerator;
+use Ordo\Automation\Model\Email\PendingMessageIdHolder;
+use Ordo\Automation\Model\Sms\MessageLogWriter;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -20,9 +23,20 @@ use Psr\Log\LoggerInterface;
  *
  * Checks ConsentManager::hasConsent() before sending anything — an explicit email opt-out
  * silently skips this action (not an error; skipping is the intended behavior).
+ *
+ * Writes to the same channel-generic ordo_message_log SendSms already writes to (see that
+ * table's own db_schema.xml comment) — a per-send Message-ID header is queued via
+ * PendingMessageIdHolder just before getTransport() (Plugin\Email\EmailMessageMessageIdPlugin
+ * actually sets it on the message TransportBuilder builds internally), then stored as
+ * provider_message_id, so Controller\Email\StatusCallback's SendGrid Event Webhook can correlate
+ * a later delivery-status event back to this exact send, the same role Twilio's message Sid
+ * plays for send_sms. MessageLogWriter itself is namespaced under Model\Sms only because it was
+ * written first — it is already channel-generic, hence reused here as-is rather than duplicated
+ * or relocated.
  */
 class SendEmail implements ActionInterface
 {
+    private const string CHANNEL = 'email';
     private const string XML_PATH_EMAIL_SENDER = 'general';
 
     public function __construct(
@@ -31,6 +45,9 @@ class SendEmail implements ActionInterface
         private readonly StoreManagerInterface $storeManager,
         private readonly StateInterface $inlineTranslation,
         private readonly ConsentManager $consentManager,
+        private readonly MessageIdGenerator $messageIdGenerator,
+        private readonly PendingMessageIdHolder $pendingMessageIdHolder,
+        private readonly MessageLogWriter $messageLogWriter,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -73,6 +90,9 @@ class SendEmail implements ActionInterface
 
         $this->inlineTranslation->suspend();
 
+        $messageId = $this->messageIdGenerator->generate();
+        $this->pendingMessageIdHolder->set($messageId);
+
         try {
             $transport = $this->transportBuilder
                 ->setTemplateIdentifier($templateIdentifier)
@@ -83,13 +103,21 @@ class SendEmail implements ActionInterface
                 ->getTransport();
 
             $transport->sendMessage();
+            $this->messageLogWriter->recordSent(
+                self::CHANNEL,
+                $customerId,
+                $customer->getEmail(),
+                '<' . $messageId . '>'
+            );
         } catch (\Throwable $e) {
             $this->logger->error(sprintf(
                 'Ordo_Automation: campaign send_email action failed for customer #%d: %s',
                 $customerId,
                 $e->getMessage()
             ));
+            $this->messageLogWriter->recordFailed(self::CHANNEL, $customerId, $customer->getEmail());
         } finally {
+            $this->pendingMessageIdHolder->consume();
             $this->inlineTranslation->resume();
         }
     }

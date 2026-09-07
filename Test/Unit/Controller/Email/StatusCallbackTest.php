@@ -1,0 +1,230 @@
+<?php
+declare(strict_types=1);
+
+namespace Ordo\Automation\Test\Unit\Controller\Email;
+
+use Magento\Framework\Controller\Result\Json;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Ordo\Automation\Controller\Email\StatusCallback;
+use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Email\SendGridSignatureValidator;
+use Ordo\Automation\Model\MessageLog;
+use Ordo\Automation\Model\ResourceModel\MessageLog as MessageLogResource;
+use Ordo\Automation\Model\ResourceModel\MessageLog\Collection as MessageLogCollection;
+use Ordo\Automation\Model\ResourceModel\MessageLog\CollectionFactory as MessageLogCollectionFactory;
+use Ordo\Automation\Test\Unit\Controller\AbstractFrontendActionTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use Psr\Log\LoggerInterface;
+
+class StatusCallbackTest extends AbstractFrontendActionTestCase
+{
+    private const string VERIFICATION_KEY = 'a-verification-key';
+
+    private JsonFactory $resultJsonFactory;
+    private Config $config;
+    private SendGridSignatureValidator&\PHPUnit\Framework\MockObject\MockObject $signatureValidator;
+    private MessageLogCollectionFactory $messageLogCollectionFactory;
+    private MessageLogResource&\PHPUnit\Framework\MockObject\MockObject $messageLogResource;
+    private LoggerInterface $logger;
+    private Json $jsonResult;
+
+    protected function setUp(): void
+    {
+        $this->resultJsonFactory = $this->createStub(JsonFactory::class);
+        $this->config = $this->createStub(Config::class);
+        $this->config->method('getSendGridWebhookVerificationKey')->willReturn(self::VERIFICATION_KEY);
+        $this->signatureValidator = $this->createMock(SendGridSignatureValidator::class);
+        $this->messageLogCollectionFactory = $this->createMock(MessageLogCollectionFactory::class);
+        $this->messageLogResource = $this->createMock(MessageLogResource::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
+
+        $this->jsonResult = $this->createMock(Json::class);
+        $this->jsonResult->method('setData')->willReturnSelf();
+        $this->jsonResult->method('setHttpResponseCode')->willReturnSelf();
+        $this->resultJsonFactory->method('create')->willReturn($this->jsonResult);
+    }
+
+    private function makeController(): StatusCallback
+    {
+        return new StatusCallback(
+            $this->makeContext(),
+            $this->resultJsonFactory,
+            $this->config,
+            $this->signatureValidator,
+            $this->messageLogCollectionFactory,
+            $this->messageLogResource,
+            $this->logger
+        );
+    }
+
+    private function makeMessageLog(?int $id): MessageLog
+    {
+        $resource = $this->createStub(\Magento\Framework\Model\ResourceModel\Db\AbstractDb::class);
+        $resource->method('getIdFieldName')->willReturn('entity_id');
+
+        $log = new MessageLog(
+            $this->createStub(\Magento\Framework\Model\Context::class),
+            $this->createStub(\Magento\Framework\Registry::class),
+            $resource
+        );
+        if ($id !== null) {
+            $log->setId($id);
+        }
+
+        return $log;
+    }
+
+    private function stubHeaders(string $signature, string $timestamp): void
+    {
+        $this->request->method('getHeader')->willReturnMap([
+            ['X-Twilio-Email-Event-Webhook-Signature', $signature],
+            ['X-Twilio-Email-Event-Webhook-Timestamp', $timestamp],
+        ]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testInvalidSignatureIsRejectedWithoutTouchingTheDatabase(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('forged-signature', '1700000000');
+        $this->request->method('getContent')->willReturn('[]');
+        $this->signatureValidator->method('isValid')->willReturn(false);
+
+        $this->messageLogCollectionFactory->expects(self::never())->method('create');
+        $this->messageLogResource->expects(self::never())->method('save');
+        $this->logger->expects(self::once())->method('error');
+        $this->jsonResult->expects(self::once())->method('setHttpResponseCode')->with(403);
+        $this->jsonResult->expects(self::once())->method('setData')->with(['ok' => false]);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testMissingSignatureHeaderIsRejected(): void
+    {
+        $controller = $this->makeController();
+        $this->request->method('getHeader')->willReturn(false);
+        $this->request->method('getContent')->willReturn('[]');
+        $this->signatureValidator->expects(self::never())->method('isValid');
+
+        $this->jsonResult->expects(self::once())->method('setHttpResponseCode')->with(403);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidSignatureWithDeliveredEventUpdatesTheLogRow(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('real-signature', '1700000000');
+        $body = json_encode([['event' => 'delivered', 'smtp-id' => '<abc@example.com>']]);
+        $this->request->method('getContent')->willReturn($body);
+        $this->signatureValidator->expects(self::once())->method('isValid')
+            ->with(self::VERIFICATION_KEY, '1700000000', $body, 'real-signature')->willReturn(true);
+
+        $log = $this->makeMessageLog(7);
+        $collection = $this->createMock(MessageLogCollection::class);
+        $collection->expects(self::once())->method('addFieldToFilter')
+            ->with('provider_message_id', '<abc@example.com>')->willReturnSelf();
+        $collection->expects(self::once())->method('getFirstItem')->willReturn($log);
+        $this->messageLogCollectionFactory->expects(self::once())->method('create')->willReturn($collection);
+
+        $this->messageLogResource->expects(self::once())->method('save')->with($log);
+        $this->jsonResult->expects(self::once())->method('setData')->with(['ok' => true]);
+
+        $controller->execute();
+
+        self::assertSame('delivered', $log->getStatus());
+        self::assertNull($log->getErrorCode());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidSignatureWithBounceEventRecordsTheReasonAsErrorCode(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('real-signature', '1700000000');
+        $body = json_encode([
+            ['event' => 'bounce', 'smtp-id' => '<abc@example.com>', 'reason' => '550 mailbox unavailable'],
+        ]);
+        $this->request->method('getContent')->willReturn($body);
+        $this->signatureValidator->method('isValid')->willReturn(true);
+
+        $log = $this->makeMessageLog(7);
+        $collection = $this->createStub(MessageLogCollection::class);
+        $collection->method('addFieldToFilter')->willReturnSelf();
+        $collection->method('getFirstItem')->willReturn($log);
+        $this->messageLogCollectionFactory->method('create')->willReturn($collection);
+
+        $this->messageLogResource->expects(self::once())->method('save')->with($log);
+
+        $controller->execute();
+
+        self::assertSame('undelivered', $log->getStatus());
+        self::assertSame('550 mailbox unavailable', $log->getErrorCode());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidSignatureWithUnknownSmtpIdSkipsWithoutSaving(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('real-signature', '1700000000');
+        $body = json_encode([['event' => 'delivered', 'smtp-id' => '<unknown@example.com>']]);
+        $this->request->method('getContent')->willReturn($body);
+        $this->signatureValidator->method('isValid')->willReturn(true);
+
+        $log = $this->makeMessageLog(null);
+        $collection = $this->createStub(MessageLogCollection::class);
+        $collection->method('addFieldToFilter')->willReturnSelf();
+        $collection->method('getFirstItem')->willReturn($log);
+        $this->messageLogCollectionFactory->method('create')->willReturn($collection);
+
+        $this->messageLogResource->expects(self::never())->method('save');
+        $this->jsonResult->expects(self::once())->method('setData')->with(['ok' => true]);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidSignatureWithUnhandledEventTypeIsSkipped(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('real-signature', '1700000000');
+        $body = json_encode([['event' => 'open', 'smtp-id' => '<abc@example.com>']]);
+        $this->request->method('getContent')->willReturn($body);
+        $this->signatureValidator->method('isValid')->willReturn(true);
+
+        $this->messageLogCollectionFactory->expects(self::never())->method('create');
+        $this->jsonResult->expects(self::once())->method('setData')->with(['ok' => true]);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidSignatureWithInvalidJsonPayloadReturnsInvalidPayload(): void
+    {
+        $controller = $this->makeController();
+        $this->stubHeaders('real-signature', '1700000000');
+        $this->request->method('getContent')->willReturn('not json');
+        $this->signatureValidator->method('isValid')->willReturn(true);
+
+        $this->messageLogCollectionFactory->expects(self::never())->method('create');
+        $this->jsonResult->expects(self::once())->method('setData')
+            ->with(['ok' => false, 'reason' => 'invalid_payload']);
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testCreateCsrfValidationExceptionReturnsNull(): void
+    {
+        $controller = $this->makeController();
+        self::assertNull($controller->createCsrfValidationException($this->request));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testValidateForCsrfReturnsTrue(): void
+    {
+        $controller = $this->makeController();
+        self::assertTrue($controller->validateForCsrf($this->request));
+    }
+}
