@@ -75,6 +75,7 @@
                 <item name="ordo_contentblock_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\ContentBlock\Grid\Collection</item>
                 <item name="ordo_messagelog_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\MessageLog\Grid\Collection</item>
                 <item name="ordo_adaudience_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\AdAudience\Grid\Collection</item>
+                <item name="ordo_whatsapptemplate_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\WhatsAppTemplate\Grid\Collection</item>
             </argument>
         </arguments>
     </type>
@@ -104,6 +105,13 @@
         <arguments>
             <argument name="mainTable" xsi:type="string">ordo_ad_audience</argument>
             <argument name="resourceModel" xsi:type="string">Ordo\Automation\Model\ResourceModel\AdAudience</argument>
+        </arguments>
+    </type>
+
+    <type name="Ordo\Automation\Model\ResourceModel\WhatsAppTemplate\Grid\Collection">
+        <arguments>
+            <argument name="mainTable" xsi:type="string">ordo_whatsapp_template</argument>
+            <argument name="resourceModel" xsi:type="string">Ordo\Automation\Model\ResourceModel\WhatsAppTemplate</argument>
         </arguments>
     </type>
 
