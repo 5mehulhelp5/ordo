@@ -24,7 +24,8 @@ use Twilio\Http\Response as TwilioHttpResponse;
 class TwilioSmsSenderTest extends TestCase
 {
     private const ACCOUNT_SID = 'AC123';
-    private const AUTH_TOKEN = 'secret-token';
+    private const API_KEY_SID = 'SK123';
+    private const API_KEY_SECRET = 'secret-key';
     private const FROM_NUMBER = '+15550001111';
     private const CALLBACK_URL = 'https://example.com/ordo/sms/statuscallback';
 
@@ -36,7 +37,8 @@ class TwilioSmsSenderTest extends TestCase
     {
         $this->config = $this->createStub(Config::class);
         $this->config->method('getTwilioAccountSid')->willReturn(self::ACCOUNT_SID);
-        $this->config->method('getTwilioAuthToken')->willReturn(self::AUTH_TOKEN);
+        $this->config->method('getTwilioApiKeySid')->willReturn(self::API_KEY_SID);
+        $this->config->method('getTwilioApiKeySecret')->willReturn(self::API_KEY_SECRET);
         $this->config->method('getTwilioFromNumber')->willReturn(self::FROM_NUMBER);
 
         $this->callbackUrlBuilder = $this->createStub(CallbackUrlBuilder::class);
@@ -118,8 +120,8 @@ class TwilioSmsSenderTest extends TestCase
         $sid = $this->makeSenderWithFakeHttpClient($httpClient)->send('+15551234567', 'hello there');
 
         self::assertSame('SM123abc', $sid);
-        self::assertSame(self::ACCOUNT_SID, $captured['user']);
-        self::assertSame(self::AUTH_TOKEN, $captured['password']);
+        self::assertSame(self::API_KEY_SID, $captured['user']);
+        self::assertSame(self::API_KEY_SECRET, $captured['password']);
         self::assertSame('+15551234567', $captured['data']['To']);
         self::assertSame(self::FROM_NUMBER, $captured['data']['From']);
         self::assertSame('hello there', $captured['data']['Body']);

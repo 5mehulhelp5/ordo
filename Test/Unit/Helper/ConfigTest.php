@@ -46,11 +46,15 @@ class ConfigTest extends TestCase
         $this->scopeConfig->method('getValue')->willReturnMap([
             ['ordo_automation/sms/twilio_account_sid', 'store', null, 'AC123'],
             ['ordo_automation/sms/twilio_auth_token', 'store', null, 'secret-token'],
+            ['ordo_automation/sms/twilio_api_key_sid', 'store', null, 'SK123'],
+            ['ordo_automation/sms/twilio_api_key_secret', 'store', null, 'secret-key'],
             ['ordo_automation/sms/twilio_from_number', 'store', null, '+15550001111'],
         ]);
 
         self::assertSame('AC123', $this->config->getTwilioAccountSid());
         self::assertSame('secret-token', $this->config->getTwilioAuthToken());
+        self::assertSame('SK123', $this->config->getTwilioApiKeySid());
+        self::assertSame('secret-key', $this->config->getTwilioApiKeySecret());
         self::assertSame('+15550001111', $this->config->getTwilioFromNumber());
     }
 
@@ -60,6 +64,8 @@ class ConfigTest extends TestCase
 
         self::assertSame('', $this->config->getTwilioAccountSid());
         self::assertSame('', $this->config->getTwilioAuthToken());
+        self::assertSame('', $this->config->getTwilioApiKeySid());
+        self::assertSame('', $this->config->getTwilioApiKeySecret());
         self::assertSame('', $this->config->getTwilioFromNumber());
     }
 

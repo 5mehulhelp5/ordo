@@ -22,6 +22,14 @@ use Twilio\Rest\Client;
  * list for long-code/toll-free numbers, so this is an expected, routine outcome, not a delivery
  * failure, and gets its own exception type so the campaign action layer can log/record it
  * distinctly from a real failure.
+ *
+ * Authenticates with a Restricted API Key (Config::getTwilioApiKeySid()/getTwilioApiKeySecret()),
+ * not the Account Auth Token — per Twilio's own guidance
+ * (https://www.twilio.com/docs/iam/api-keys), a key scoped to Programmable Messaging limits the
+ * blast radius of a leaked credential to sending SMS, instead of granting full account access.
+ * The Auth Token itself is kept in config only for Controller\Sms\StatusCallback's webhook
+ * signature check, which Twilio always signs with the Auth Token regardless of how outbound
+ * calls are authenticated.
  */
 class TwilioSmsSender implements SmsSenderInterface
 {
@@ -36,10 +44,14 @@ class TwilioSmsSender implements SmsSenderInterface
 
     public function send(string $toPhone, string $message): string
     {
+        // Twilio's PHP SDK has no separate "forApiKey" constructor — API Key auth uses the same
+        // Client constructor as Auth Token auth, just with the API Key SID/Secret as
+        // username/password and the real Account SID passed explicitly as the third argument
+        // (see https://www.twilio.com/docs/iam/api-keys).
         $client = new Client(
+            $this->config->getTwilioApiKeySid(),
+            $this->config->getTwilioApiKeySecret(),
             $this->config->getTwilioAccountSid(),
-            $this->config->getTwilioAuthToken(),
-            null,
             null,
             $this->makeHttpClient()
         );

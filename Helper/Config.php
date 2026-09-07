@@ -60,6 +60,8 @@ class Config
     private const string XML_PATH_SMS_ENABLED = 'ordo_automation/sms/enabled';
     private const string XML_PATH_SMS_TWILIO_ACCOUNT_SID = 'ordo_automation/sms/twilio_account_sid';
     private const string XML_PATH_SMS_TWILIO_AUTH_TOKEN = 'ordo_automation/sms/twilio_auth_token';
+    private const string XML_PATH_SMS_TWILIO_API_KEY_SID = 'ordo_automation/sms/twilio_api_key_sid';
+    private const string XML_PATH_SMS_TWILIO_API_KEY_SECRET = 'ordo_automation/sms/twilio_api_key_secret';
     private const string XML_PATH_SMS_TWILIO_FROM_NUMBER = 'ordo_automation/sms/twilio_from_number';
 
     private const string XML_PATH_GOOGLE_ADS_CLIENT_ID = 'ordo_automation/ad_audience_sync/google_ads_client_id';
@@ -381,11 +383,44 @@ class Config
      * Decrypted automatically by ScopeConfigInterface::getValue() — the field's backend_model
      * (Magento\Config\Model\Config\Backend\Encrypted, see etc/adminhtml/system.xml) handles
      * decryption on read, no extra code needed here.
+     *
+     * Only used to verify the X-Twilio-Signature on the inbound status-callback webhook
+     * (Controller\Sms\StatusCallback) — Twilio always signs webhooks with the Account Auth
+     * Token, never with an API Key secret, so this can't be retired even though outbound sends
+     * no longer use it. See getTwilioApiKeySid()/getTwilioApiKeySecret() for those.
      */
     public function getTwilioAuthToken(?int $storeId = null): string
     {
         return (string) $this->scopeConfig->getValue(
             self::XML_PATH_SMS_TWILIO_AUTH_TOKEN,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * A Restricted API Key SID scoped to Programmable Messaging, per Twilio's own recommendation
+     * to authenticate routine API calls without granting full-account access. Used (together with
+     * getTwilioApiKeySecret() and the Account SID) to authenticate outbound SMS sends in
+     * TwilioSmsSender — not to be confused with getTwilioAccountSid().
+     */
+    public function getTwilioApiKeySid(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_SMS_TWILIO_API_KEY_SID,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    /**
+     * Decrypted automatically by ScopeConfigInterface::getValue() — same backend_model-driven
+     * decryption as getTwilioAuthToken() above.
+     */
+    public function getTwilioApiKeySecret(?int $storeId = null): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            self::XML_PATH_SMS_TWILIO_API_KEY_SECRET,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );

@@ -201,6 +201,13 @@ the original bug.
 
 ### Changed
 
+- `send_sms` (`TwilioSmsSender`) now authenticates outbound Twilio API calls with a Restricted API Key
+  (new `Twilio API Key SID`/`Twilio API Key Secret` config fields) instead of the Account Auth Token, per
+  Twilio's own recommendation (https://www.twilio.com/docs/iam/api-keys) — limits the blast radius of a
+  leaked credential to Programmable Messaging instead of full account access. The Auth Token itself stays in
+  config: `Controller\Sms\StatusCallback`'s webhook signature check always requires it (Twilio signs
+  `X-Twilio-Signature` with the Auth Token regardless of how outbound calls are authenticated), so it
+  couldn't be retired.
 - Deduplicated the `*PercentileAtLeast` campaign conditions and the customer-attribute Setup patches into shared
   base classes (`AbstractPercentileAtLeast`, `AbstractCustomerAttributePatch`) — no behavior change.
 - Extracted `Model/Cron/CronRunLogger.php` for the shared per-item-failure/run-summary log shape, adopted across

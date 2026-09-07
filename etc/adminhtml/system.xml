@@ -254,8 +254,19 @@
                     <label>Twilio Account SID</label>
                     <depends><field id="enabled">1</field></depends>
                 </field>
-                <field id="twilio_auth_token" translate="label" type="obscure" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="twilio_auth_token" translate="label comment" type="obscure" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Twilio Auth Token</label>
+                    <comment>Used only to verify the X-Twilio-Signature on the inbound status-callback webhook — Twilio always signs webhooks with the Auth Token, never with an API Key secret. Not used to authenticate outbound API calls; see "Twilio API Key SID/Secret" below for that.</comment>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="twilio_api_key_sid" translate="label comment" type="text" sortOrder="35" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Twilio API Key SID</label>
+                    <comment>A Restricted API Key scoped to Programmable Messaging (Console → Account → API keys &amp; tokens), not the Account SID. Used to authenticate outbound SMS sends, per Twilio's recommendation to avoid granting full-account access for routine API calls.</comment>
+                    <depends><field id="enabled">1</field></depends>
+                </field>
+                <field id="twilio_api_key_secret" translate="label" type="obscure" sortOrder="36" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Twilio API Key Secret</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                     <depends><field id="enabled">1</field></depends>
                 </field>
