@@ -217,9 +217,19 @@ class Flow extends Template
         ];
     }
 
+    /**
+     * JSON_HEX_TAG|JSON_HEX_AMP - this is embedded raw (@noEscape) directly inside a <script>
+     * block in flow.phtml, not an HTML attribute escapeHtmlAttr() would cover - a literal
+     * "</script>" inside any label/text here (content block name, translated field label) would
+     * otherwise close the script tag early and let the rest be parsed as HTML/JS, a stored XSS
+     * in the admin campaign editor.
+     */
     public function getFieldsConfigJson(): string
     {
-        return (string) json_encode($this->getFieldsConfig());
+        return (string) json_encode(
+            $this->getFieldsConfig(),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
     }
 
     /**
@@ -439,12 +449,18 @@ class Flow extends Template
             $x += 260;
         }
 
-        return (string) json_encode([
-            'drawflow' => [
-                'Home' => [
-                    'data' => $nodes,
+        // JSON_HEX_TAG|JSON_HEX_AMP - same reasoning as getFieldsConfigJson() above: this is
+        // embedded raw (@noEscape) inside a <script> block, and $nodes carries admin-authored
+        // text (action/condition labels, params) that could otherwise close the script tag early.
+        return (string) json_encode(
+            [
+                'drawflow' => [
+                    'Home' => [
+                        'data' => $nodes,
+                    ],
                 ],
             ],
-        ]);
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
     }
 }

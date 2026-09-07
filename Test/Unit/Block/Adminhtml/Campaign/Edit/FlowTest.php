@@ -333,7 +333,48 @@ class FlowTest extends TestCase
     {
         $block = $this->makeBlock();
 
-        self::assertSame(json_encode($block->getFieldsConfig()), $block->getFieldsConfigJson());
+        self::assertSame(
+            json_encode($block->getFieldsConfig(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
+            $block->getFieldsConfigJson()
+        );
+    }
+
+    /**
+     * Regression test for a real stored-XSS finding: getFieldsConfigJson()/getFlowDataJson() are
+     * embedded raw (@noEscape) inside a <script> block in flow.phtml, so a literal "</script>"
+     * anywhere in admin-authored text reaching this JSON (e.g. a content block's own name) must
+     * never survive un-escaped, or it closes the script tag early and lets the rest be parsed as
+     * HTML/JS in the admin's own session.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetFlowDataJsonEscapesClosingScriptTagInNodeText(): void
+    {
+        $campaign = $this->createStub(Campaign::class);
+        $campaign->method('getEntityId')->willReturn(5);
+        $this->registry->method('registry')->willReturnMap([['ordo_campaign', $campaign]]);
+
+        $this->triggerCollectionFactory->method('create')->willReturn($this->triggerCollectionWith(['order_placed']));
+
+        $action = $this->createStub(CampaignAction::class);
+        $action->method('getType')->willReturn('add_tag');
+        $action->method('getParamsJson')->willReturn('{"tag":"</script><script>alert(1)</script>"}');
+        $action->method('getDelayMinutes')->willReturn(0);
+        $actionCollection = $this->createStub(ActionCollection::class);
+        $actionCollection->method('addCampaignFilter');
+        $actionCollection->method('setOrder');
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([$action]));
+        $this->actionCollectionFactory->method('create')->willReturn($actionCollection);
+
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addCampaignFilter');
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $json = $this->makeBlock()->getFlowDataJson();
+
+        self::assertStringNotContainsString('</script>', $json);
+        $data = json_decode($json, true)['drawflow']['Home']['data'];
+        self::assertStringContainsString('alert(1)', $data[2]['html']);
     }
 
     #[AllowMockObjectsWithoutExpectations]
