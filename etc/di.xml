@@ -70,6 +70,7 @@
                 <item name="ordo_scorerule_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\ScoreRule\Grid\Collection</item>
                 <item name="ordo_contentblock_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\ContentBlock\Grid\Collection</item>
                 <item name="ordo_messagelog_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\MessageLog\Grid\Collection</item>
+                <item name="ordo_adaudience_listing_data_source" xsi:type="string">Ordo\Automation\Model\ResourceModel\AdAudience\Grid\Collection</item>
             </argument>
         </arguments>
     </type>
@@ -92,6 +93,13 @@
         <arguments>
             <argument name="mainTable" xsi:type="string">ordo_content_block</argument>
             <argument name="resourceModel" xsi:type="string">Ordo\Automation\Model\ResourceModel\ContentBlock</argument>
+        </arguments>
+    </type>
+
+    <type name="Ordo\Automation\Model\ResourceModel\AdAudience\Grid\Collection">
+        <arguments>
+            <argument name="mainTable" xsi:type="string">ordo_ad_audience</argument>
+            <argument name="resourceModel" xsi:type="string">Ordo\Automation\Model\ResourceModel\AdAudience</argument>
         </arguments>
     </type>
 

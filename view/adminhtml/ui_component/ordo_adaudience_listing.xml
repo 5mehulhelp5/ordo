@@ -86,7 +86,7 @@
                 <label translate="true">Last Sync Status</label>
             </settings>
         </column>
-        <column name="last_synced_at" component="Magento_Ui/js/grid/columns/date">
+        <column name="last_synced_at" class="Magento\Ui\Component\Listing\Columns\Date" component="Magento_Ui/js/grid/columns/date">
             <settings>
                 <filter>dateRange</filter>
                 <dataType>date</dataType>
