@@ -22,8 +22,14 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   email, embeddable anywhere via a new `Block\Frontend\ContentBlock\Render` (resolves a content block by its
   `identifier`), registered as a real Magento widget (`etc/widget.xml`, id `ordo_content_block`) so it's usable
   from any CMS block/page via the `{{widget}}` directive (including the CMS WYSIWYG's own "Insert Widget"
-  dialog) or from layout XML. `ProducerInterface::render()` gained an optional `$context` parameter so a
-  producer can personalize by `customer_id`.
+  dialog, currently unverified end-to-end - see `Render.php`'s own docblock) or, the real proven mechanism,
+  a plain layout XML file targeting a CMS page's own `cms_page_view_id_{identifier}` handle (`Magento\Cms\
+  Helper\Page`'s own convention). `ProducerInterface::render()` gained an optional `$context` parameter so a
+  producer can personalize by `customer_id`. MFTF coverage (`AdminContentBlockRecommendationsOnSiteTest`)
+  verified by hand against a real local Magento install first (real admin UI, real guest order, real
+  anonymous storefront visit) before being written, after `{{widget}}` and the CMS page's own "Layout Update
+  XML" field (the latter turned out to be a dead end - `Magento\Cms\Model\Page::beforeSave()` unconditionally
+  wipes that field to null unless a custom layout file is already registered and selected) both failed.
 - Product feed export to shopping channels — a real, standalone Google Merchant Center-compatible
   XML feed (`Model/ProductFeed/GoogleMerchantFeedGenerator.php`), distinct from the existing
   `product_feed` content block (a small curated HTML grid inside campaigns/on-site, not an

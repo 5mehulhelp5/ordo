@@ -8,3 +8,4 @@ clover.xml
 junit.xml
 .php-cs-fixer.cache
 composer.lock
+.playwright-mcp/

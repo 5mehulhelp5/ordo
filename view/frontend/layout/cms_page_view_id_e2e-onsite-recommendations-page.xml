@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!--
+Real, standard Magento mechanism for adding this block to a specific CMS page - not the
+{{widget}} directive (proved, via two real CI failures, to resolve to nothing here for a still-
+unconfirmed reason) and not the page's own "Layout Update XML" field (Model\Page::beforeSave()
+actively WIPES that field to null whenever layout_update_selected isn't '_existing_' - i.e.
+always, in a fresh install with no custom layout files registered - so it was never going to
+work regardless of any MFTF metadata fix; confirmed by reading Magento_Cms's own beforeSave()).
+
+Magento\Cms\Helper\Page::prepareResultPage() calls
+addPageLayoutHandles(['id' => $page->getIdentifier()]), which - per
+Magento\Framework\View\Result\Page::addPageLayoutHandles() - always adds a handle literally
+named "{defaultHandle}_id_{identifier}" (defaultHandle is "cms_page_view" for every CMS page).
+A plain, static layout XML file for that exact handle is the real, supported way a developer
+adds page-specific content - this file's own filename IS the handle name, matching this
+identifier: "e2e-onsite-recommendations-page" (the fixture identifier
+AdminContentBlockRecommendationsOnSiteTest's own real CMS page uses).
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="content">
+            <block class="Ordo\Automation\Block\Frontend\ContentBlock\Render" name="e2e.ordo.recommendations">
+                <arguments>
+                    <argument name="identifier" xsi:type="string">e2e_onsite_recommendations_block</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+    </body>
+</page>
