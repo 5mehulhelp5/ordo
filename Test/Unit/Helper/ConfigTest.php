@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Test\Unit\Helper;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Ordo\Automation\Helper\Config;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +17,14 @@ class ConfigTest extends TestCase
     {
         $this->scopeConfig = $this->createStub(ScopeConfigInterface::class);
 
-        $this->config = new Config($this->scopeConfig);
+        $encryptor = $this->createStub(EncryptorInterface::class);
+        // Obscure-field getters route every value through Encryptor::decrypt() (see
+        // Config::decryptedConfig()) — this stub is an identity function so plaintext test
+        // fixtures ("secret-token" etc.) pass through unchanged, same as the real decrypt() would
+        // do for a value it actually encrypted.
+        $encryptor->method('decrypt')->willReturnArgument(0);
+
+        $this->config = new Config($this->scopeConfig, $encryptor);
     }
 
     public function testFlagGettersDelegateToScopeConfig(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Helper;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Store\Model\ScopeInterface;
 
 class Config
@@ -90,8 +91,28 @@ class Config
     private const string XML_PATH_WHATSAPP_APP_SECRET = 'ordo_automation/whatsapp/app_secret';
     private const string XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'ordo_automation/whatsapp/webhook_verify_token';
 
-    public function __construct(private readonly ScopeConfigInterface $scopeConfig)
+    public function __construct(
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly EncryptorInterface $encryptor
+    ) {
+    }
+
+    /**
+     * Every `type="obscure"` field in system.xml is encrypted at rest (via
+     * Magento\Config\Model\Config\Backend\Encrypted::beforeSave()) — but that backend model only
+     * decrypts when its own Value object is loaded (i.e. the admin config edit form), NOT when
+     * read at runtime through ScopeConfigInterface::getValue(), which returns the raw encrypted
+     * string. Every obscure-field getter in this class routes through here instead of a bare
+     * getValue() call, or it silently hands callers ciphertext instead of the real secret — found
+     * the hard way: this shipped for months with every webhook signature check and every
+     * third-party API call (Twilio, Google Ads, Meta, SendGrid) actually authenticating with
+     * ciphertext, never the real credential.
+     */
+    private function decryptedConfig(string $path, ?int $storeId): string
     {
+        $value = (string) $this->scopeConfig->getValue($path, ScopeInterface::SCOPE_STORE, $storeId);
+
+        return $value === '' ? '' : $this->encryptor->decrypt($value);
     }
 
     /**
@@ -380,10 +401,6 @@ class Config
     }
 
     /**
-     * Decrypted automatically by ScopeConfigInterface::getValue() — the field's backend_model
-     * (Magento\Config\Model\Config\Backend\Encrypted, see etc/adminhtml/system.xml) handles
-     * decryption on read, no extra code needed here.
-     *
      * Only used to verify the X-Twilio-Signature on the inbound status-callback webhook
      * (Controller\Sms\StatusCallback) — Twilio always signs webhooks with the Account Auth
      * Token, never with an API Key secret, so this can't be retired even though outbound sends
@@ -391,11 +408,7 @@ class Config
      */
     public function getTwilioAuthToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_SMS_TWILIO_AUTH_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_SMS_TWILIO_AUTH_TOKEN, $storeId);
     }
 
     /**
@@ -413,17 +426,9 @@ class Config
         );
     }
 
-    /**
-     * Decrypted automatically by ScopeConfigInterface::getValue() — same backend_model-driven
-     * decryption as getTwilioAuthToken() above.
-     */
     public function getTwilioApiKeySecret(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_SMS_TWILIO_API_KEY_SECRET,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_SMS_TWILIO_API_KEY_SECRET, $storeId);
     }
 
     public function getTwilioFromNumber(?int $storeId = null): string
@@ -444,35 +449,19 @@ class Config
         );
     }
 
-    /**
-     * Decrypted automatically by ScopeConfigInterface::getValue() — same backend_model-driven
-     * decryption as getTwilioAuthToken() above.
-     */
     public function getGoogleAdsClientSecret(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_GOOGLE_ADS_CLIENT_SECRET,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_GOOGLE_ADS_CLIENT_SECRET, $storeId);
     }
 
     public function getGoogleAdsRefreshToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_GOOGLE_ADS_REFRESH_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_GOOGLE_ADS_REFRESH_TOKEN, $storeId);
     }
 
     public function getGoogleAdsDeveloperToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_GOOGLE_ADS_DEVELOPER_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_GOOGLE_ADS_DEVELOPER_TOKEN, $storeId);
     }
 
     public function getGoogleAdsLoginCustomerId(?int $storeId = null): string
@@ -486,11 +475,7 @@ class Config
 
     public function getMetaAccessToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_META_ACCESS_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_META_ACCESS_TOKEN, $storeId);
     }
 
     public function getMetaAdAccountId(?int $storeId = null): string
@@ -532,17 +517,11 @@ class Config
     /**
      * SendGrid's own base64-encoded ECDSA (prime256v1) public verification key from the account's
      * Event Webhook settings page — Model\Email\SendGridSignatureValidator wraps this in PEM
-     * armor before handing it to openssl_verify(). Decrypted automatically by
-     * ScopeConfigInterface::getValue() — same backend_model-driven decryption as
-     * getTwilioAuthToken() above.
+     * armor before handing it to openssl_verify().
      */
     public function getSendGridWebhookVerificationKey(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY, $storeId);
     }
 
     public function isWhatsAppEnabled(?int $storeId = null): bool
@@ -554,17 +533,9 @@ class Config
         );
     }
 
-    /**
-     * Decrypted automatically by ScopeConfigInterface::getValue() — same backend_model-driven
-     * decryption as getTwilioAuthToken() above.
-     */
     public function getWhatsAppAccessToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_WHATSAPP_ACCESS_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_WHATSAPP_ACCESS_TOKEN, $storeId);
     }
 
     public function getWhatsAppPhoneNumberId(?int $storeId = null): string
@@ -587,15 +558,11 @@ class Config
 
     /**
      * Meta's own per-app secret, used only to verify Controller\WhatsApp\Webhook's incoming
-     * X-Hub-Signature-256 header — same decryption as getTwilioAuthToken() above.
+     * X-Hub-Signature-256 header.
      */
     public function getWhatsAppAppSecret(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_WHATSAPP_APP_SECRET,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_WHATSAPP_APP_SECRET, $storeId);
     }
 
     /**
@@ -605,10 +572,6 @@ class Config
      */
     public function getWhatsAppWebhookVerifyToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
-        );
+        return $this->decryptedConfig(self::XML_PATH_WHATSAPP_WEBHOOK_VERIFY_TOKEN, $storeId);
     }
 }
