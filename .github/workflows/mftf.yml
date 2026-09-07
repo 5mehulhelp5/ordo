@@ -432,19 +432,16 @@ jobs:
         # block, so it can't break out of the shell command (GitHub's own script-injection
         # guidance for untrusted ${{ }} expressions).
         #
-        # Retries the WHOLE attempt up to twice more on failure — added after a real run
-        # (34088473174) failed on EVERY leg with the exact same signature: MFTF's own
-        # PersistedObjectHandler reporting "Entity ... could not be found" for Simple_US_Customer/
-        # SimpleProduct2 creation specifically, while every one of this module's own admin-UI-form
-        # entities (segment/campaign/content block/ad audience) created fine in the same run.
-        # nginx's own access log for that run shows ZERO requests ever reaching /V1/customers or
-        # /V1/products (the admin token call right before them DID succeed), i.e. those specific
-        # webapi calls never reached this job's own server at all — a transient runner/Docker
-        # networking gap, not a Magento exception (var/log/system.log was clean) and not
-        # something this module's own code touches. A full re-run of the same install is safe
-        # here since every fixture MFTF ships (and every one this suite's own tests use) already
-        # generates unique values for anything with a uniqueness constraint (emails, SKUs, etc.)
-        # specifically so a rerun/retry never collides with a previous attempt's leftovers.
+        # Retries the WHOLE attempt up to twice more on failure — general resilience against a
+        # transient runner/Docker networking gap or similar one-off infra hiccup, safe because
+        # every fixture MFTF ships (and every one this suite's own tests use) already generates
+        # unique values for anything with a uniqueness constraint (emails, SKUs, etc.), so a
+        # rerun never collides with a previous attempt's leftovers. NOT a fix for every failure
+        # mode seen so far, though — one real run (34088473174) failed identically on ALL THREE
+        # attempts (Simple_US_Customer/SimpleProduct2 creation specifically, root-caused not to
+        # infra flakiness but to a since-reverted MFTF metadata file, see
+        # AdminContentBlockRecommendationsOnSiteTest's own description) - a genuinely broken
+        # config or code change will still fail every attempt here, exactly as it should.
         working-directory: magento
         env:
           TEST_FILTER: ${{ inputs.test_filter }}

@@ -22,15 +22,23 @@ scoped from real hands-on marketing automation experience.
   against a live/trial Twilio account. `StatusCallbackTest` is unit-level too: it uses a real
   `Twilio\Security\RequestValidator` to compute a correct signature, but the collection/resource-model calls are
   mocked, so a real DB round trip (write on send → status update on callback) is untested.
-- **`AdminContentBlockRecommendationsOnSiteTest` is currently failing in real CI, reproducibly.** The `{{widget}}`
-  directive fix (`etc/widget.xml`) is confirmed correct and in place, but `.recommended-products` still isn't
-  found on the CMS page across multiple real CI runs — meaning `Model\Recommendation\ProductRecommender::
-  getRecommendedSkus()`'s best-seller fallback is returning empty for the anonymous visitor in this specific
-  flow, not a selector/widget-registration problem. Not yet root-caused: `ProductRecommender::
-  rankedBestSellerSkus()`'s in-instance 60-second cache (shared across requests if the object is DI-shared and
-  the test web server process persists across requests within a CI run) is the leading suspect — a request
-  landing within that window right after the order is placed could plausibly get a best-seller list computed
-  before this test's own order existed. Needs a real CI screenshot/DB check to confirm, not more guessing.
+- **`AdminContentBlockRecommendationsOnSiteTest` has no working MFTF coverage yet and is deliberately excluded
+  from every CI-dispatched group** (it only carries `<group value="ordo_automation"/>`, no group in the
+  workflow's own matrix) — the on-site content-block-rendering path (`Block/Frontend/ContentBlock/Render.php`)
+  itself is unit-tested (`RenderTest`), just not proven end-to-end in a real browser. Two embedding mechanisms
+  have been tried and both caused real CI damage, documented in full in the test's own description:
+  1. The `{{widget}}` CMS directive (`etc/widget.xml` registers `Render` as `ordo_content_block`) resolves to
+     nothing — no PHP error, `Render` never even instantiated — root cause still unconfirmed after ruling out
+     single- vs. double-escaped backslashes in the class name.
+  2. A real CMS page's own Layout Update XML field needed Magento_Cms's `CreateCMSPage` MFTF operation extended
+     with the `layout_update_xml` field it doesn't declare (confirmed: MFTF silently drops undeclared fields
+     from the real API request). Doing that via a second `Meta.xml` file extending the operation by name broke
+     `Simple_US_Customer`/`SimpleProduct2` creation for the **entire** `campaign2` group in real CI — confirmed
+     via a clean before/after comparison of two otherwise-identical CI runs. Reverted. Root cause of *that*
+     breakage is still open, suspected to involve `Util\ModuleResolver`'s admin-token-gated file enumeration
+     (module/config file resolution for any `Meta.xml` requires a live admin-token round-trip), but unconfirmed.
+  Next attempt should happen against a disposable local Magento install (not by re-running real CI and
+  observing collateral damage on unrelated tests) — see AGENTS.md's local MFTF sandbox section.
 - **Ad-audience sync (`Cron\SyncAdAudiences`) has no test against a real Google Ads/Meta account.** Same shape
   as `send_sms` above: unit tests (`GoogleAdsSyncClientTest`/`MetaSyncClientTest`/`GoogleOAuthTokenProviderTest`)
   drive the real request-building/response-parsing logic via a fake `Curl`, and the integration test
