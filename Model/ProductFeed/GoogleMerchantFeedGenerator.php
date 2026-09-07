@@ -124,8 +124,16 @@ class GoogleMerchantFeedGenerator
         return $url !== '' ? $url : null;
     }
 
+    /**
+     * Magento\Framework\Escaper::escapeHtml() has no ENT_XML1 equivalent (it always encodes as
+     * HTML, not XML), so this deliberately calls htmlspecialchars() directly rather than
+     * reaching for the discouraged-function sniff's suggested replacement, which would produce
+     * invalid XML for values containing e.g. a literal "'" (HTML-encodes it as &#039;, which is
+     * not a predefined XML entity name the way &amp;/&lt;/&gt;/&quot; are).
+     */
     private function escape(string $value): string
     {
+        // phpcs:ignore Magento2.Functions.DiscouragedFunction.DiscouragedWithAlternative
         return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 }

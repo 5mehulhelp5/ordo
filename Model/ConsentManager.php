@@ -36,7 +36,7 @@ class ConsentManager
 
         // No explicit row at all = consented by default (see class doc). A row exists only once
         // someone has actually recorded a preference either way.
-        return $consent === null || $consent->isConsented();
+        return !$consent instanceof CustomerConsent || $consent->isConsented();
     }
 
     public function setConsent(int $customerId, string $channel, bool $consented, ?string $source = null): void

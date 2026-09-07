@@ -35,7 +35,7 @@ class Index extends AbstractGdprAction implements HttpGetActionInterface
                 $customer = $this->customerRepository->get($email);
                 $this->registry->register('ordo_gdpr_customer_id', (int) $customer->getId());
                 $this->registry->register('ordo_gdpr_customer_email', $customer->getEmail());
-            } catch (NoSuchEntityException $e) {
+            } catch (NoSuchEntityException) {
                 $this->messageManager->addErrorMessage(__('No customer found for that email.'));
             }
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Cron;
 
 use Magento\Customer\Api\CustomerRepositoryInterface;
+use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Model\AdAudience;
 use Ordo\Automation\Model\AdAudience\PiiHasher;
 use Ordo\Automation\Model\AdAudience\SyncClientPool;
@@ -69,7 +70,7 @@ class SyncAdAudiences
     private function syncOne(AdAudience $adAudience): void
     {
         $client = $this->syncClientPool->get($adAudience->getPlatform());
-        if ($client === null) {
+        if (!$client instanceof SyncClientInterface) {
             throw new \RuntimeException(sprintf('No sync client registered for platform "%s".', $adAudience->getPlatform()));
         }
 
@@ -78,7 +79,7 @@ class SyncAdAudiences
         foreach ($customerIds as $customerId) {
             try {
                 $emails[] = $this->customerRepository->getById($customerId)->getEmail();
-            } catch (\Throwable $e) {
+            } catch (\Throwable) {
                 continue;
             }
         }

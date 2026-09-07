@@ -99,7 +99,7 @@ class DashboardViewModel implements ArgumentInterface
              *  StoreInterface, only the concrete Store model. */
             $store = $this->storeManager->getStore();
             return rtrim((string) $store->getBaseUrl(), '/') . '/ordo/productfeed/index';
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return '';
         }
     }

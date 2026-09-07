@@ -27,7 +27,7 @@
 </div>
 
 <?php if ($block->isCustomerResolved()): ?>
-<?php $consent = $block->getConsentStates(); ?>
+    <?php $consent = $block->getConsentStates(); ?>
 <div class="admin__fieldset-wrapper" style="margin-top: 20px;">
     <div class="admin__fieldset-wrapper-title">
         <strong><?= $escaper->escapeHtml(__('Consent - customer #%1 (%2)', $block->getCustomerId(), $block->getCustomerEmail())) ?></strong>

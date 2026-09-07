@@ -36,8 +36,8 @@
              text, so a plain text-content assertion can't reliably match it. -->
         <amOnPage url="ordo/productfeed/index" stepKey="goToPublicFeedUrl"/>
         <waitForPageLoad stepKey="waitForFeedPage"/>
-        <seeInPageSource userInput="&lt;g:id&gt;$createProduct.sku$&lt;/g:id&gt;" stepKey="seeProductSkuInFeed"/>
-        <seeInPageSource userInput="&lt;title&gt;$createProduct.name$&lt;/title&gt;" stepKey="seeProductNameInFeed"/>
-        <seeInPageSource userInput="xmlns:g=&quot;http://base.google.com/ns/1.0&quot;" stepKey="seeGoogleNamespaceInFeed"/>
+        <seeInPageSource html="&lt;g:id&gt;$createProduct.sku$&lt;/g:id&gt;" stepKey="seeProductSkuInFeed"/>
+        <seeInPageSource html="&lt;title&gt;$createProduct.name$&lt;/title&gt;" stepKey="seeProductNameInFeed"/>
+        <seeInPageSource html="xmlns:g=&quot;http://base.google.com/ns/1.0&quot;" stepKey="seeGoogleNamespaceInFeed"/>
     </test>
 </tests>
