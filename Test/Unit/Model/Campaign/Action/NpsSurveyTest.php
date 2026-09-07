@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Model\Campaign\Action;
 
+use Ordo\Automation\Model\Campaign\Action\ContextTargetResolver;
 use Ordo\Automation\Model\Campaign\Action\NpsSurvey;
 use Ordo\Automation\Model\ResourceModel\SurveyPrompt as SurveyPromptResource;
 use Ordo\Automation\Model\SurveyPrompt;
@@ -23,7 +24,12 @@ class NpsSurveyTest extends TestCase
         $this->surveyPromptFactory = $this->createMock(SurveyPromptFactory::class);
         $this->surveyPromptResource = $this->createMock(SurveyPromptResource::class);
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->action = new NpsSurvey($this->surveyPromptFactory, $this->surveyPromptResource, $this->logger);
+        $this->action = new NpsSurvey(
+            $this->surveyPromptFactory,
+            $this->surveyPromptResource,
+            new ContextTargetResolver(),
+            $this->logger
+        );
     }
 
     #[AllowMockObjectsWithoutExpectations]

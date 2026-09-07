@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Cron;
 
-use Magento\Customer\Api\CustomerRepositoryInterface;
 use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Model\AdAudience;
 use Ordo\Automation\Model\AdAudience\PiiHasher;
 use Ordo\Automation\Model\AdAudience\SyncClientPool;
 use Ordo\Automation\Model\Cron\CronRunLogger;
+use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\ResourceModel\AdAudience as AdAudienceResource;
 use Ordo\Automation\Model\ResourceModel\AdAudience\CollectionFactory as AdAudienceCollectionFactory;
 use Ordo\Automation\Model\Segment\SegmentMemberResolver;
@@ -28,7 +28,7 @@ class SyncAdAudiences
         private readonly AdAudienceCollectionFactory $adAudienceCollectionFactory,
         private readonly AdAudienceResource $adAudienceResource,
         private readonly SegmentMemberResolver $segmentMemberResolver,
-        private readonly CustomerRepositoryInterface $customerRepository,
+        private readonly CustomerMapBuilder $customerMapBuilder,
         private readonly PiiHasher $piiHasher,
         private readonly SyncClientPool $syncClientPool,
         private readonly CronRunLogger $cronRunLogger,
@@ -77,14 +77,10 @@ class SyncAdAudiences
         }
 
         $customerIds = $this->segmentMemberResolver->getMatchingCustomerIds($adAudience->getSegmentId());
-        $emails = [];
-        foreach ($customerIds as $customerId) {
-            try {
-                $emails[] = $this->customerRepository->getById($customerId)->getEmail();
-            } catch (\Throwable) {
-                continue;
-            }
-        }
+        // One batched customer_entity lookup for the whole segment instead of one EAV load per
+        // customer_id - found via a performance audit, real impact at a few thousand members.
+        $customerMap = $this->customerMapBuilder->build($customerIds);
+        $emails = array_map(static fn ($customer) => (string) $customer->getEmail(), $customerMap);
         $emails = array_values(array_filter($emails, static fn (string $email) => $email !== ''));
 
         $hashedEmails = $this->piiHasher->hashEmails($emails);

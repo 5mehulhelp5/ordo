@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Cron;
 
-use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Ordo\Automation\Api\AdAudience\SyncClientInterface;
 use Ordo\Automation\Cron\SyncAdAudiences;
@@ -11,6 +10,7 @@ use Ordo\Automation\Model\AdAudience;
 use Ordo\Automation\Model\AdAudience\PiiHasher;
 use Ordo\Automation\Model\AdAudience\SyncClientPool;
 use Ordo\Automation\Model\Cron\CronRunLogger;
+use Ordo\Automation\Model\CustomerMapBuilder;
 use Ordo\Automation\Model\ResourceModel\AdAudience as AdAudienceResource;
 use Ordo\Automation\Model\ResourceModel\AdAudience\Collection as AdAudienceCollection;
 use Ordo\Automation\Model\ResourceModel\AdAudience\CollectionFactory as AdAudienceCollectionFactory;
@@ -24,7 +24,7 @@ class SyncAdAudiencesTest extends TestCase
     private AdAudienceCollectionFactory&\PHPUnit\Framework\MockObject\MockObject $collectionFactory;
     private AdAudienceResource&\PHPUnit\Framework\MockObject\MockObject $adAudienceResource;
     private SegmentMemberResolver&\PHPUnit\Framework\MockObject\MockObject $segmentMemberResolver;
-    private CustomerRepositoryInterface&\PHPUnit\Framework\MockObject\MockObject $customerRepository;
+    private CustomerMapBuilder&\PHPUnit\Framework\MockObject\MockObject $customerMapBuilder;
     private SyncClientPool&\PHPUnit\Framework\MockObject\MockObject $syncClientPool;
     private LoggerInterface&\PHPUnit\Framework\MockObject\MockObject $logger;
     private SyncAdAudiences $cron;
@@ -34,7 +34,7 @@ class SyncAdAudiencesTest extends TestCase
         $this->collectionFactory = $this->createMock(AdAudienceCollectionFactory::class);
         $this->adAudienceResource = $this->createMock(AdAudienceResource::class);
         $this->segmentMemberResolver = $this->createMock(SegmentMemberResolver::class);
-        $this->customerRepository = $this->createMock(CustomerRepositoryInterface::class);
+        $this->customerMapBuilder = $this->createMock(CustomerMapBuilder::class);
         $this->syncClientPool = $this->createMock(SyncClientPool::class);
         $this->logger = $this->createMock(LoggerInterface::class);
 
@@ -42,7 +42,7 @@ class SyncAdAudiencesTest extends TestCase
             $this->collectionFactory,
             $this->adAudienceResource,
             $this->segmentMemberResolver,
-            $this->customerRepository,
+            $this->customerMapBuilder,
             new PiiHasher(),
             $this->syncClientPool,
             new CronRunLogger($this->createStub(LoggerInterface::class)),
@@ -74,7 +74,8 @@ class SyncAdAudiencesTest extends TestCase
 
         $customer = $this->createStub(CustomerInterface::class);
         $customer->method('getEmail')->willReturn('jan@example.com');
-        $this->customerRepository->expects(self::once())->method('getById')->with(42)->willReturn($customer);
+        $this->customerMapBuilder->expects(self::once())->method('build')->with([42])
+            ->willReturn([42 => $customer]);
 
         $client = $this->createMock(SyncClientInterface::class);
         $client->expects(self::once())->method('sync')
@@ -100,6 +101,7 @@ class SyncAdAudiencesTest extends TestCase
         $this->collectionFactory->method('create')->willReturn($this->makeCollection([$adAudience]));
 
         $this->segmentMemberResolver->method('getMatchingCustomerIds')->willReturn([]);
+        $this->customerMapBuilder->method('build')->willReturn([]);
 
         $client = $this->createMock(SyncClientInterface::class);
         $client->method('sync')->willReturn('brand-new-id');
@@ -129,7 +131,7 @@ class SyncAdAudiencesTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
-    public function testExecuteSkipsCustomersThatFailToResolve(): void
+    public function testExecuteSkipsCustomersMissingFromTheBatchLookup(): void
     {
         $adAudience = $this->createMock(AdAudience::class);
         $adAudience->method('getEntityId')->willReturn(1);
@@ -139,14 +141,12 @@ class SyncAdAudiencesTest extends TestCase
         $this->collectionFactory->method('create')->willReturn($this->makeCollection([$adAudience]));
 
         $this->segmentMemberResolver->method('getMatchingCustomerIds')->willReturn([42, 43]);
-        $this->customerRepository->method('getById')->willReturnCallback(function (int $id) {
-            if ($id === 43) {
-                throw new \RuntimeException('customer not found');
-            }
-            $customer = $this->createStub(CustomerInterface::class);
-            $customer->method('getEmail')->willReturn('jan@example.com');
-            return $customer;
-        });
+
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getEmail')->willReturn('jan@example.com');
+        // #43 simply absent from the batch lookup result - same "not found" case getById()'s own
+        // catch used to handle, now expressed as CustomerMapBuilder just not returning that id.
+        $this->customerMapBuilder->method('build')->willReturn([42 => $customer]);
 
         $client = $this->createMock(SyncClientInterface::class);
         $client->expects(self::once())->method('sync')

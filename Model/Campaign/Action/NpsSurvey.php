@@ -28,21 +28,17 @@ class NpsSurvey implements ActionInterface
     public function __construct(
         private readonly SurveyPromptFactory $surveyPromptFactory,
         private readonly SurveyPromptResource $surveyPromptResource,
+        private readonly ContextTargetResolver $contextTargetResolver,
         private readonly LoggerInterface $logger
     ) {
     }
 
     public function execute(array &$context, array $params): void
     {
-        $customerId = isset($context['customer_id']) ? (int) $context['customer_id'] : null;
-        $customerId = ($customerId !== null && $customerId > 0) ? $customerId : null;
-
-        $visitorId = isset($context['visitor_id']) ? (string) $context['visitor_id'] : null;
-        $visitorId = ($visitorId !== null && $visitorId !== '') ? $visitorId : null;
-
+        $target = $this->contextTargetResolver->resolveCustomerOrVisitor($context);
         $question = trim((string) ($params['question'] ?? ''));
 
-        if ($customerId === null && $visitorId === null) {
+        if ($target->isEmpty()) {
             $this->logger->error(
                 'Ordo_Automation: nps_survey action has no customer_id or visitor_id in context to target.'
             );
@@ -55,8 +51,8 @@ class NpsSurvey implements ActionInterface
         }
 
         $prompt = $this->surveyPromptFactory->create();
-        $prompt->setCustomerId($customerId);
-        $prompt->setVisitorId($visitorId);
+        $prompt->setCustomerId($target->customerId);
+        $prompt->setVisitorId($target->visitorId);
         $prompt->setQuestion($question);
 
         $this->surveyPromptResource->save($prompt);

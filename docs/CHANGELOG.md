@@ -89,6 +89,20 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Stored XSS in the campaign flow editor — `Block/Adminhtml/Campaign/Edit/Flow.php`'s
+  `getFieldsConfigJson()`/`getFlowDataJson()` are embedded raw (`@noEscape`) directly inside a
+  `<script>` block, not an HTML attribute `escapeHtmlAttr()` would cover. A literal `</script>`
+  in any admin-authored text reaching that JSON (action/condition params, content block names)
+  would close the script tag early. Fixed with `JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|
+  JSON_HEX_QUOT` on both `json_encode()` calls. Found via a dedicated security-audit subagent pass.
+- `Cron\SendCreditLimitAlerts` re-loaded every customer via EAV a second time inside its own loop
+  (`CreditLimitCalculator::getCreditLimit()`/`getUsedCredit()`), on top of the batch load
+  `CustomerMapBuilder` already did — real impact at a few thousand credit-limit customers. New
+  `CreditLimitCalculator::getCreditLimitFromCustomer()` (works off an already-loaded customer)
+  and `getUsedCreditForCustomers()` (one `GROUP BY` query for every customer instead of one query
+  per customer) close this. `Cron\SyncAdAudiences` had the same shape for resolving segment
+  members' emails — switched to the existing `CustomerMapBuilder`. Found via a dedicated
+  performance-audit subagent pass.
 - `SendSalesRepDigest`'s email always rendered an empty customer list — Magento's `{{for}}` directive silently
   skips non-array loop items; `customer_names` was a plain `string[]`. Fixed by using `array{name: string}[]`.
 - `setup:install`/`setup:upgrade` crashed on this module's data patches — `AbstractCustomerAttributePatch`
@@ -103,6 +117,9 @@ follows [Keep a Changelog](https://keepachangelog.com/).
   base classes (`AbstractPercentileAtLeast`, `AbstractCustomerAttributePatch`) — no behavior change.
 - Extracted `Model/Cron/CronRunLogger.php` for the shared per-item-failure/run-summary log shape, adopted across
   all 15 crons that had it duplicated inline.
+- Extracted `Model/Campaign/Action/ContextTargetResolver.php` (+ `ContextTarget` value object) for the
+  byte-for-byte-identical customer_id-or-visitor_id resolution block duplicated across `ShowPopup`, `Notify`,
+  and `NpsSurvey` — no behavior change. Found via a design-review subagent pass.
 
 ## [1.0.0]
 

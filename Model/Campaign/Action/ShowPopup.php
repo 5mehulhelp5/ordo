@@ -36,21 +36,17 @@ class ShowPopup implements ActionInterface
         private readonly PendingPopupCollectionFactory $pendingPopupCollectionFactory,
         private readonly Config $config,
         private readonly DateTime $dateTime,
+        private readonly ContextTargetResolver $contextTargetResolver,
         private readonly LoggerInterface $logger
     ) {
     }
 
     public function execute(array &$context, array $params): void
     {
-        $customerId = isset($context['customer_id']) ? (int) $context['customer_id'] : null;
-        $customerId = ($customerId !== null && $customerId > 0) ? $customerId : null;
-
-        $visitorId = isset($context['visitor_id']) ? (string) $context['visitor_id'] : null;
-        $visitorId = ($visitorId !== null && $visitorId !== '') ? $visitorId : null;
-
+        $target = $this->contextTargetResolver->resolveCustomerOrVisitor($context);
         $headline = trim((string) ($params['headline'] ?? ''));
 
-        if ($customerId === null && $visitorId === null) {
+        if ($target->isEmpty()) {
             $this->logger->error(
                 'Ordo_Automation: popup action has no customer_id or visitor_id in context to target.'
             );
@@ -66,7 +62,7 @@ class ShowPopup implements ActionInterface
         if ($capHours > 0) {
             $since = date('Y-m-d H:i:s', $this->dateTime->gmtTimestamp() - $capHours * 3600);
             $recentlyShown = $this->pendingPopupCollectionFactory->create()
-                ->targetHasRecentlyReceivedPopup($customerId, $visitorId, $since);
+                ->targetHasRecentlyReceivedPopup($target->customerId, $target->visitorId, $since);
 
             if ($recentlyShown) {
                 return;
@@ -74,19 +70,13 @@ class ShowPopup implements ActionInterface
         }
 
         $popup = $this->pendingPopupFactory->create();
-        $popup->setCustomerId($customerId);
-        $popup->setVisitorId($visitorId);
+        $popup->setCustomerId($target->customerId);
+        $popup->setVisitorId($target->visitorId);
         $popup->setHeadline($headline);
-        $popup->setBody($this->nullableString($params['body'] ?? null));
-        $popup->setCtaLabel($this->nullableString($params['cta_label'] ?? null));
-        $popup->setCtaUrl($this->nullableString($params['cta_url'] ?? null));
+        $popup->setBody($this->contextTargetResolver->nullableString($params['body'] ?? null));
+        $popup->setCtaLabel($this->contextTargetResolver->nullableString($params['cta_label'] ?? null));
+        $popup->setCtaUrl($this->contextTargetResolver->nullableString($params['cta_url'] ?? null));
 
         $this->pendingPopupResource->save($popup);
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        $value = trim((string) $value);
-        return $value === '' ? null : $value;
     }
 }

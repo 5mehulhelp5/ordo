@@ -5,6 +5,7 @@ namespace Ordo\Automation\Test\Unit\Model\Campaign\Action;
 
 use Magento\Framework\Stdlib\DateTime\DateTime;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Campaign\Action\ContextTargetResolver;
 use Ordo\Automation\Model\Campaign\Action\ShowPopup;
 use Ordo\Automation\Model\PendingPopup;
 use Ordo\Automation\Model\PendingPopupFactory;
@@ -45,6 +46,7 @@ class ShowPopupTest extends TestCase
             $this->pendingPopupCollectionFactory,
             $this->config,
             $this->dateTime,
+            new ContextTargetResolver(),
             $this->logger
         );
     }
@@ -131,6 +133,7 @@ class ShowPopupTest extends TestCase
             $collectionFactory,
             $this->config,
             $this->dateTime,
+            new ContextTargetResolver(),
             $this->logger
         );
 
@@ -153,6 +156,7 @@ class ShowPopupTest extends TestCase
             $this->pendingPopupCollectionFactory,
             $this->config,
             $this->dateTime,
+            new ContextTargetResolver(),
             $this->logger
         );
 

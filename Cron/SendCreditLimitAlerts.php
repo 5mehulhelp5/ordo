@@ -48,9 +48,23 @@ class SendCreditLimitAlerts
 
         $customerIds = $this->creditLimitCalculator->getCustomerIdsWithCreditLimit();
         $customerMap = $this->customerMapBuilder->build($customerIds);
+        // One GROUP BY query for every customer here instead of one query per customer inside
+        // the loop below (Model\CreditLimitCalculator::getUsedCredit() would do that) - found via
+        // a performance audit, real impact at a few thousand credit-limit customers.
+        $usedCreditByCustomer = $this->creditLimitCalculator->getUsedCreditForCustomers($customerIds);
 
         foreach ($customerIds as $customerId) {
-            $utilization = $this->creditLimitCalculator->getUtilizationPercent($customerId);
+            if (!isset($customerMap[$customerId])) {
+                continue;
+            }
+
+            $customer = $customerMap[$customerId];
+            // getCreditLimitFromCustomer(), not getCreditLimit($customerId) - $customer is
+            // already loaded above, so this avoids a second, redundant EAV round trip through
+            // customerRepository->getById() for every customer in the loop.
+            $limit = $this->creditLimitCalculator->getCreditLimitFromCustomer($customer);
+            $used = $usedCreditByCustomer[$customerId] ?? 0.0;
+            $utilization = $limit > 0.0 ? round(($used / $limit) * 100, 2) : 0.0;
             $band = $this->resolveBand($utilization, $warningThreshold);
 
             if ($band === null) {
@@ -61,12 +75,8 @@ class SendCreditLimitAlerts
                 continue;
             }
 
-            if (!isset($customerMap[$customerId])) {
-                continue;
-            }
-
             try {
-                $this->sendAlert($customerMap[$customerId], $customerId, $utilization, $band);
+                $this->sendAlert($customer, $customerId, $utilization, $limit, $used, $band);
                 $this->logAlert($customerId, $band, $utilization);
                 $this->triggerOutcomeLogger->logSent(TriggerOutcomeLogger::TRIGGER_CREDIT_LIMIT_ALERT, $customerId);
                 $sent++;
@@ -106,15 +116,21 @@ class SendCreditLimitAlerts
         ]) > 0;
     }
 
-    private function sendAlert(CustomerInterface $customer, int $customerId, float $utilization, int $band): void
-    {
+    private function sendAlert(
+        CustomerInterface $customer,
+        int $customerId,
+        float $utilization,
+        float $limit,
+        float $used,
+        int $band
+    ): void {
         $this->emailSender->send(
             self::XML_PATH_EMAIL_TEMPLATE,
             array_merge([
                 'customer_name' => $customer->getFirstname(),
                 'utilization_percent' => $utilization,
-                'credit_limit' => $this->creditLimitCalculator->getCreditLimit($customerId),
-                'used_credit' => $this->creditLimitCalculator->getUsedCredit($customerId),
+                'credit_limit' => $limit,
+                'used_credit' => $used,
                 'is_over_limit' => $band >= self::OVER_LIMIT_BAND,
                 'is_within_limit' => $band < self::OVER_LIMIT_BAND,
             ], $this->salesRepEmailContext->getForCustomer($customerId)),

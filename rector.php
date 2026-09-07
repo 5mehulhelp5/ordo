@@ -52,4 +52,11 @@ return RectorConfig::configure()
         // parameter type, so PHPStan correctly flags it as a real type mismatch, not a false
         // positive. The string-literal callable form has no such issue.
         \Rector\CodingStyle\Rector\FuncCall\FunctionFirstClassCallableRector::class,
+        // "readonly class Foo { public readonly ... }" -> "readonly class Foo { public ... }":
+        // confirmed via a real phpcs run that magento/magento-coding-standard doesn't yet
+        // recognize PHP 8.2's class-level `readonly` modifier syntax ("Readonly classes are not
+        // supported in PHP 8.1 or earlier" — a real phpcs sniff gap, not a project PHP-version
+        // constraint; composer.json already requires >=8.4). Per-property `public readonly`
+        // stays exactly as this rule would otherwise rewrite it away from.
+        \Rector\Php82\Rector\Class_\ReadOnlyClassRector::class,
     ]);

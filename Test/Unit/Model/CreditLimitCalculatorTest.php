@@ -114,6 +114,60 @@ class CreditLimitCalculatorTest extends TestCase
         self::assertSame(50.0, $calculator->getUtilizationPercent(42));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCreditLimitFromCustomerReturnsAttributeValueWithoutAnEavRoundTrip(): void
+    {
+        $customer = $this->createStub(CustomerInterface::class);
+        $attribute = $this->createStub(AttributeInterface::class);
+        $attribute->method('getValue')->willReturn('5000');
+        $customer->method('getCustomAttribute')->willReturn($attribute);
+
+        $customerRepository = $this->createMock(CustomerRepositoryInterface::class);
+        $customerRepository->expects(self::never())->method('getById');
+
+        $calculator = new CreditLimitCalculator($this->createStub(ResourceConnection::class), $customerRepository);
+
+        self::assertSame(5000.0, $calculator->getCreditLimitFromCustomer($customer));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCreditLimitFromCustomerReturnsZeroWhenAttributeMissing(): void
+    {
+        $customer = $this->createStub(CustomerInterface::class);
+        $customer->method('getCustomAttribute')->willReturn(null);
+
+        $calculator = new CreditLimitCalculator(
+            $this->createStub(ResourceConnection::class),
+            $this->createStub(CustomerRepositoryInterface::class)
+        );
+
+        self::assertSame(0.0, $calculator->getCreditLimitFromCustomer($customer));
+    }
+
+    public function testGetUsedCreditForCustomersReturnsEmptyArrayForEmptyInput(): void
+    {
+        $resourceConnection = $this->createMock(ResourceConnection::class);
+        $resourceConnection->expects(self::never())->method('getConnection');
+
+        $calculator = new CreditLimitCalculator($resourceConnection, $this->createStub(CustomerRepositoryInterface::class));
+
+        self::assertSame([], $calculator->getUsedCreditForCustomers([]));
+    }
+
+    public function testGetUsedCreditForCustomersReturnsOneRowPerCustomerFromASingleQuery(): void
+    {
+        $connection = $this->makeConnectionMock();
+        $connection->method('fetchPairs')->willReturn(['5' => '850.5', '9' => '0']);
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $calculator = new CreditLimitCalculator($resourceConnection, $this->createStub(CustomerRepositoryInterface::class));
+
+        self::assertSame([5 => 850.5, 9 => 0.0], $calculator->getUsedCreditForCustomers([5, 9]));
+    }
+
     public function testGetCustomerIdsWithCreditLimitReturnsEmptyWhenAttributeMissing(): void
     {
         $connection = $this->makeConnectionMock();

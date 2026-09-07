@@ -27,21 +27,17 @@ class Notify implements ActionInterface
     public function __construct(
         private readonly NotificationFactory $notificationFactory,
         private readonly NotificationResource $notificationResource,
+        private readonly ContextTargetResolver $contextTargetResolver,
         private readonly LoggerInterface $logger
     ) {
     }
 
     public function execute(array &$context, array $params): void
     {
-        $customerId = isset($context['customer_id']) ? (int) $context['customer_id'] : null;
-        $customerId = ($customerId !== null && $customerId > 0) ? $customerId : null;
-
-        $visitorId = isset($context['visitor_id']) ? (string) $context['visitor_id'] : null;
-        $visitorId = ($visitorId !== null && $visitorId !== '') ? $visitorId : null;
-
+        $target = $this->contextTargetResolver->resolveCustomerOrVisitor($context);
         $headline = trim((string) ($params['headline'] ?? ''));
 
-        if ($customerId === null && $visitorId === null) {
+        if ($target->isEmpty()) {
             $this->logger->error(
                 'Ordo_Automation: notify action has no customer_id or visitor_id in context to target.'
             );
@@ -54,19 +50,13 @@ class Notify implements ActionInterface
         }
 
         $notification = $this->notificationFactory->create();
-        $notification->setCustomerId($customerId);
-        $notification->setVisitorId($visitorId);
+        $notification->setCustomerId($target->customerId);
+        $notification->setVisitorId($target->visitorId);
         $notification->setHeadline($headline);
-        $notification->setBody($this->nullableString($params['body'] ?? null));
-        $notification->setCtaLabel($this->nullableString($params['cta_label'] ?? null));
-        $notification->setCtaUrl($this->nullableString($params['cta_url'] ?? null));
+        $notification->setBody($this->contextTargetResolver->nullableString($params['body'] ?? null));
+        $notification->setCtaLabel($this->contextTargetResolver->nullableString($params['cta_label'] ?? null));
+        $notification->setCtaUrl($this->contextTargetResolver->nullableString($params['cta_url'] ?? null));
 
         $this->notificationResource->save($notification);
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        $value = trim((string) $value);
-        return $value === '' ? null : $value;
     }
 }

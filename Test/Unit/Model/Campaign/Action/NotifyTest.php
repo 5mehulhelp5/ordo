@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Model\Campaign\Action;
 
+use Ordo\Automation\Model\Campaign\Action\ContextTargetResolver;
 use Ordo\Automation\Model\Campaign\Action\Notify;
 use Ordo\Automation\Model\Notification;
 use Ordo\Automation\Model\NotificationFactory;
@@ -23,7 +24,12 @@ class NotifyTest extends TestCase
         $this->notificationFactory = $this->createMock(NotificationFactory::class);
         $this->notificationResource = $this->createMock(NotificationResource::class);
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->action = new Notify($this->notificationFactory, $this->notificationResource, $this->logger);
+        $this->action = new Notify(
+            $this->notificationFactory,
+            $this->notificationResource,
+            new ContextTargetResolver(),
+            $this->logger
+        );
     }
 
     #[AllowMockObjectsWithoutExpectations]

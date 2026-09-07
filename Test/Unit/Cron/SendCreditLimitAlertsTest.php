@@ -99,7 +99,8 @@ class SendCreditLimitAlertsTest extends TestCase
 
         $calculator = $this->createMock(CreditLimitCalculator::class);
         $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
-        $calculator->method('getUtilizationPercent')->willReturnMap([[5, 50.0]]);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 500.0]);
+        $calculator->method('getCreditLimitFromCustomer')->willReturn(1000.0);
 
         $resourceConnection = $this->createMock(ResourceConnection::class);
         $resourceConnection->expects(self::never())->method('getConnection');
@@ -117,9 +118,8 @@ class SendCreditLimitAlertsTest extends TestCase
 
         $calculator = $this->createMock(CreditLimitCalculator::class);
         $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
-        $calculator->method('getUtilizationPercent')->willReturnMap([[5, 85.0]]);
-        $calculator->method('getCreditLimit')->willReturn(1000.0);
-        $calculator->method('getUsedCredit')->willReturn(850.0);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 850.0]);
+        $calculator->method('getCreditLimitFromCustomer')->willReturn(1000.0);
 
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($this->makeSelect());
@@ -146,7 +146,8 @@ class SendCreditLimitAlertsTest extends TestCase
 
         $calculator = $this->createMock(CreditLimitCalculator::class);
         $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
-        $calculator->method('getUtilizationPercent')->willReturn(120.0);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 1200.0]);
+        $calculator->method('getCreditLimitFromCustomer')->willReturn(1000.0);
 
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($this->makeSelect());
@@ -170,7 +171,8 @@ class SendCreditLimitAlertsTest extends TestCase
 
         $calculator = $this->createMock(CreditLimitCalculator::class);
         $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
-        $calculator->method('getUtilizationPercent')->willReturn(85.0);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 850.0]);
+        $calculator->method('getCreditLimitFromCustomer')->willReturn(1000.0);
 
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($this->makeSelect());
@@ -216,7 +218,8 @@ class SendCreditLimitAlertsTest extends TestCase
 
         $calculator = $this->createMock(CreditLimitCalculator::class);
         $calculator->method('getCustomerIdsWithCreditLimit')->willReturn([5]);
-        $calculator->method('getUtilizationPercent')->willReturn(85.0);
+        $calculator->method('getUsedCreditForCustomers')->willReturn([5 => 850.0]);
+        $calculator->expects(self::never())->method('getCreditLimitFromCustomer');
 
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($this->makeSelect());

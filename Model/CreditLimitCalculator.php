@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Model;
 
 use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Framework\App\ResourceConnection;
 use Ordo\Automation\Setup\Patch\Data\AddCustomerCreditLimitAttribute;
 
@@ -22,7 +23,16 @@ class CreditLimitCalculator
 
     public function getCreditLimit(int $customerId): float
     {
-        $customer = $this->customerRepository->getById($customerId);
+        return $this->getCreditLimitFromCustomer($this->customerRepository->getById($customerId));
+    }
+
+    /**
+     * Same as getCreditLimit(), for a caller that already has the CustomerInterface loaded
+     * (e.g. from CustomerMapBuilder's own batch load) - avoids a redundant per-customer EAV
+     * round trip through customerRepository->getById() in a loop over many customers.
+     */
+    public function getCreditLimitFromCustomer(CustomerInterface $customer): float
+    {
         $attribute = $customer->getCustomAttribute(AddCustomerCreditLimitAttribute::ATTRIBUTE_CODE);
 
         return $attribute ? (float) $attribute->getValue() : 0.0;
@@ -41,6 +51,40 @@ class CreditLimitCalculator
         );
 
         return (float) $used;
+    }
+
+    /**
+     * Batched counterpart to getUsedCredit() - one GROUP BY query for every customer in
+     * $customerIds instead of one query per customer, for callers (Cron\SendCreditLimitAlerts)
+     * that need this for many customers in a single pass. A customer with no non-canceled orders
+     * at all is simply absent from the returned array - callers should default to 0.0.
+     *
+     * @param int[] $customerIds
+     * @return array<int, float> used credit keyed by customer_id
+     */
+    public function getUsedCreditForCustomers(array $customerIds): array
+    {
+        if ($customerIds === []) {
+            return [];
+        }
+
+        $connection = $this->resourceConnection->getConnection();
+        $orderTable = $this->resourceConnection->getTableName('sales_order');
+
+        $rows = $connection->fetchPairs(
+            $connection->select()
+                ->from($orderTable, ['customer_id', 'SUM(total_due)'])
+                ->where('customer_id IN (?)', $customerIds)
+                ->where('state NOT IN (?)', ['canceled', 'closed'])
+                ->group('customer_id')
+        );
+
+        $usedByCustomerId = [];
+        foreach ($rows as $customerId => $used) {
+            $usedByCustomerId[(int) $customerId] = (float) $used;
+        }
+
+        return $usedByCustomerId;
     }
 
     /**
