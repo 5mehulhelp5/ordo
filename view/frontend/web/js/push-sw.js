@@ -36,9 +36,9 @@ self.addEventListener('notificationclick', function (event) {
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            for (var i = 0; i < clientList.length; i++) {
-                if (clientList[i].url === url && 'focus' in clientList[i]) {
-                    return clientList[i].focus();
+            for (var client of clientList) {
+                if (client.url === url && 'focus' in client) {
+                    return client.focus();
                 }
             }
             if (self.clients.openWindow) {
@@ -85,7 +85,10 @@ function arrayBufferToBase64Url(buffer) {
     for (var byte of bytes) {
         binary += String.fromCodePoint(byte);
     }
-    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+    // Padding '=' only ever appears at the end of base64 output and never elsewhere in the
+    // alphabet, so stripping every occurrence is equivalent to trimming just the trailing run -
+    // without the trailing-quantifier regex (/=+$/) that flagged as super-linear backtracking risk.
+    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
 // Exposed for Test/js/push-sw.test.js - guarded since a real service worker context has no
