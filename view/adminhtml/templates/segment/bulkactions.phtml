@@ -5,7 +5,7 @@ if (!$block->isSegmentSaved()) {
     return;
 }
 ?>
-<div class="admin__fieldset-wrapper" style="margin-top: 20px;">
+<div class="admin__fieldset-wrapper ordo-bulk-actions-panel">
     <div class="admin__fieldset-wrapper-title">
         <strong><?= $escaper->escapeHtml(__('Bulk actions on current members')) ?></strong>
     </div>
@@ -46,7 +46,7 @@ if (!$block->isSegmentSaved()) {
                     <input type="number" id="ordo-segment-bulk-points" name="points" class="admin__control-text"/>
                 </div>
             </div>
-            <div class="admin__field">
+            <div class="admin__field ordo-bulk-actions-submit">
                 <button type="submit" class="action-primary">
                     <span><?= $escaper->escapeHtml(__('Run Bulk Action')) ?></span>
                 </button>

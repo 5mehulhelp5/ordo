@@ -173,4 +173,79 @@ class SegmentMatcherTest extends TestCase
 
         self::assertFalse($this->matcher->isCustomerInSegment(3, 42));
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupIsEvaluatedWithItsOwnLogic(): void
+    {
+        // Top level is AND: tag=vip AND (group, OR: score_at_least=999 OR score_at_least=1) -
+        // the group only passes because of its OWN internal OR, not the top-level AND.
+        $this->stubSegmentConditionLogic('all');
+
+        $tagRow = $this->makeConditionRow('tag', ['tag' => 'vip']);
+        $groupRow = $this->makeConditionRow('group', [
+            'logic' => 'any',
+            'conditions' => [
+                ['type' => 'score_at_least', 'params' => ['threshold' => 999]],
+                ['type' => 'score_at_least', 'params' => ['threshold' => 1]],
+            ],
+        ]);
+        $this->collection->method('getSize')->willReturn(2);
+        $this->collection->method('getIterator')->willReturn(new \ArrayIterator([$tagRow, $groupRow]));
+
+        $tagCondition = $this->createStub(ConditionInterface::class);
+        $tagCondition->method('isSatisfied')->willReturn(true);
+
+        $scoreCondition = $this->createMock(ConditionInterface::class);
+        $scoreCondition->method('isSatisfied')->willReturnMap([
+            [['customer_id' => 42, '_in_segment_visited' => [3]], ['threshold' => 999], false],
+            [['customer_id' => 42, '_in_segment_visited' => [3]], ['threshold' => 1], true],
+        ]);
+
+        $this->conditionPool->method('get')->willReturnMap([
+            ['tag', $tagCondition],
+            ['score_at_least', $scoreCondition],
+        ]);
+
+        self::assertTrue($this->matcher->isCustomerInSegment(3, 42));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupFailingFailsTheWholeAndEvenIfOtherConditionsPass(): void
+    {
+        $this->stubSegmentConditionLogic('all');
+
+        $tagRow = $this->makeConditionRow('tag', ['tag' => 'vip']);
+        $groupRow = $this->makeConditionRow('group', [
+            'logic' => 'any',
+            'conditions' => [
+                ['type' => 'score_at_least', 'params' => ['threshold' => 999]],
+            ],
+        ]);
+        $this->collection->method('getSize')->willReturn(2);
+        $this->collection->method('getIterator')->willReturn(new \ArrayIterator([$tagRow, $groupRow]));
+
+        $tagCondition = $this->createStub(ConditionInterface::class);
+        $tagCondition->method('isSatisfied')->willReturn(true);
+        $scoreCondition = $this->createStub(ConditionInterface::class);
+        $scoreCondition->method('isSatisfied')->willReturn(false);
+
+        $this->conditionPool->method('get')->willReturnMap([
+            ['tag', $tagCondition],
+            ['score_at_least', $scoreCondition],
+        ]);
+
+        self::assertFalse($this->matcher->isCustomerInSegment(3, 42));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testEmptyNestedGroupFailsClosed(): void
+    {
+        $this->stubSegmentConditionLogic('any');
+
+        $groupRow = $this->makeConditionRow('group', ['logic' => 'all', 'conditions' => []]);
+        $this->collection->method('getSize')->willReturn(1);
+        $this->collection->method('getIterator')->willReturn(new \ArrayIterator([$groupRow]));
+
+        self::assertFalse($this->matcher->isCustomerInSegment(3, 42));
+    }
 }

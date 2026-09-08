@@ -501,4 +501,46 @@ class SegmentMemberResolverTest extends TestCase
 
         self::assertSame([1], $this->resolver->getMatchingCustomerIds(1));
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupIsResolvedWithItsOwnLogicAndIntersectedIntoTheAndTop(): void
+    {
+        // Top level AND: tag=vip AND (group, OR: score>=999 OR score>=1) - customer 2 has the
+        // tag but only clears the group via its low OR branch; customer 3 has the tag but clears
+        // neither branch of the group, so must be excluded from the final AND result.
+        $this->stubSegment(1, [
+            ['type' => 'tag', 'params' => ['tag' => 'vip']],
+            [
+                'type' => 'group',
+                'params' => [
+                    'logic' => 'any',
+                    'conditions' => [
+                        ['type' => 'score_at_least', 'params' => ['threshold' => '999']],
+                        ['type' => 'score_at_least', 'params' => ['threshold' => '1']],
+                    ],
+                ],
+            ],
+        ]);
+        $this->primeFactory();
+
+        $this->customerTagManager->method('getCustomerIdsWithTag')->willReturn([2, 3]);
+        $this->customerScoreManager->method('getCustomerIdsWithScoreAtLeast')->willReturnMap([
+            [999, []],
+            [1, [2]],
+        ]);
+
+        self::assertSame([2], array_values($this->resolver->getMatchingCustomerIds(1)));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testEmptyNestedGroupResolvesToNobody(): void
+    {
+        $this->stubSegmentConditionLogic('any');
+        $this->stubSegment(1, [
+            ['type' => 'group', 'params' => ['logic' => 'all', 'conditions' => []]],
+        ]);
+        $this->primeFactory();
+
+        self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
+    }
 }

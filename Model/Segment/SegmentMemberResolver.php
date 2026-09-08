@@ -15,14 +15,18 @@ use Psr\Log\LoggerInterface;
  * Resolves a saved segment's conditions into the actual set of customer IDs currently matching
  * them — the set-level counterpart to SegmentMatcher's per-customer boolean check, needed so bulk
  * actions can be run against "everyone currently in this segment" instead of one customer at a
- * time. Mirrors SegmentMatcher's semantics and fail-closed rules exactly:
+ * time. Mirrors SegmentMatcher's semantics, fail-closed rules, and nested-group support exactly:
  *  - zero conditions -> matches nobody (never "matches everyone"), regardless of condition_logic
  *  - under AND (condition_logic 'all', the historical default): any condition that can't be
- *    resolved zeroes out the whole segment, same as SegmentMatcher returning false the moment one
- *    condition fails; combined via array_intersect.
+ *    resolved zeroes out the whole segment/group, same as SegmentMatcher returning false the
+ *    moment one condition fails; combined via array_intersect.
  *  - under OR (condition_logic 'any'): an unresolvable condition simply contributes nobody to
- *    the union rather than zeroing out the segment — same as SegmentMatcher treating an
+ *    the union rather than zeroing out the segment/group — same as SegmentMatcher treating an
  *    unsatisfied condition as "keep checking the rest" under OR, not "fail the whole thing".
+ *  - a row whose type is the reserved 'group' pseudo-type recurses into its own
+ *    {"logic": ..., "conditions": [...]} the same way SegmentMatcher::evaluateGroup() does —
+ *    see that class's docblock for why this needs no schema change and isn't reachable via the
+ *    admin UI yet.
  *  - order_total_gte / visitor_tag are per-event-context conditions with no meaning for a
  *    standing set of customers; SegmentMatcher's own context (['customer_id' => $x]) already
  *    never satisfies them, so at the set level they match nobody too.
@@ -84,17 +88,34 @@ class SegmentMemberResolver
 
         $segment = $this->segmentFactory->create();
         $this->segmentResource->load($segment, $segmentId);
-        $matchAny = $segment->getConditionLogic() === 'any';
 
-        if ($matchAny) {
-            return $this->resolveAny($conditions, $visitedSegmentIds);
+        $specs = [];
+        /** @var \Ordo\Automation\Model\SegmentCondition $conditionRow */
+        foreach ($conditions as $conditionRow) {
+            $specs[] = ['type' => $conditionRow->getType(), 'params' => $conditionRow->getParams()];
+        }
+
+        return $this->resolveList($specs, $segment->getConditionLogic(), $visitedSegmentIds);
+    }
+
+    /**
+     * @param array<int, array{type: string, params: array<string, mixed>}> $specs
+     * @param int[] $visitedSegmentIds
+     * @return int[]
+     */
+    private function resolveList(array $specs, string $logic, array $visitedSegmentIds): array
+    {
+        if ($logic === 'any') {
+            $result = [];
+            foreach ($specs as $spec) {
+                $result += array_flip($this->resolveOne($spec, $visitedSegmentIds));
+            }
+            return array_keys($result);
         }
 
         $result = null;
-        /** @var \Ordo\Automation\Model\SegmentCondition $conditionRow */
-        foreach ($conditions as $conditionRow) {
-            $type = $conditionRow->getType();
-            $matchingIds = $this->resolveCondition($type, $conditionRow->getParams(), $visitedSegmentIds);
+        foreach ($specs as $spec) {
+            $matchingIds = $this->resolveOne($spec, $visitedSegmentIds);
 
             if ($matchingIds === []) {
                 return [];
@@ -111,21 +132,69 @@ class SegmentMemberResolver
     }
 
     /**
-     * @param iterable<\Ordo\Automation\Model\SegmentCondition> $conditions
+     * @param array{type: string, params: array<string, mixed>} $spec
      * @param int[] $visitedSegmentIds
      * @return int[]
      */
-    private function resolveAny(iterable $conditions, array $visitedSegmentIds): array
+    private function resolveOne(array $spec, array $visitedSegmentIds): array
     {
-        $result = [];
-
-        /** @var \Ordo\Automation\Model\SegmentCondition $conditionRow */
-        foreach ($conditions as $conditionRow) {
-            $matchingIds = $this->resolveCondition($conditionRow->getType(), $conditionRow->getParams(), $visitedSegmentIds);
-            $result += array_flip($matchingIds);
+        if ($spec['type'] === 'group') {
+            return $this->resolveGroup($spec['params'], $visitedSegmentIds);
         }
 
-        return array_keys($result);
+        return $this->resolveCondition($spec['type'], $spec['params'], $visitedSegmentIds);
+    }
+
+    /**
+     * @param array<string, mixed> $groupParams
+     * @param int[] $visitedSegmentIds
+     * @return int[]
+     */
+    private function resolveGroup(array $groupParams, array $visitedSegmentIds): array
+    {
+        $nestedLogic = ($groupParams['logic'] ?? 'all') === 'any' ? 'any' : 'all';
+        $nested = $groupParams['conditions'] ?? null;
+
+        if (!is_array($nested) || $nested === []) {
+            return [];
+        }
+
+        $specs = [];
+        foreach ($nested as $item) {
+            if (!is_array($item) || !isset($item['type']) || !is_string($item['type'])) {
+                continue;
+            }
+            $specs[] = ['type' => $item['type'], 'params' => $this->asStringKeyedArray($item['params'] ?? [])];
+        }
+
+        if ($specs === []) {
+            return [];
+        }
+
+        return $this->resolveList($specs, $nestedLogic, $visitedSegmentIds);
+    }
+
+    /**
+     * Same normalization as Model\Segment\SegmentMatcher::asStringKeyedArray() - a decoded-JSON
+     * 'group' params blob's nested "conditions" entries aren't guaranteed to be string-keyed
+     * maps the way a real SegmentCondition row's getParams() already is.
+     *
+     * @return array<string, mixed>
+     */
+    private function asStringKeyedArray(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (is_string($key)) {
+                $result[$key] = $item;
+            }
+        }
+
+        return $result;
     }
 
     /**

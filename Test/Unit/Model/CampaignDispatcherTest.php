@@ -473,6 +473,59 @@ class CampaignDispatcherTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchEvaluatesNestedGroupWithItsOwnLogic(): void
+    {
+        // Top-level AND: has_tag AND (group, OR: score>=999 OR score>=1) - the group only
+        // passes via its own internal OR, not the top-level AND.
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1, 'all')])
+        );
+
+        $tagRow = $this->createStub(CampaignCondition::class);
+        $tagRow->method('getCampaignId')->willReturn(1);
+        $tagRow->method('getData')->willReturnMap([['type', 'has_tag']]);
+        $tagRow->method('getParams')->willReturn([]);
+
+        $groupRow = $this->createStub(CampaignCondition::class);
+        $groupRow->method('getCampaignId')->willReturn(1);
+        $groupRow->method('getData')->willReturnMap([['type', 'group']]);
+        $groupRow->method('getParams')->willReturn([
+            'logic' => 'any',
+            'conditions' => [
+                ['type' => 'score_at_least', 'params' => ['threshold' => 999]],
+                ['type' => 'score_at_least', 'params' => ['threshold' => 1]],
+            ],
+        ]);
+
+        $this->conditionCollectionFactory->method('create')
+            ->willReturn($this->makeConditionCollection([$tagRow, $groupRow]));
+
+        $tagCondition = $this->createStub(ConditionInterface::class);
+        $tagCondition->method('isSatisfied')->willReturn(true);
+
+        $scoreCondition = $this->createMock(ConditionInterface::class);
+        $scoreCondition->method('isSatisfied')->willReturnMap([
+            [[], ['threshold' => 999], false],
+            [[], ['threshold' => 1], true],
+        ]);
+
+        $this->conditionPool = new ConditionPool(['has_tag' => $tagCondition, 'score_at_least' => $scoreCondition]);
+
+        $actionRow = $this->createMock(CampaignAction::class);
+        $actionRow->method('getCampaignId')->willReturn(1);
+        $actionRow->method('getData')->willReturnMap([['type', 'tag_customer']]);
+        $actionRow->method('getParams')->willReturn([]);
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([$actionRow]));
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::once())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testDispatchLogsAndAbortsWhenBatchLoadingConditionsThrows(): void
     {
         $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));

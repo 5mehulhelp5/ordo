@@ -11,7 +11,16 @@
    afterthought dropdown" the same way the JSON textarea did; this is the one control that
    decides how every condition below combines, so it gets a hierarchy that says so instead of
    sitting flush with "Name"/"Enabled" above it. */
+/* Magento's default .admin__field lays the label and control out side by side, the label column
+   a fixed narrow width meant for short labels like "Name" - forcing this field into a colored
+   box on top of that layout (without also overriding the float/width rules) squeezed the select
+   into a sliver of the box's own reduced width, clipping its own selected option text
+   ("All conditions (ANL...", reported directly against a real screenshot). Same fix as
+   .ordo-tier-own-label elsewhere: stop fighting Magento's side-by-side rules and lay this field
+   out as a normal top-to-bottom block instead - label full-width on its own line, control
+   full-width below it. */
 [data-index="condition_logic"] {
+    display: block;
     max-width: 420px;
     padding: 14px 16px;
     background: #f5f1fe;
@@ -19,13 +28,34 @@
     border-radius: 8px;
 }
 
-[data-index="condition_logic"] .admin__field-label {
+/* Magento's own `.admin__fieldset > .admin__field > .admin__field-label` rule (3 classes, child
+   combinators) is MORE specific than a plain `[data-index=...] .admin__field-label` (an
+   attribute selector only counts as one class-equivalent) and was silently winning the cascade -
+   confirmed via the actual computed style still showing float:left despite this stylesheet
+   loading after Magento's own (reported directly: the select's own text was clipped,
+   "All conditions (ANL..."). Matching Magento's own selector structure (same 3 "levels", scoped
+   by the attribute instead of the bare class) reliably outweighs it instead of guessing at
+   !important. */
+.admin__fieldset > [data-index="condition_logic"] > .admin__field-label {
+    display: block;
+    float: none;
+    width: auto;
+    text-align: left;
+    margin-bottom: 6px;
     font-size: 13px;
     font-weight: 700;
     color: #4c1d95;
 }
 
+.admin__fieldset > [data-index="condition_logic"] > .admin__field-control {
+    display: block;
+    float: none;
+    width: 100%;
+}
+
 [data-index="condition_logic"] select {
+    width: 100%;
+    box-sizing: border-box;
     font-weight: 600;
     border-color: #7c3aed;
 }
@@ -166,4 +196,66 @@
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete span {
     display: none;
+}
+
+/* "Bulk actions on current members" (bulkactions.phtml) - a bare, unstyled Magento form with the
+   same narrow-fixed-label-column layout problem the "Segment matches" field above had, sitting
+   right below the now-restyled card conditions and reading as an unfinished, bolted-on
+   afterthought by contrast (reported directly - "to dalej nie wyglada dobrze jak profesjonalne
+   narzedzie"). Given the same card treatment and full-width stacked label/control layout as the
+   rest of this page instead of Magento's default two-column field grid. */
+.ordo-bulk-actions-panel {
+    max-width: 560px;
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid #e4e7ee;
+    border-radius: 8px;
+    padding: 18px 20px;
+}
+
+.ordo-bulk-actions-panel .admin__fieldset-wrapper-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1b1f2a;
+    margin-bottom: 4px;
+}
+
+.ordo-bulk-actions-panel .admin__fieldset-wrapper-content > p {
+    margin: 0 0 16px;
+    color: #6b7180;
+    font-size: 12px;
+}
+
+.ordo-bulk-actions-panel .admin__field {
+    display: block;
+    margin-bottom: 14px;
+}
+
+.ordo-bulk-actions-panel .admin__field-label {
+    display: block;
+    float: none;
+    width: auto;
+    text-align: left;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6b7180;
+}
+
+.ordo-bulk-actions-panel .admin__field-control {
+    display: block;
+    float: none;
+    width: 100%;
+}
+
+.ordo-bulk-actions-panel select,
+.ordo-bulk-actions-panel input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ordo-bulk-actions-panel .ordo-bulk-actions-submit {
+    margin-bottom: 0;
 }
