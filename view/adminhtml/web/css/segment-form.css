@@ -1,0 +1,169 @@
+/*
+ * Segment condition builder — reported directly against a real screenshot as "masakra" (a bare
+ * Type select + a raw JSON textarea, no visual hierarchy at all). The dedicated per-type fields
+ * (switcherConfig in ordo_segment_form.xml) already fixed the "must hand-write JSON" problem;
+ * this fixes the fact that fixing it changed nothing about how the page LOOKS — same grey table
+ * rows, same JSON textarea sitting at full visual weight right next to the field that made it
+ * redundant. Same card-ification technique as free-gift-offer-form.css's Tiers section.
+ */
+
+/* "Segment matches" ALL/ANY toggle - the field a plain native <select> visually reads as "an
+   afterthought dropdown" the same way the JSON textarea did; this is the one control that
+   decides how every condition below combines, so it gets a hierarchy that says so instead of
+   sitting flush with "Name"/"Enabled" above it. */
+[data-index="condition_logic"] {
+    max-width: 420px;
+    padding: 14px 16px;
+    background: #f5f1fe;
+    border: 1px solid #ddd0fb;
+    border-radius: 8px;
+}
+
+[data-index="condition_logic"] .admin__field-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #4c1d95;
+}
+
+[data-index="condition_logic"] select {
+    font-weight: 600;
+    border-color: #7c3aed;
+}
+
+[data-index="condition_logic"] .admin__field-note {
+    color: #6b46c1;
+}
+
+/* Condition rows as cards, same layout technique as the Tiers table on the Free Gift Offer form:
+   dynamicRows renders a real <table>, repurposed here into a flex card stack without touching
+   the markup dynamicRows itself generates. */
+[data-index="conditions"].admin__dynamic-rows {
+    display: block;
+    border: none;
+}
+
+[data-index="conditions"].admin__dynamic-rows thead { display: none; }
+
+[data-index="conditions"].admin__dynamic-rows tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px 20px;
+    background: #fff;
+    border: 1px solid #e4e7ee;
+    border-radius: 8px;
+    padding: 14px 44px 14px 16px;
+    position: relative;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td {
+    display: block;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+[data-index="conditions"].admin__dynamic-rows .admin__field-control {
+    background: none;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td.col-draggable {
+    flex: 0 0 20px;
+}
+
+/* Type + its one visible dedicated field (switcherConfig shows exactly one of tag/amount/
+   threshold/days/count/percentile at a time) read as the row's real content - given room and a
+   normal font weight. min-width: 0 for the same reason as the Tiers cards: a flex item's default
+   min-width is its content's own intrinsic width, not 0, so without this a wide native <select>
+   refuses to shrink and overflows the card on a narrower viewport. */
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="type"]) {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="tag"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="amount"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="threshold"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="days"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="count"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]) {
+    flex: 1 1 160px;
+    min-width: 0;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="type"]) select,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="tag"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="amount"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="threshold"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="days"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="count"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]) input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* The raw JSON fallback - only ever meaningful for the 3 condition types with no dedicated field
+   (in_segment, loyalty_tier_at_least, nps_score_at_least; see ordo_segment_form.xml's own
+   comment), so for the other 10 it's genuinely a "you don't need this" field, not a required
+   one. Demoted from "same visual weight as the actual inputs" to a small muted aside instead of
+   hidden outright — hiding it would make it impossible to use for those 3 fallback-only types. */
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) .admin__field-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #9ca0ab;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #f7f7f9;
+    border-color: #e4e7ee;
+    color: #6b7180;
+    font-family: monospace;
+    font-size: 11px;
+    min-height: 32px;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) .admin__field-note {
+    font-size: 10px;
+}
+
+/* Delete button: pinned to the card's top-right corner instead of the full-row-width grey bar it
+   renders as by default in the original table layout. */
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child {
+    flex: 0 0 auto;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete {
+    background: none;
+    border: none;
+    color: #6b7180;
+    cursor: pointer;
+    padding: 4px;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete:hover {
+    color: #ef4444;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete span {
+    display: none;
+}

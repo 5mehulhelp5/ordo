@@ -5,18 +5,24 @@ namespace Ordo\Automation\Model\Segment;
 
 use Ordo\Automation\Model\CustomerScoreManager;
 use Ordo\Automation\Model\CustomerTagManager;
+use Ordo\Automation\Model\ResourceModel\Segment as SegmentResource;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\CollectionFactory as SegmentConditionCollectionFactory;
 use Ordo\Automation\Model\Rfm\RfmCalculator;
+use Ordo\Automation\Model\SegmentFactory;
 use Psr\Log\LoggerInterface;
 
 /**
  * Resolves a saved segment's conditions into the actual set of customer IDs currently matching
- * ALL of them — the set-level counterpart to SegmentMatcher's per-customer boolean check, needed
- * so bulk actions can be run against "everyone currently in this segment" instead of one customer
- * at a time. Mirrors SegmentMatcher's AND-semantics and fail-closed rules exactly:
- *  - zero conditions -> matches nobody (never "matches everyone")
- *  - any condition that can't be resolved zeroes out the whole segment, same as SegmentMatcher
- *    returning false the moment one condition fails
+ * them — the set-level counterpart to SegmentMatcher's per-customer boolean check, needed so bulk
+ * actions can be run against "everyone currently in this segment" instead of one customer at a
+ * time. Mirrors SegmentMatcher's semantics and fail-closed rules exactly:
+ *  - zero conditions -> matches nobody (never "matches everyone"), regardless of condition_logic
+ *  - under AND (condition_logic 'all', the historical default): any condition that can't be
+ *    resolved zeroes out the whole segment, same as SegmentMatcher returning false the moment one
+ *    condition fails; combined via array_intersect.
+ *  - under OR (condition_logic 'any'): an unresolvable condition simply contributes nobody to
+ *    the union rather than zeroing out the segment — same as SegmentMatcher treating an
+ *    unsatisfied condition as "keep checking the rest" under OR, not "fail the whole thing".
  *  - order_total_gte / visitor_tag are per-event-context conditions with no meaning for a
  *    standing set of customers; SegmentMatcher's own context (['customer_id' => $x]) already
  *    never satisfies them, so at the set level they match nobody too.
@@ -47,6 +53,8 @@ class SegmentMemberResolver
         private readonly CustomerTagManager $customerTagManager,
         private readonly CustomerScoreManager $customerScoreManager,
         private readonly RfmCalculator $rfmCalculator,
+        private readonly SegmentFactory $segmentFactory,
+        private readonly SegmentResource $segmentResource,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -74,6 +82,14 @@ class SegmentMemberResolver
 
         $visitedSegmentIds[] = $segmentId;
 
+        $segment = $this->segmentFactory->create();
+        $this->segmentResource->load($segment, $segmentId);
+        $matchAny = $segment->getConditionLogic() === 'any';
+
+        if ($matchAny) {
+            return $this->resolveAny($conditions, $visitedSegmentIds);
+        }
+
         $result = null;
         /** @var \Ordo\Automation\Model\SegmentCondition $conditionRow */
         foreach ($conditions as $conditionRow) {
@@ -92,6 +108,24 @@ class SegmentMemberResolver
         }
 
         return array_values($result ?? []);
+    }
+
+    /**
+     * @param iterable<\Ordo\Automation\Model\SegmentCondition> $conditions
+     * @param int[] $visitedSegmentIds
+     * @return int[]
+     */
+    private function resolveAny(iterable $conditions, array $visitedSegmentIds): array
+    {
+        $result = [];
+
+        /** @var \Ordo\Automation\Model\SegmentCondition $conditionRow */
+        foreach ($conditions as $conditionRow) {
+            $matchingIds = $this->resolveCondition($conditionRow->getType(), $conditionRow->getParams(), $visitedSegmentIds);
+            $result += array_flip($matchingIds);
+        }
+
+        return array_keys($result);
     }
 
     /**

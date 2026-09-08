@@ -30,4 +30,24 @@ class Campaign extends AbstractNamedToggleableEntityModel implements CampaignInt
         $this->setData(self::ENABLED, $enabled);
         return $this;
     }
+
+    /**
+     * 'all' (AND, the historical/default behavior) or 'any' (OR) across this campaign's
+     * conditions — mirrors Model\Segment::getConditionLogic()/setConditionLogic(); see
+     * CampaignDispatcher::allConditionsSatisfied(), the one place that reads it. Not part of
+     * CampaignInterface: the Flow canvas is the only editor for campaign conditions today and
+     * doesn't yet expose this toggle, so it's a plain model accessor rather than a REST-visible
+     * field for now.
+     */
+    public function getConditionLogic(): string
+    {
+        $value = $this->getData('condition_logic');
+        return $value === 'any' ? 'any' : 'all';
+    }
+
+    public function setConditionLogic(string $logic): self
+    {
+        $this->setData('condition_logic', $logic === 'any' ? 'any' : 'all');
+        return $this;
+    }
 }

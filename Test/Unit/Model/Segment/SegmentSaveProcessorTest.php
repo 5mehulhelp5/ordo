@@ -59,6 +59,7 @@ class SegmentSaveProcessorTest extends TestCase
         $segment = $this->createMock(Segment::class);
         $segment->expects(self::once())->method('setName')->with('VIP customers');
         $segment->expects(self::once())->method('setEnabled')->with(true);
+        $segment->expects(self::once())->method('setConditionLogic')->with('all');
         $segment->method('getEntityId')->willReturn(7);
         $this->segmentFactory->method('create')->willReturn($segment);
         $this->segmentResource->expects(self::once())->method('save')->with($segment);
@@ -169,6 +170,21 @@ class SegmentSaveProcessorTest extends TestCase
                 'amount' => '500',
             ]]],
         ]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testProcessSetsAnyConditionLogicWhenPosted(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $segment = $this->createMock(Segment::class);
+        $segment->method('getEntityId')->willReturn(1);
+        $segment->expects(self::once())->method('setConditionLogic')->with('any');
+        $this->segmentFactory->method('create')->willReturn($segment);
+
+        $this->segmentConditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+
+        $processor->process(['name' => 'Anyone', 'condition_logic' => 'any']);
     }
 
     #[AllowMockObjectsWithoutExpectations]

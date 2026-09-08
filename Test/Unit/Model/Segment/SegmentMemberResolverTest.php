@@ -7,9 +7,12 @@ use Ordo\Automation\Model\CustomerScoreManager;
 use Ordo\Automation\Model\CustomerTagManager;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\Collection as SegmentConditionCollection;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\CollectionFactory as SegmentConditionCollectionFactory;
+use Ordo\Automation\Model\ResourceModel\Segment as SegmentResource;
 use Ordo\Automation\Model\Rfm\RfmCalculator;
+use Ordo\Automation\Model\Segment;
 use Ordo\Automation\Model\Segment\SegmentMemberResolver;
 use Ordo\Automation\Model\SegmentCondition;
+use Ordo\Automation\Model\SegmentFactory;
 use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -20,8 +23,11 @@ class SegmentMemberResolverTest extends TestCase
     private CustomerTagManager&\PHPUnit\Framework\MockObject\MockObject $customerTagManager;
     private CustomerScoreManager&\PHPUnit\Framework\MockObject\MockObject $customerScoreManager;
     private RfmCalculator&\PHPUnit\Framework\MockObject\MockObject $rfmCalculator;
+    private SegmentFactory&\PHPUnit\Framework\MockObject\MockObject $segmentFactory;
+    private SegmentResource&\PHPUnit\Framework\MockObject\MockObject $segmentResource;
     private LoggerInterface&\PHPUnit\Framework\MockObject\MockObject $logger;
     private SegmentMemberResolver $resolver;
+    private Segment $segmentStub;
 
     /** @var array<int, SegmentConditionCollection&\PHPUnit\Framework\MockObject\MockObject> */
     private array $collectionsBySegment = [];
@@ -32,15 +38,34 @@ class SegmentMemberResolverTest extends TestCase
         $this->customerTagManager = $this->createMock(CustomerTagManager::class);
         $this->customerScoreManager = $this->createMock(CustomerScoreManager::class);
         $this->rfmCalculator = $this->createMock(RfmCalculator::class);
+        $this->segmentFactory = $this->createMock(SegmentFactory::class);
+        $this->segmentResource = $this->createMock(SegmentResource::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+
+        // willReturnCallback (not willReturn) so stubSegmentConditionLogic() can change what's
+        // returned later in a test — PHPUnit stacks multiple ->method('create') stubs FIFO, so a
+        // second plain willReturn() call would never actually override this one. Every existing
+        // test in this file predates condition_logic and exercises the historical AND behavior,
+        // so default every segment to 'all' unless a test overrides it.
+        $this->segmentFactory->method('create')->willReturnCallback(fn () => $this->segmentStub);
+        $this->stubSegmentConditionLogic('all');
 
         $this->resolver = new SegmentMemberResolver(
             $this->collectionFactory,
             $this->customerTagManager,
             $this->customerScoreManager,
             $this->rfmCalculator,
+            $this->segmentFactory,
+            $this->segmentResource,
             $this->logger
         );
+    }
+
+    private function stubSegmentConditionLogic(string $logic): void
+    {
+        $segment = $this->createStub(Segment::class);
+        $segment->method('getConditionLogic')->willReturn($logic);
+        $this->segmentStub = $segment;
     }
 
     /**
@@ -441,5 +466,39 @@ class SegmentMemberResolverTest extends TestCase
         $this->primeFactory();
 
         self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testAnyLogicUnionsAcrossMultipleConditions(): void
+    {
+        $this->stubSegmentConditionLogic('any');
+        $this->stubSegment(1, [
+            ['type' => 'tag', 'params' => ['tag' => 'vip']],
+            ['type' => 'score_at_least', 'params' => ['threshold' => '50']],
+        ]);
+        $this->primeFactory();
+
+        $this->customerTagManager->method('getCustomerIdsWithTag')->willReturn([1, 2]);
+        $this->customerScoreManager->method('getCustomerIdsWithScoreAtLeast')->willReturn([2, 3]);
+
+        self::assertSame([1, 2, 3], array_values($this->resolver->getMatchingCustomerIds(1)));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testAnyLogicDoesNotZeroOutOnAnUnresolvableCondition(): void
+    {
+        // Unlike AND, one condition resolving to nobody (or an unknown type) must not zero out
+        // the whole union — it just contributes nothing to it.
+        $this->stubSegmentConditionLogic('any');
+        $this->stubSegment(1, [
+            ['type' => 'tag', 'params' => ['tag' => 'vip']],
+            ['type' => 'this_type_does_not_exist', 'params' => []],
+        ]);
+        $this->primeFactory();
+
+        $this->customerTagManager->method('getCustomerIdsWithTag')->willReturn([1]);
+        $this->logger->expects(self::once())->method('error');
+
+        self::assertSame([1], $this->resolver->getMatchingCustomerIds(1));
     }
 }

@@ -75,6 +75,7 @@ class CampaignSaveProcessor
 
         $campaign->setName((string) ($data['name'] ?? ''));
         $campaign->setEnabled(!empty($data['enabled']));
+        $campaign->setConditionLogic((string) ($data['condition_logic'] ?? 'all'));
 
         /** @var array<int, array<string, mixed>> $triggerRows */
         $triggerRows = (array) ($data['triggers']['triggers'] ?? []);

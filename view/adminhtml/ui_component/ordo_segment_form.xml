@@ -78,8 +78,23 @@
 
     <fieldset name="conditions_fieldset">
         <settings>
-            <label translate="true">Conditions (all must match — AND)</label>
+            <label translate="true">Conditions</label>
         </settings>
+        <field name="condition_logic" formElement="select" sortOrder="5">
+            <settings>
+                <dataType>text</dataType>
+                <label translate="true">Segment matches</label>
+                <notice translate="true">"All" (AND) requires every condition below to match; "Any" (OR) requires only one.</notice>
+                <dataScope>condition_logic</dataScope>
+            </settings>
+            <formElements>
+                <select>
+                    <settings>
+                        <options class="Ordo\Automation\Model\Config\Source\ConditionLogic"/>
+                    </settings>
+                </select>
+            </formElements>
+        </field>
         <dynamicRows name="conditions">
             <settings>
                 <label translate="true">Conditions</label>

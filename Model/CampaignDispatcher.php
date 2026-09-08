@@ -74,11 +74,13 @@ class CampaignDispatcher
      */
     public function dispatch(string $triggerEvent, array $context): void
     {
-        $campaignIds = $this->campaignIdsForTrigger($triggerEvent);
+        $conditionLogicByCampaign = $this->campaignIdsForTrigger($triggerEvent);
 
-        if (!$campaignIds) {
+        if (!$conditionLogicByCampaign) {
             return;
         }
+
+        $campaignIds = array_keys($conditionLogicByCampaign);
 
         // Loaded once for every matched campaign, not per-campaign (that's the N+1 this batching
         // avoids) — which also means a failure here can't be isolated to one campaign the way
@@ -103,7 +105,8 @@ class CampaignDispatcher
 
         foreach ($campaignIds as $campaignId) {
             try {
-                if (!$this->allConditionsSatisfied($conditionsByCampaign[$campaignId] ?? [], $context)) {
+                $logic = $conditionLogicByCampaign[$campaignId] ?? 'all';
+                if (!$this->conditionsSatisfied($logic, $conditionsByCampaign[$campaignId] ?? [], $context)) {
                     continue;
                 }
 
@@ -120,7 +123,9 @@ class CampaignDispatcher
     }
 
     /**
-     * @return int[] enabled campaign ids with a trigger row for $triggerEvent
+     * @return array<int, string> enabled campaign ids with a trigger row for $triggerEvent,
+     *  mapped to that campaign's condition_logic ('all'/'any') — carrying it through the cache
+     *  here avoids a second per-campaign query just to read it back in dispatch().
      */
     private function campaignIdsForTrigger(string $triggerEvent): array
     {
@@ -139,20 +144,22 @@ class CampaignDispatcher
             $candidateIds[(int) $trigger->getCampaignId()] = true;
         }
 
-        $campaignIds = [];
+        $conditionLogicByCampaign = [];
         if ($candidateIds) {
             $campaigns = $this->campaignCollectionFactory->create();
             $campaigns->addIdsFilter(array_keys($candidateIds));
             $campaigns->addEnabledFilter();
 
             foreach ($campaigns as $campaign) {
-                $campaignIds[] = (int) $campaign->getId();
+                $conditionLogicByCampaign[(int) $campaign->getId()] = (string) $campaign->getData('condition_logic') === 'any'
+                    ? 'any'
+                    : 'all';
             }
         }
 
-        $this->cache->save($this->serializer->serialize($campaignIds), $cacheKey, [self::CACHE_TAG]);
+        $this->cache->save($this->serializer->serialize($conditionLogicByCampaign), $cacheKey, [self::CACHE_TAG]);
 
-        return $campaignIds;
+        return $conditionLogicByCampaign;
     }
 
     /**
@@ -173,11 +180,22 @@ class CampaignDispatcher
     }
 
     /**
+     * @param 'all'|'any' $logic
      * @param CampaignCondition[] $conditions
      * @param array<string, mixed> $context
      */
-    private function allConditionsSatisfied(array $conditions, array $context): bool
+    private function conditionsSatisfied(string $logic, array $conditions, array $context): bool
     {
+        // A campaign with zero conditions has always meant "fire unconditionally" regardless of
+        // AND/OR — deliberately asymmetric from SegmentMatcher, which fails closed on zero
+        // conditions either way (see SegmentMatcher's own docblock). Handled before the loop so
+        // it doesn't depend on which logic happens to be selected.
+        if ($conditions === []) {
+            return true;
+        }
+
+        $matchAny = $logic === 'any';
+
         foreach ($conditions as $conditionRow) {
             $condition = $this->conditionPool->get((string) $conditionRow->getData('type'));
 
@@ -189,12 +207,20 @@ class CampaignDispatcher
                 return false;
             }
 
-            if (!$condition->isSatisfied($context, $conditionRow->getParams())) {
+            $satisfied = $condition->isSatisfied($context, $conditionRow->getParams());
+
+            if ($matchAny && $satisfied) {
+                return true;
+            }
+
+            if (!$matchAny && !$satisfied) {
                 return false;
             }
         }
 
-        return true;
+        // Loop finished without an early return: under AND every condition passed, under OR
+        // none of them did.
+        return !$matchAny;
     }
 
     /**

@@ -56,6 +56,7 @@ class SegmentSaveProcessor
 
         $segment->setName((string) ($data['name'] ?? ''));
         $segment->setEnabled(!empty($data['enabled']));
+        $segment->setConditionLogic((string) ($data['condition_logic'] ?? 'all'));
 
         /** @var array<int, array<string, mixed>> $conditionRows */
         $conditionRows = (array) ($data['conditions']['conditions'] ?? []);

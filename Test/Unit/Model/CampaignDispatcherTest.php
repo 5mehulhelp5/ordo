@@ -123,10 +123,11 @@ class CampaignDispatcherTest extends TestCase
         return $collection;
     }
 
-    private function makeCampaign(int $id): \Ordo\Automation\Model\Campaign
+    private function makeCampaign(int $id, string $conditionLogic = 'all'): \Ordo\Automation\Model\Campaign
     {
         $campaign = $this->createStub(\Ordo\Automation\Model\Campaign::class);
         $campaign->method('getId')->willReturn($id);
+        $campaign->method('getData')->willReturnMap([['condition_logic', $conditionLogic]]);
         return $campaign;
     }
 
@@ -166,7 +167,9 @@ class CampaignDispatcherTest extends TestCase
     public function testDispatchUsesCachedCampaignIdsWithoutRequeryingTriggersOrCampaigns(): void
     {
         $this->cache = $this->createStub(CacheInterface::class);
-        $this->cache->method('load')->willReturn('[1]');
+        // Cached shape is now campaign_id => condition_logic (see
+        // CampaignDispatcher::campaignIdsForTrigger()), not a plain list of ids.
+        $this->cache->method('load')->willReturn('{"1":"all"}');
 
         $this->triggerCollectionFactory->expects(self::never())->method('create');
         $this->campaignCollectionFactory->expects(self::never())->method('create');
@@ -401,6 +404,72 @@ class CampaignDispatcherTest extends TestCase
         $this->campaignScheduledActionFactory->expects(self::never())->method('create');
 
         $this->makeDispatcher()->resumeScheduledAction(1, 999, []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchRunsActionWhenAnyConditionLogicHasOneSatisfiedCondition(): void
+    {
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1, 'any')])
+        );
+
+        $failingRow = $this->createStub(CampaignCondition::class);
+        $failingRow->method('getCampaignId')->willReturn(1);
+        $failingRow->method('getData')->willReturnMap([['type', 'fails']]);
+        $failingRow->method('getParams')->willReturn([]);
+
+        $passingRow = $this->createStub(CampaignCondition::class);
+        $passingRow->method('getCampaignId')->willReturn(1);
+        $passingRow->method('getData')->willReturnMap([['type', 'passes']]);
+        $passingRow->method('getParams')->willReturn([]);
+
+        $this->conditionCollectionFactory->method('create')
+            ->willReturn($this->makeConditionCollection([$failingRow, $passingRow]));
+
+        $failingCondition = $this->createStub(ConditionInterface::class);
+        $failingCondition->method('isSatisfied')->willReturn(false);
+        $passingCondition = $this->createStub(ConditionInterface::class);
+        $passingCondition->method('isSatisfied')->willReturn(true);
+        $this->conditionPool = new ConditionPool(['fails' => $failingCondition, 'passes' => $passingCondition]);
+
+        $actionRow = $this->createMock(CampaignAction::class);
+        $actionRow->method('getCampaignId')->willReturn(1);
+        $actionRow->method('getData')->willReturnMap([['type', 'tag_customer']]);
+        $actionRow->method('getParams')->willReturn([]);
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([$actionRow]));
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::once())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchSkipsCampaignWhenAnyConditionLogicHasNoConditionsSatisfied(): void
+    {
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1, 'any')])
+        );
+
+        $conditionRow = $this->createStub(CampaignCondition::class);
+        $conditionRow->method('getCampaignId')->willReturn(1);
+        $conditionRow->method('getData')->willReturnMap([['type', 'has_tag']]);
+        $conditionRow->method('getParams')->willReturn([]);
+        $this->conditionCollectionFactory->method('create')->willReturn($this->makeConditionCollection([$conditionRow]));
+
+        $condition = $this->createStub(ConditionInterface::class);
+        $condition->method('isSatisfied')->willReturn(false);
+        $this->conditionPool = new ConditionPool(['has_tag' => $condition]);
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::never())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([]));
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
     }
 
     #[AllowMockObjectsWithoutExpectations]

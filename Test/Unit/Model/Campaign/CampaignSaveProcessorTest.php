@@ -108,6 +108,7 @@ class CampaignSaveProcessorTest extends TestCase
         $campaign = $this->createMock(Campaign::class);
         $campaign->expects(self::once())->method('setName')->with('Welcome');
         $campaign->expects(self::once())->method('setEnabled')->with(true);
+        $campaign->expects(self::once())->method('setConditionLogic')->with('all');
         $campaign->method('getEntityId')->willReturn(7);
         $this->campaignFactory->method('create')->willReturn($campaign);
 
