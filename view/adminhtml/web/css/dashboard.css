@@ -223,6 +223,7 @@ body.ordo-campaign-index #add {
   background: linear-gradient(135deg, #E879F9, #0EA5E9);
   border: none;
   box-shadow: 0 4px 14px rgba(192, 38, 211, .35);
+  color: #fff;
 }
 
 .ordo-btn-hero:hover,
