@@ -206,10 +206,15 @@
 
 .ordo-toolbar-back-link:hover { color: var(--ordo-primary); }
 
-/* "+ Add New Campaign" is this module's main feature (create a campaign) - reported directly
-   as deserving to stand out more than a same-size-as-everything-else toolbar button. Scoped to
-   the Campaigns listing page specifically (Magento stamps the admin <body> with a route-based
-   class) since #add is a generic id reused by every other listing's own "Add New X" button. */
+/* "+ New Campaign" is this module's main feature (create a campaign) - reported directly as
+   deserving to stand out more than a same-size-as-everything-else button, everywhere it
+   appears (Campaigns listing toolbar, dashboard's own Campaigns section, Campaign Calendar),
+   not just the one place it was first fixed. .ordo-btn-hero carries the shared treatment for
+   the latter two (plain anchors this module renders itself); the listing toolbar's declarative
+   button has no class hook of its own beyond the generic #add id, so that one stays scoped to
+   the Campaigns listing page's own route-based body class (#add is reused by every other
+   listing's own "Add New X" button). */
+.ordo-btn-hero,
 body.ordo-campaign-index #add {
   font-size: var(--ordo-font-lg);
   font-weight: var(--ordo-weight-bold);
@@ -220,8 +225,10 @@ body.ordo-campaign-index #add {
   box-shadow: 0 4px 14px rgba(192, 38, 211, .35);
 }
 
+.ordo-btn-hero:hover,
 body.ordo-campaign-index #add:hover {
   background: linear-gradient(135deg, #d968e8, #0d92cf);
+  color: #fff;
 }
 
 /* GDPR/Consent page — was plain default-Magento admin__fieldset-wrapper boxes with inline
