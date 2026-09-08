@@ -110,82 +110,135 @@ $segmentNavDesc = __(
         <?php endif; ?>
     </div>
 
-    <div class="ordo-dashboard-nav">
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaigns')) ?></span>
-            <span class="ordo-nav-desc"><?= $escaper->escapeHtml(__('Build and manage automation campaigns')) ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/calendar')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Campaign Calendar')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Every campaign\'s trigger(s) and action timing in one place'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/reordercycle/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Reorder Cycles')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Diagnostic view of detected reorder patterns'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/freegiftoffer/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Free Gift Offers')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Manage cascading-tier gift offers and their gift pools'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/segment/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Segments')) ?></span>
-            <span class="ordo-nav-desc"><?= $escaper->escapeHtml($segmentNavDesc) ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/rfm/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('RFM Report')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Recency, frequency and spend quintiles across all customers'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/scorerule/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Score Rules')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Demographic-attribute lead scoring rules'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/contentblock/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Content Blocks')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Reusable HTML snippet, RSS, and product feed blocks for campaign emails'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/messagelog/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Message Log')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Delivery status of every SMS/email a campaign action sent'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/adaudience/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Ad Audiences')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Sync a segment as a Google Ads / Meta remarketing audience'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/gdpr/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('GDPR / Consent')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Per-customer marketing consent, data export, and erasure'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($block->getUrl('ordo/whatsapptemplate/index')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('WhatsApp Templates')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Manage and submit templates the send_whatsapp campaign action can use'))
-            ?></span>
-        </a>
-        <a class="ordo-nav-card"
-           href="<?= $escaper->escapeUrl($block->getUrl('adminhtml/system_config/edit/section/ordo_automation')) ?>">
-            <span class="ordo-nav-title"><?= $escaper->escapeHtml(__('Configuration')) ?></span>
-            <span class="ordo-nav-desc"><?=
-                $escaper->escapeHtml(__('Triggers, thresholds, tracking, and more'))
-            ?></span>
-        </a>
+    <?php
+    /**
+     * Grouped by merchant goal, not by this module's internal entity list (ROADMAP.md "Admin UX"
+     * Phase 1). Reorder Cycles and Message Log are genuinely engine-diagnostic, read-only views
+     * (their own controllers say so in their docblocks) - they're demoted into their own
+     * "Diagnostics" group below instead of competing for attention with real merchant workflows.
+     */
+    $navGroups = [
+        [
+            'title' => __('Campaigns & Automation'),
+            'cards' => [
+                [
+                    'url' => $block->getUrl('ordo/campaign/index'),
+                    'title' => __('Campaigns'),
+                    'desc' => __('Build and manage automation campaigns'),
+                ],
+                [
+                    'url' => $block->getUrl('ordo/campaign/calendar'),
+                    'title' => __('Campaign Calendar'),
+                    'desc' => __('Every campaign\'s trigger(s) and action timing in one place'),
+                ],
+                [
+                    'url' => $block->getUrl('ordo/freegiftoffer/index'),
+                    'title' => __('Free Gift Offers'),
+                    'desc' => __('Manage cascading-tier gift offers and their gift pools'),
+                ],
+            ],
+        ],
+        [
+            'title' => __('Audience & Targeting'),
+            'cards' => [
+                [
+                    'url' => $block->getUrl('ordo/segment/index'),
+                    'title' => __('Segments'),
+                    'desc' => $segmentNavDesc,
+                ],
+                [
+                    'url' => $block->getUrl('ordo/rfm/index'),
+                    'title' => __('RFM Report'),
+                    'desc' => __('Recency, frequency and spend quintiles across all customers'),
+                ],
+                [
+                    'url' => $block->getUrl('ordo/scorerule/index'),
+                    'title' => __('Score Rules'),
+                    'desc' => __('Demographic-attribute lead scoring rules'),
+                ],
+            ],
+        ],
+        [
+            'title' => __('Channels & Content'),
+            'cards' => [
+                [
+                    'url' => $block->getUrl('ordo/contentblock/index'),
+                    'title' => __('Content Blocks'),
+                    'desc' => __('Reusable HTML snippet, RSS, and product feed blocks for campaign emails'),
+                ],
+                [
+                    'url' => $block->getUrl('ordo/whatsapptemplate/index'),
+                    'title' => __('WhatsApp Templates'),
+                    'desc' => __('Manage and submit templates the send_whatsapp campaign action can use'),
+                ],
+                [
+                    'url' => $block->getUrl('ordo/adaudience/index'),
+                    'title' => __('Ad Audiences'),
+                    'desc' => __('Sync a segment as a Google Ads / Meta remarketing audience'),
+                ],
+            ],
+        ],
+        [
+            'title' => __('Compliance & Settings'),
+            'cards' => [
+                [
+                    'url' => $block->getUrl('ordo/gdpr/index'),
+                    'title' => __('GDPR / Consent'),
+                    'desc' => __('Per-customer marketing consent, data export, and erasure'),
+                ],
+                [
+                    'url' => $block->getUrl('adminhtml/system_config/edit/section/ordo_automation'),
+                    'title' => __('Configuration'),
+                    'desc' => __('Triggers, thresholds, tracking, and more'),
+                ],
+            ],
+        ],
+    ];
+    $diagnosticCards = [
+        [
+            'url' => $block->getUrl('ordo/reordercycle/index'),
+            'title' => __('Reorder Cycles'),
+            'desc' => __('Read-only: what the reorder-detection engine currently believes about each customer/SKU'),
+        ],
+        [
+            'url' => $block->getUrl('ordo/messagelog/index'),
+            'title' => __('Message Log'),
+            'desc' => __('Read-only: raw delivery status of every SMS/email a campaign action sent'),
+        ],
+    ];
+    ?>
+    <?php foreach ($navGroups as $navGroup): ?>
+        <div class="ordo-dashboard-nav-group">
+            <h3 class="ordo-nav-group-title"><?= $escaper->escapeHtml($navGroup['title']) ?></h3>
+            <div class="ordo-dashboard-nav">
+                <?php foreach ($navGroup['cards'] as $card): ?>
+                    <a class="ordo-nav-card" href="<?= $escaper->escapeUrl($card['url']) ?>">
+                        <span class="ordo-nav-title"><?= $escaper->escapeHtml($card['title']) ?></span>
+                        <span class="ordo-nav-desc"><?= $escaper->escapeHtml($card['desc']) ?></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endforeach; ?>
+
+    <div class="ordo-dashboard-nav-group ordo-dashboard-nav-group-diagnostics">
+        <h3 class="ordo-nav-group-title">
+            <?= $escaper->escapeHtml(__('Diagnostics')) ?>
+        </h3>
+        <p class="ordo-nav-group-note">
+            <?= $escaper->escapeHtml(__(
+                'Internal engine views for verifying automation is working correctly - not needed for'
+                . ' day-to-day use.'
+            )) ?>
+        </p>
+        <div class="ordo-dashboard-nav ordo-dashboard-nav-diagnostics">
+            <?php foreach ($diagnosticCards as $card): ?>
+                <a class="ordo-nav-card ordo-nav-card-diagnostic" href="<?= $escaper->escapeUrl($card['url']) ?>">
+                    <span class="ordo-nav-title"><?= $escaper->escapeHtml($card['title']) ?></span>
+                    <span class="ordo-nav-desc"><?= $escaper->escapeHtml($card['desc']) ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
     </div>
 
     <div class="ordo-dashboard-campaigns">

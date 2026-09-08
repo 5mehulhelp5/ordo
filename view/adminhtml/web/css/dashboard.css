@@ -39,12 +39,43 @@
 .ordo-stat-value { font-size: var(--ordo-font-display); font-weight: var(--ordo-weight-bold); line-height: 1.2; }
 .ordo-stat-label { font-size: var(--ordo-font-base); color: var(--ordo-text-muted); margin-top: 2px; }
 
+.ordo-dashboard-nav-group { margin-bottom: 28px; }
+
+.ordo-nav-group-title {
+  font-size: var(--ordo-font-sm);
+  font-weight: var(--ordo-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--ordo-text-muted);
+  margin: 0 0 12px;
+}
+
+.ordo-nav-group-note {
+  font-size: var(--ordo-font-sm);
+  color: var(--ordo-text-muted);
+  margin: 0 0 12px;
+}
+
 .ordo-dashboard-nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
-  margin-bottom: 32px;
 }
+
+/* Diagnostics group is deliberately visually quieter than merchant-workflow groups above it -
+   dashed border, muted background, smaller footprint - so it reads as "advanced/optional",
+   not as a fourth equally-weighted feature competing for the same attention (ROADMAP.md
+   "Admin UX" Phase 1: engine-diagnostic screens are not first-class navigation items). */
+.ordo-dashboard-nav-diagnostics { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+.ordo-nav-card-diagnostic {
+  background: var(--ordo-off-bg);
+  border: 1px dashed var(--ordo-border);
+}
+
+.ordo-nav-card-diagnostic:hover { border-color: var(--ordo-text-muted); }
+
+.ordo-nav-card-diagnostic .ordo-nav-title { color: var(--ordo-off-text); }
 
 .ordo-nav-card {
   display: block;
