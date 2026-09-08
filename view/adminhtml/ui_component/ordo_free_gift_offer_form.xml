@@ -115,6 +115,18 @@
                         </validation>
                     </settings>
                 </field>
+                <!--
+                    Found while building the product-picker UX pass: neither this dynamicRows nor
+                    "products" below had a delete/remove control at all - once a tier or SKU row
+                    was added there was no way to take it back out short of editing raw posted
+                    data. A real, independent bug, not part of the requested UX work, fixed here
+                    since it directly blocks the picker's own "X to remove" affordance below.
+                -->
+                <actionDelete sortOrder="30">
+                    <settings>
+                        <componentType>actionDelete</componentType>
+                    </settings>
+                </actionDelete>
             </container>
         </dynamicRows>
     </fieldset>
@@ -146,6 +158,11 @@
                         </validation>
                     </settings>
                 </field>
+                <actionDelete sortOrder="20">
+                    <settings>
+                        <componentType>actionDelete</componentType>
+                    </settings>
+                </actionDelete>
             </container>
         </dynamicRows>
     </fieldset>
