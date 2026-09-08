@@ -174,6 +174,13 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
                                     </actions>
                                 </rule>
                                 <rule name="1">
@@ -216,6 +223,13 @@
                                         </action>
                                         <action name="5">
                                             <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">false</param>
@@ -268,6 +282,13 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
                                     </actions>
                                 </rule>
                                 <rule name="3">
@@ -310,6 +331,13 @@
                                         </action>
                                         <action name="5">
                                             <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">false</param>
@@ -362,6 +390,13 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
                                     </actions>
                                 </rule>
                                 <rule name="5">
@@ -404,6 +439,13 @@
                                         </action>
                                         <action name="5">
                                             <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">false</param>
@@ -456,6 +498,13 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
                                     </actions>
                                 </rule>
                                 <rule name="7">
@@ -501,6 +550,13 @@
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
                                     </actions>
@@ -550,6 +606,13 @@
                                                 <param name="0" xsi:type="boolean">true</param>
                                             </params>
                                         </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
                                     </actions>
                                 </rule>
                                 <rule name="9">
@@ -592,6 +655,185 @@
                                         </action>
                                         <action name="5">
                                             <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                    </actions>
+                                </rule>
+                                <!--
+                                    The 3 types with no dedicated field yet (in_segment,
+                                    loyalty_tier_at_least, nps_score_at_least) get their own
+                                    explicit rules too, rather than being left to whatever
+                                    visibility state a previously-selected type's rule left
+                                    behind - switcherConfig has no "else" semantics, so without
+                                    this, switching FROM a dedicated-field type TO one of these 3
+                                    would leave params_json hidden (the one field these 3 types
+                                    actually need) and a stale dedicated field still visible.
+                                -->
+                                <rule name="10">
+                                    <value>in_segment</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.amount</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.threshold</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.days</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.count</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                    </actions>
+                                </rule>
+                                <rule name="11">
+                                    <value>loyalty_tier_at_least</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.amount</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.threshold</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.days</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.count</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                    </actions>
+                                </rule>
+                                <rule name="12">
+                                    <value>nps_score_at_least</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.amount</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.threshold</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.days</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.count</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.params_json</target>
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">true</param>

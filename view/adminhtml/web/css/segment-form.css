@@ -7,25 +7,31 @@
  * redundant. Same card-ification technique as free-gift-offer-form.css's Tiers section.
  */
 
-/* "Segment matches" ALL/ANY toggle - the field a plain native <select> visually reads as "an
-   afterthought dropdown" the same way the JSON textarea did; this is the one control that
-   decides how every condition below combines, so it gets a hierarchy that says so instead of
-   sitting flush with "Name"/"Enabled" above it. */
-/* Magento's default .admin__field lays the label and control out side by side, the label column
-   a fixed narrow width meant for short labels like "Name" - forcing this field into a colored
-   box on top of that layout (without also overriding the float/width rules) squeezed the select
-   into a sliver of the box's own reduced width, clipping its own selected option text
-   ("All conditions (ANL...", reported directly against a real screenshot). Same fix as
-   .ordo-tier-own-label elsewhere: stop fighting Magento's side-by-side rules and lay this field
-   out as a normal top-to-bottom block instead - label full-width on its own line, control
-   full-width below it. */
-[data-index="condition_logic"] {
-    display: block;
-    max-width: 420px;
+/* "Segment matches" ALL/ANY toggle plus the conditions list below it used to be two visually
+   disconnected boxes (a small purple square floating to the left, an unrelated card below/beside
+   it) - reported directly ("wygląda jak przypadkowo wstawiony element z innego szablonu"). They
+   are two separate sibling elements in the DOM (Magento_Ui doesn't nest a dynamicRows field
+   inside another field's markup), so there's no single wrapping element to put one card border
+   on - this fakes it with matching full-width edges and zero-gap adjoining borders/radii instead:
+   condition_logic becomes the flush TOP strip (square bottom corners, no bottom border) and the
+   conditions dynamicRows becomes the flush BODY below it (square top corners, no top border,
+   same left/right border color) - as long as both span the full same width, the eye reads them
+   as one continuous card, matching the mockup's "Match [ALL|ANY] of the following conditions"
+   header sitting directly on top of the rule list. */
+.admin__fieldset > [data-index="condition_logic"] {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
     padding: 14px 16px;
-    background: #f5f1fe;
-    border: 1px solid #ddd0fb;
-    border-radius: 8px;
+    background: #faf8ff;
+    border: 1px solid #d9c7fb;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    box-sizing: border-box;
 }
 
 /* Magento's own `.admin__fieldset > .admin__field > .admin__field-label` rule (3 classes, child
@@ -35,13 +41,15 @@
    loading after Magento's own (reported directly: the select's own text was clipped,
    "All conditions (ANL..."). Matching Magento's own selector structure (same 3 "levels", scoped
    by the attribute instead of the bare class) reliably outweighs it instead of guessing at
-   !important. */
+   !important. Laid out inline now (label, select, note all on one line, "Match [ALL/ANY] of the
+   following conditions" style) rather than stacked, since the flex row above already gives it
+   room instead of Magento's own narrow label column. */
 .admin__fieldset > [data-index="condition_logic"] > .admin__field-label {
     display: block;
     float: none;
     width: auto;
     text-align: left;
-    margin-bottom: 6px;
+    margin: 0;
     font-size: 13px;
     font-weight: 700;
     color: #4c1d95;
@@ -50,26 +58,64 @@
 .admin__fieldset > [data-index="condition_logic"] > .admin__field-control {
     display: block;
     float: none;
-    width: 100%;
+    width: auto;
+    order: 2;
+}
+
+.admin__fieldset > [data-index="condition_logic"] > .admin__field-control ~ * {
+    order: 3;
 }
 
 [data-index="condition_logic"] select {
-    width: 100%;
-    box-sizing: border-box;
     font-weight: 600;
     border-color: #7c3aed;
 }
 
 [data-index="condition_logic"] .admin__field-note {
+    flex-basis: 100%;
+    order: 4;
+    margin: 0;
     color: #6b46c1;
 }
 
-/* Condition rows as cards, same layout technique as the Tiers table on the Free Gift Offer form:
-   dynamicRows renders a real <table>, repurposed here into a flex card stack without touching
-   the markup dynamicRows itself generates. */
+/* The conditions list itself: the flush BODY of the merged card described above - white
+   background, matching side/bottom border, square top corners so it sits directly under
+   condition_logic's strip with no visible seam. Individual rows read as a plain divided list
+   (one border-bottom each) instead of nested cards-within-a-card, which doubled up on borders
+   and looked heavier than the single-card mockup. */
+/* dynamicRows puts data-index on its OWN inner .admin__field-control/<table> - unlike a plain
+   select field (condition_logic above), the outer .admin__field wrapper here carries no
+   data-index at all, so the equivalent `.admin__fieldset > [data-index=...]` selector silently
+   matched nothing (confirmed via the actual DOM: `<div class="admin__field"><label>Conditions
+   </label><div class="admin__field-control" data-index="conditions">...`). :has() reaches the
+   outer field from its data-indexed descendant instead of guessing where the attribute lives.
+   Left un-fixed, Magento's own left-floating label column pushed the whole conditions card to
+   the right of "Conditions:", leaving it narrower and misaligned against the header strip above
+   it (reported directly: two boxes of different widths, not one card). The header strip already
+   establishes what this list is, so the second "Conditions" label is redundant - hidden rather
+   than relabeled. */
+.admin__fieldset > .admin__field:has(> [data-index="conditions"].admin__field-control) > .admin__field-label {
+    display: none;
+}
+
+.admin__fieldset > .admin__field:has(> [data-index="conditions"].admin__field-control) > .admin__field-control {
+    display: block;
+    float: none;
+    width: 100%;
+}
+
 [data-index="conditions"].admin__dynamic-rows {
     display: block;
-    border: none;
+    background: #fff;
+    border: 1px solid #d9c7fb;
+    border-radius: 0 0 8px 8px;
+    padding: 4px 16px;
+    /* A light 1px border alone read as invisible against the white page background at normal
+       zoom (confirmed: the border WAS applying correctly, just too low-contrast to perceive -
+       reported as "two boxes... don't visually connect" when the real issue was this card
+       reading as borderless, not misaligned). A subtle shadow makes the card's edge actually
+       perceptible without needing a heavier, darker border. */
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
 
 [data-index="conditions"].admin__dynamic-rows thead { display: none; }
@@ -77,21 +123,22 @@
 [data-index="conditions"].admin__dynamic-rows tbody {
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 16px 20px;
-    background: #fff;
-    border: 1px solid #e4e7ee;
-    border-radius: 8px;
-    padding: 14px 44px 14px 16px;
+    align-items: center;
+    gap: 10px 16px;
+    padding: 12px 44px 12px 0;
     position: relative;
     max-width: 100%;
     box-sizing: border-box;
+    border-bottom: 1px solid #f1f1f5;
+}
+
+[data-index="conditions"].admin__dynamic-rows tr.data-row:last-of-type {
+    border-bottom: none;
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td {
@@ -109,13 +156,16 @@
     flex: 0 0 20px;
 }
 
-/* Type + its one visible dedicated field (switcherConfig shows exactly one of tag/amount/
-   threshold/days/count/percentile at a time) read as the row's real content - given room and a
-   normal font weight. min-width: 0 for the same reason as the Tiers cards: a flex item's default
-   min-width is its content's own intrinsic width, not 0, so without this a wide native <select>
-   refuses to shrink and overflows the card on a narrower viewport. */
+/* One clean row per condition: Type, then whichever single dedicated field the switcherConfig
+   left visible (tag/amount/threshold/days/count/percentile), then the delete button - matching
+   the mockup's "[Attribute] -> [Value] -> [Delete]" single-line layout. Now that params_json is
+   hidden by default (see ordo_segment_form.xml's switcherConfig - only the 3 fallback-only
+   types show it), a row genuinely has just these two visible fields, so they fit one line
+   instead of wrapping across a whole card. min-width: 0 for the same reason as the Tiers cards:
+   a flex item's default min-width is its content's own intrinsic width, not 0, so without this a
+   wide native <select> refuses to shrink and overflows on a narrower viewport. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="type"]) {
-    flex: 1 1 220px;
+    flex: 1 1 240px;
     min-width: 0;
 }
 
@@ -140,11 +190,11 @@
     box-sizing: border-box;
 }
 
-/* The raw JSON fallback - only ever meaningful for the 3 condition types with no dedicated field
-   (in_segment, loyalty_tier_at_least, nps_score_at_least; see ordo_segment_form.xml's own
-   comment), so for the other 10 it's genuinely a "you don't need this" field, not a required
-   one. Demoted from "same visual weight as the actual inputs" to a small muted aside instead of
-   hidden outright — hiding it would make it impossible to use for those 3 fallback-only types. */
+/* The raw JSON fallback field is hidden by the switcherConfig itself for the 10 condition types
+   that have a dedicated field (see ordo_segment_form.xml) - it only ever renders at all for the
+   3 fallback-only types (in_segment, loyalty_tier_at_least, nps_score_at_least), where it's the
+   sole way to configure the condition, so this just gives it reasonable sizing rather than
+   hiding it outright (that would make those 3 types unconfigurable). */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) {
     flex: 1 1 200px;
     min-width: 0;
@@ -173,13 +223,14 @@
     font-size: 10px;
 }
 
-/* Delete button: pinned to the card's top-right corner instead of the full-row-width grey bar it
+/* Delete button: pinned to the row's right edge instead of the full-row-width grey bar it
    renders as by default in the original table layout. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child {
     flex: 0 0 auto;
     position: absolute;
-    top: 10px;
-    right: 12px;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete {
