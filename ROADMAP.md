@@ -40,6 +40,26 @@ Full inventory with what's covered and why: `Test/Mftf/SCENARIOS.md`. Every row 
 gaps. Kept as the standing scope check for anything newly added to the module (new trigger/condition/action/
 controller/cron gets a row there before it's considered done).
 
+## Scheduled (date-based) campaigns and a real calendar view
+
+Raised directly after renaming "Campaign Calendar" to "Campaign Action Timeline" (it showed
+relative delay offsets, not dates — every trigger today fires on a customer event, not a fixed
+schedule, so a literal calendar would have been empty): **should a campaign be able to fire at a
+specific date/time instead of only on a customer event?**
+
+- A new trigger type, e.g. `scheduled_at` (fixed date/time) or `recurring_schedule` (cron-like:
+  every Monday, first of the month, etc.) — `CampaignTriggerInterface` and `TriggerEvent`'s option
+  source are the two places a new trigger type is wired in.
+- A cron that scans for campaigns whose scheduled time has arrived and fires them the same way
+  `CampaignDispatcher` fires event-based triggers today, so the rest of the pipeline (conditions,
+  actions, delay_minutes chaining) needs no change.
+- Only once that exists does an actual date-grid calendar view become meaningful — plotting when
+  each scheduled campaign will (or did) fire. Worth revisiting whether "Campaign Action Timeline"
+  should grow a calendar-view toggle at that point, or stay a separate screen.
+
+Needs a scoping decision before implementation: is a one-off scheduled send (e.g. "Black Friday
+email, Nov 28 9am") or a recurring schedule (e.g. "every Monday") the more valuable first case.
+
 ## Localization
 
 - **Native-speaker review of the 10 machine-translated locales** (`de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`,
