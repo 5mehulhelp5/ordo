@@ -11,6 +11,11 @@
             <dep>ordo_free_gift_offer_listing.ordo_free_gift_offer_listing_data_source</dep>
         </deps>
         <buttons>
+            <button name="back_to_dashboard">
+                <url path="ordo/dashboard/index"/>
+                <class>back</class>
+                <label translate="true">Back to Dashboard</label>
+            </button>
             <button name="add">
                 <url path="*/*/new"/>
                 <class>primary</class>

@@ -10,6 +10,13 @@
         <deps>
             <dep>ordo_messagelog_listing.ordo_messagelog_listing_data_source</dep>
         </deps>
+        <buttons>
+            <button name="back_to_dashboard">
+                <url path="ordo/dashboard/index"/>
+                <class>back</class>
+                <label translate="true">Back to Dashboard</label>
+            </button>
+        </buttons>
     </settings>
 
     <dataSource name="ordo_messagelog_listing_data_source">

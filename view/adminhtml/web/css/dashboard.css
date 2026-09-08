@@ -170,6 +170,15 @@
 .ordo-btn-primary { background: var(--ordo-primary); color: #fff; }
 .ordo-btn-primary:hover { background: var(--ordo-primary-dark); color: #fff; }
 
+/* Used for the "Back to Dashboard" link on standalone report/tool pages (GDPR, Campaign
+   Calendar) that have no other way back — this module has a single flat admin menu entry
+   (see etc/adminhtml/menu.xml's comment) plus dashboard cards, not a menu tree, so a page
+   reached only via a dashboard card left the browser back button as the only way back. */
+.ordo-btn-secondary { background: #fff; border: 1px solid var(--ordo-border); color: #1b1f2a; }
+.ordo-btn-secondary:hover { border-color: var(--ordo-primary); color: #1b1f2a; }
+
+.ordo-back-link { margin-bottom: 16px; }
+
 .ordo-empty-state { color: var(--ordo-text-muted); font-size: var(--ordo-font-md); }
 
 .ordo-campaigns-grid {
