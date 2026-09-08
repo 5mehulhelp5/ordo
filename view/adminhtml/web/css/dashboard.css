@@ -206,6 +206,24 @@
 
 .ordo-toolbar-back-link:hover { color: var(--ordo-primary); }
 
+/* "+ Add New Campaign" is this module's main feature (create a campaign) - reported directly
+   as deserving to stand out more than a same-size-as-everything-else toolbar button. Scoped to
+   the Campaigns listing page specifically (Magento stamps the admin <body> with a route-based
+   class) since #add is a generic id reused by every other listing's own "Add New X" button. */
+body.ordo-campaign-index #add {
+  font-size: var(--ordo-font-lg);
+  font-weight: var(--ordo-weight-bold);
+  padding: 14px 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #E879F9, #0EA5E9);
+  border: none;
+  box-shadow: 0 4px 14px rgba(192, 38, 211, .35);
+}
+
+body.ordo-campaign-index #add:hover {
+  background: linear-gradient(135deg, #d968e8, #0d92cf);
+}
+
 /* GDPR/Consent page — was plain default-Magento admin__fieldset-wrapper boxes with inline
    margin-top styles and no brand styling at all, reported directly as "okropnie wizualnie"
    (visually terrible) next to the rest of this module's admin screens. Reuses the same card/
