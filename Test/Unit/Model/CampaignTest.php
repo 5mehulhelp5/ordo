@@ -46,4 +46,25 @@ class CampaignTest extends AbstractModelTestCase
         self::assertSame('2026-01-01 00:00:00', $model->getCreatedAt());
         self::assertSame('2026-01-02 00:00:00', $model->getUpdatedAt());
     }
+
+    public function testConditionLogicDefaultsToAllWhenNeverSet(): void
+    {
+        self::assertSame('all', $this->makeModel()->getConditionLogic());
+    }
+
+    public function testConditionLogicRoundTripsAny(): void
+    {
+        $model = $this->makeModel();
+        $model->setConditionLogic('any');
+
+        self::assertSame('any', $model->getConditionLogic());
+    }
+
+    public function testConditionLogicNormalizesAnyOtherValueToAll(): void
+    {
+        $model = $this->makeModel();
+        $model->setConditionLogic('bogus');
+
+        self::assertSame('all', $model->getConditionLogic());
+    }
 }

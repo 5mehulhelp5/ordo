@@ -173,4 +173,33 @@ class ConfigTest extends TestCase
 
         self::assertSame(99.9, $this->config->getAbandonedCartMinSubtotal());
     }
+
+    public function testObscureFieldGettersDecryptTheirConfiguredValue(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturnMap([
+            ['ordo_automation/email/sendgrid_webhook_verification_key', 'store', null, 'sg-verify-secret'],
+            ['ordo_automation/whatsapp/access_token', 'store', null, 'wa-access-secret'],
+            ['ordo_automation/whatsapp/app_secret', 'store', null, 'wa-app-secret'],
+            ['ordo_automation/whatsapp/webhook_verify_token', 'store', null, 'wa-verify-secret'],
+        ]);
+
+        self::assertSame('sg-verify-secret', $this->config->getSendGridWebhookVerificationKey());
+        self::assertSame('wa-access-secret', $this->config->getWhatsAppAccessToken());
+        self::assertSame('wa-app-secret', $this->config->getWhatsAppAppSecret());
+        self::assertSame('wa-verify-secret', $this->config->getWhatsAppWebhookVerifyToken());
+    }
+
+    public function testWhatsAppPhoneNumberIdAndBusinessAccountIdAreNotEncrypted(): void
+    {
+        // Unlike the other WhatsApp getters above, these two read scopeConfig directly (not
+        // through decryptedConfig()) - real Meta identifiers, not secrets, so there's nothing to
+        // decrypt.
+        $this->scopeConfig->method('getValue')->willReturnMap([
+            ['ordo_automation/whatsapp/phone_number_id', 'store', null, '123456789012345'],
+            ['ordo_automation/whatsapp/business_account_id', 'store', null, '987654321098765'],
+        ]);
+
+        self::assertSame('123456789012345', $this->config->getWhatsAppPhoneNumberId());
+        self::assertSame('987654321098765', $this->config->getWhatsAppBusinessAccountId());
+    }
 }

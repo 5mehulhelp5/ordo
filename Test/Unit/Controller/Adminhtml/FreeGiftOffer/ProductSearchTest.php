@@ -93,4 +93,48 @@ class ProductSearchTest extends AbstractAdminActionTestCase
 
         $controller->execute();
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testExecuteBuildsAThumbnailUrlWhenAThumbnailIsSet(): void
+    {
+        $context = $this->makeContext();
+        $this->request->method('getParam')->willReturnMap([['term', '', 'shirt']]);
+
+        $product = $this->createMock(Product::class);
+        $product->method('getSku')->willReturn('shirt-blue');
+        $product->method('getName')->willReturn('Blue Shirt');
+        $product->method('getData')->willReturnCallback(
+            static fn (string $key) => ['qty' => '7', 'thumbnail' => '/s/h/shirt.jpg'][$key] ?? null
+        );
+
+        $collectionFactory = $this->createStub(ProductCollectionFactory::class);
+        $collectionFactory->method('create')->willReturn($this->makeCollection([$product]));
+
+        $imageHelper = $this->createMock(ImageHelper::class);
+        $imageHelper->expects(self::once())->method('init')
+            ->with($product, 'product_thumbnail_image')->willReturnSelf();
+        $imageHelper->expects(self::once())->method('setImageFile')
+            ->with('/s/h/shirt.jpg')->willReturnSelf();
+        $imageHelper->expects(self::once())->method('resize')->with(40, 40)->willReturnSelf();
+        $imageHelper->method('getUrl')->willReturn('https://example.com/media/catalog/product/s/h/shirt.jpg');
+
+        $result = $this->createMock(Json::class);
+        $result->expects(self::once())->method('setData')->with([
+            'items' => [
+                [
+                    'sku' => 'shirt-blue',
+                    'name' => 'Blue Shirt',
+                    'qty' => 7,
+                    'thumbnail_url' => 'https://example.com/media/catalog/product/s/h/shirt.jpg',
+                ],
+            ],
+        ])->willReturnSelf();
+
+        $resultJsonFactory = $this->createStub(JsonFactory::class);
+        $resultJsonFactory->method('create')->willReturn($result);
+
+        $controller = new ProductSearch($context, $resultJsonFactory, $collectionFactory, $imageHelper);
+
+        $controller->execute();
+    }
 }
