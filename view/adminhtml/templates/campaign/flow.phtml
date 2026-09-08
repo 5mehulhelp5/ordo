@@ -10,7 +10,18 @@ $flowIntro = __(
 );
 $applyFlowButtonLabel = __('Apply flow to form & Save');
 ?>
-<?php if ($block->hasCampaign()): ?>
+<!--
+    Unconditional: the Flow canvas used to only render once a campaign already had an entity_id
+    (a brand-new campaign fell back to the bare native Triggers/Conditions/Actions dynamicRows
+    form below, with a note explaining why) — reported directly as confusing, two different ways
+    to build a campaign depending on whether it happened to be new or already saved
+    ("ma byc ujednolicone"). Flow::getFlowDataJson() already returns '{}' (an empty canvas) when
+    there's no campaign yet, and "Apply flow to form & Save" already calls the exact same form
+    provider's save() the native Save button uses (which already knows how to create a brand-new
+    entity) - nothing here actually required an existing entity_id, that was only ever a
+    self-imposed gate. Removing it makes the canvas the one, single way to build a campaign,
+    new or existing alike.
+-->
 <div class="ordo-flow-wrapper">
     <div class="ordo-flow-head">
         <h2><?= $escaper->escapeHtml(__('Flow')) ?></h2>
@@ -77,34 +88,3 @@ require(['Ordo_Automation/js/campaign-flow-editor'], function (initCampaignFlowE
     initCampaignFlowEditor(container, flowData, 'ordo_campaign_form.ordo_campaign_form_data_source', typesConfig);
 });
 </script>
-<?php else: ?>
-<div class="ordo-flow-new-campaign-note">
-    <p>
-        <?= $escaper->escapeHtml(__(
-            'This is a quick-start form for a brand-new campaign, not the final way to build'
-            . ' it — fill in at least one trigger and one action below, then save. Once saved,'
-            . ' you\'ll get the full visual Flow canvas here instead, to build out and edit the'
-            . ' rest of the sequence by dragging and connecting blocks.'
-        )) ?>
-    </p>
-</div>
-<script>
-require(['uiRegistry'], function (uiRegistry) {
-    'use strict';
-
-    // The Flow canvas above (and this whole block) only renders once a campaign has an
-    // entity_id — a brand-new campaign has nothing yet to draw. But triggers_fieldset/
-    // conditions_fieldset/actions_fieldset in ordo_campaign_form.xml default to
-    // <visible>false</visible> now that the canvas is the normal way to add these on an
-    // existing campaign — leaving them hidden here too would mean a new campaign could never
-    // get its first trigger/condition/action at all. Force them visible for this one case;
-    // saving reloads the page with an entity_id, hasCampaign() becomes true, the canvas takes
-    // over, and this branch no longer runs.
-    ['triggers_fieldset', 'conditions_fieldset', 'actions_fieldset'].forEach(function (fieldsetName) {
-        uiRegistry.get('ordo_campaign_form.ordo_campaign_form.' + fieldsetName, function (fieldset) {
-            fieldset.visible(true);
-        });
-    });
-});
-</script>
-<?php endif; ?>
