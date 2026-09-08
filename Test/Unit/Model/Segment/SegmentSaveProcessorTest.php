@@ -143,6 +143,35 @@ class SegmentSaveProcessorTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testProcessMergesDedicatedFieldsOverParamsJson(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $segment = $this->createMock(Segment::class);
+        $segment->method('getEntityId')->willReturn(1);
+        $this->segmentFactory->method('create')->willReturn($segment);
+
+        $this->segmentConditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+
+        $condition = $this->createMock(SegmentCondition::class);
+        $condition->expects(self::once())->method('setData')->with(self::callback(
+            // "amount" from the dedicated field wins over the stale "200" the JSON textarea
+            // still had - same "dedicated fields win" precedence as
+            // Model\Campaign\CampaignSaveProcessor::normalizeRowParams().
+            fn (array $data) => json_decode($data['params'], true) === ['amount' => '500']
+        ));
+        $this->segmentConditionFactory->method('create')->willReturn($condition);
+
+        $processor->process([
+            'conditions' => ['conditions' => [[
+                'type' => 'monetary_total_at_least',
+                'params_json' => '{"amount":"200"}',
+                'amount' => '500',
+            ]]],
+        ]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testProcessPropagatesExceptionFromSave(): void
     {
         $processor = $this->makeProcessor();

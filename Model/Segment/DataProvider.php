@@ -75,6 +75,12 @@ class DataProvider extends AbstractDataProvider
     }
 
     /**
+     * Spreads the saved params back into the row's dedicated fields (tag, amount, ...) too —
+     * not just params_json — so the switcherConfig fields in ordo_segment_form.xml (mirrored
+     * from the campaign form's own — see Model\Campaign\DataProvider::loadChildRows(), same
+     * reasoning) pre-populate correctly when editing an existing segment, instead of only
+     * showing the raw JSON with every dedicated field blank.
+     *
      * @return array<int, array<string, mixed>>
      */
     private function loadConditionRows(int $segmentId): array
@@ -84,10 +90,20 @@ class DataProvider extends AbstractDataProvider
 
         $rows = [];
         foreach ($collection as $row) {
-            $rows[] = [
+            $paramsJson = $row->getParamsJson();
+            $decoded = json_decode($paramsJson, true);
+
+            /** @var array<string, mixed> $rowData */
+            $rowData = [
                 'type' => $row->getType(),
-                'params_json' => $row->getParamsJson(),
+                'params_json' => $paramsJson,
             ];
+
+            if (is_array($decoded)) {
+                $rowData += $decoded;
+            }
+
+            $rows[] = $rowData;
         }
 
         return $rows;

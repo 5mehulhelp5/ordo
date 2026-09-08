@@ -202,7 +202,13 @@ class CampaignSaveProcessor
             }
         }
 
-        return json_encode($params) ?: '{}';
+        // json_encode([]) is the JSON array literal "[]", not the empty JSON OBJECT "{}" a
+        // condition/action's params conceptually are (a key-value map, not a list) - forced
+        // explicitly rather than relying on json_encode's own empty-array behavior, which flips
+        // to "[]" the moment $params has zero keys (same fix applied to
+        // Model\Segment\SegmentSaveProcessor's identical method, caught there first by its own
+        // test asserting the exact "{}" string).
+        return $params === [] ? '{}' : (json_encode($params) ?: '{}');
     }
 
     /**

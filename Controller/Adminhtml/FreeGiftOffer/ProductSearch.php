@@ -22,7 +22,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 class ProductSearch extends AbstractFreeGiftOfferAction implements HttpGetActionInterface
 {
     /** Matches the picker's own page size - enough to be useful, small enough to stay fast. */
-    private const MAX_RESULTS = 20;
+    private const int MAX_RESULTS = 20;
 
     public function __construct(
         Context $context,

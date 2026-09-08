@@ -2251,6 +2251,18 @@ parameters:
 			path: Model/Segment/DataProvider.php
 
 		-
+			message: '#^Method Ordo\\Automation\\Model\\Segment\\DataProvider\:\:loadConditionRows\(\) should return array\<int, array\<string, mixed\>\> but returns list\<array\<mixed\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Segment/DataProvider.php
+
+		-
+			message: '#^Parameter \#1 \$json of function json_decode expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Segment/DataProvider.php
+
+		-
 			message: '#^Property Ordo\\Automation\\Model\\Segment\\DataProvider\:\:\$loadedData type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -2295,7 +2307,13 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 3
+			count: 4
+			path: Model/Segment/SegmentSaveProcessor.php
+
+		-
+			message: '#^Method Ordo\\Automation\\Model\\Segment\\SegmentSaveProcessor\:\:parseJson\(\) should return array\<string, mixed\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
 			path: Model/Segment/SegmentSaveProcessor.php
 
 		-

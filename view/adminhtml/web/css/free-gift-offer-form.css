@@ -179,6 +179,8 @@
     border-radius: 8px;
     padding: 14px 16px;
     position: relative;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 [data-index="tiers"].admin__dynamic-rows tr.data-row td {
@@ -222,11 +224,24 @@
 }
 
 [data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="min_subtotal"]) {
-    flex: 0 0 180px;
+    flex: 1 1 180px;
+    /* A flex item's default min-width is "auto" (its content's own intrinsic width), not 0 -
+       Magento's .admin__control-text input has its own baseline width wider than 180px, so
+       without this the input refused to shrink and overflowed past the card's own border on
+       any viewport narrower than that intrinsic width (reported directly against a real
+       screenshot: the input bled past the card edge, no label even visible in the crop). */
+    min-width: 0;
 }
 
 [data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="gift_slots"]) {
-    flex: 1 1 320px;
+    flex: 2 1 260px;
+    min-width: 0;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="min_subtotal"]) input,
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="gift_slots"]) input {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* Magento's own .admin__field-control carries a default grey background meant for the normal

@@ -21,6 +21,14 @@ use Ordo\Automation\Model\SegmentFactory;
  */
 class SegmentSaveProcessor
 {
+    /**
+     * The condition dynamicRows' own dedicated fields (see ordo_segment_form.xml's
+     * switcherConfig, mirrored from the campaign form's own) - a subset of Campaign
+     * CampaignSaveProcessor's full list, since a segment condition only ever needs the ones
+     * ConditionPool's condition types actually read.
+     */
+    private const array DEDICATED_PARAM_FIELDS = ['tag', 'amount', 'threshold', 'days', 'count', 'percentile'];
+
     public function __construct(
         private readonly SegmentFactory $segmentFactory,
         private readonly SegmentResource $segmentResource,
@@ -79,10 +87,55 @@ class SegmentSaveProcessor
             $condition->setData([
                 'segment_id' => $segmentId,
                 'type' => (string) $row['type'],
-                'params' => (string) ($row['params_json'] ?? '{}') ?: '{}',
+                'params' => $this->normalizeRowParams($row),
                 'sort_order' => $sortOrder++,
             ]);
             $this->segmentConditionResource->save($condition);
         }
+    }
+
+    /**
+     * Starts from whatever was typed in the JSON textarea (if valid), then overlays any
+     * dedicated field present on the row — same merge Model\Campaign\CampaignSaveProcessor
+     * already uses for its own conditions/actions. Without this, the dedicated fields added to
+     * the form were cosmetic only: a value typed into "Minimum order total" would never reach
+     * the saved params, since this method previously read params_json alone.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function normalizeRowParams(array $row): string
+    {
+        $params = $this->parseJson((string) ($row['params_json'] ?? ''));
+
+        foreach (self::DEDICATED_PARAM_FIELDS as $field) {
+            $value = trim((string) ($row[$field] ?? ''));
+            if ($value !== '') {
+                $params[$field] = $value;
+            }
+        }
+
+        // json_encode([]) is the JSON array literal "[]", not the empty JSON OBJECT "{}" a
+        // condition's params conceptually are (a key-value map, not a list) - forced explicitly
+        // rather than relying on json_encode's own empty-array behavior, which flips to "[]"
+        // the moment $params has zero keys.
+        return $params === [] ? '{}' : (json_encode($params) ?: '{}');
+    }
+
+    /**
+     * Falls back to an empty object rather than rejecting the save outright — a condition with
+     * unparsable params simply won't find the keys it expects when matched, fails closed rather
+     * than crashing.
+     *
+     * @return array<string, mixed>
+     */
+    private function parseJson(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
     }
 }
