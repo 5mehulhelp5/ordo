@@ -90,6 +90,23 @@
 
 .ordo-nav-card:hover { border-color: var(--ordo-primary); }
 
+/* One distinct icon per card (reported directly: "kazda rzecz miala swoja unikalna ikonke") -
+   a light brand-tinted circle backdrop plus the icon itself in the same purple as the rest of
+   this module's accents, so shape (not color) is what actually tells cards apart at a glance. */
+.ordo-nav-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  padding: 8px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: #f5f1fe;
+  color: var(--ordo-primary);
+  box-sizing: content-box;
+}
+
+.ordo-nav-card-diagnostic .ordo-nav-icon { background: var(--ordo-off-bg); color: var(--ordo-off-text); }
+
 .ordo-nav-title {
   display: block;
   font-weight: var(--ordo-weight-medium);
