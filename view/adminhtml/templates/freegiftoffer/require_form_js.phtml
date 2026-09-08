@@ -1,0 +1,11 @@
+<?php
+/**
+ * Loads the Free Gift Offer edit page's product-picker/tier-UX enhancements (see
+ * free-gift-offer-form.js's own docblock). This page is otherwise pure ui_component with no
+ * other phtml to inline a require([...]) call from — see ordo_freegiftoffer_edit.xml's own
+ * comment for why a <script src="..."/> head declaration doesn't work for this.
+ */
+?>
+<script>
+require(['Ordo_Automation/js/free-gift-offer-form']);
+</script>

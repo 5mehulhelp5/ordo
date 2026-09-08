@@ -1,7 +1,23 @@
 <?xml version="1.0"?>
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Ordo_Automation::css/free-gift-offer-form.css"/>
+    </head>
     <body>
         <referenceContainer name="content">
+            <!--
+                A plain <script src="..."/> head declaration (no ui_component/phtml on this page
+                to "require([...])" from inline otherwise) rendered as a broken, extension-less
+                <link> tag instead of executing the module - PageConfig's asset-type detection
+                needs a real file extension, and even with one a raw <script src> tag bypasses
+                RequireJS's own anonymous-define() tracking (it only recognizes modules it loaded
+                itself via its dynamic script insertion). A tiny Template block with an inline
+                require([...]) call, the same mechanism campaign/flow.phtml already uses, is the
+                proven-working way to attach page-specific JS to a page that has no other phtml.
+            -->
+            <block class="Magento\Framework\View\Element\Template"
+                   name="ordo_free_gift_offer_form_js"
+                   template="Ordo_Automation::freegiftoffer/require_form_js.phtml"/>
             <uiComponent name="ordo_free_gift_offer_form"/>
         </referenceContainer>
     </body>

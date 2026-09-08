@@ -1,0 +1,271 @@
+/*
+ * Product picker (autocomplete + chips + bulk "Choose from Catalog" modal) and Tiers UX
+ * (microcopy, sort, duplicate) for the Free Gift Offer edit form - agreed directly, point by
+ * point, against a real "not simple at all" screenshot of the bare SKU/tier fields.
+ */
+
+.ordo-picker-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: #fff;
+    border: 1px solid #dde3e8;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.ordo-picker-suggestion,
+.ordo-picker-modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.ordo-picker-suggestion:hover,
+.ordo-picker-modal-row:hover {
+    background: #f4f5f6;
+}
+
+.ordo-picker-suggestion img,
+.ordo-picker-modal-row img,
+.ordo-picker-suggestion-noimg,
+.ordo-picker-chip-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: #f1f1f5;
+}
+
+.ordo-picker-suggestion-name,
+.ordo-picker-modal-row .ordo-picker-suggestion-name {
+    flex: 1 1 auto;
+    font-weight: 600;
+    color: #1b1f2a;
+}
+
+.ordo-picker-suggestion-sku {
+    color: #6b7180;
+    font-size: 12px;
+}
+
+.ordo-picker-suggestion-qty {
+    color: #6b7180;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* The chip renders below the (still functional, unchanged) SKU input - it's a read-only visual
+   confirmation of what the SKU value resolves to, not a replacement input. */
+.ordo-picker-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 4px 8px;
+    background: #f5f1fe;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.ordo-picker-chip-noimg { background: #e4e7ee; }
+
+.ordo-picker-chip-name { font-weight: 600; color: #1b1f2a; }
+
+.ordo-picker-chip-sku { color: #6b7180; }
+
+.ordo-picker-bulk-button,
+.ordo-tier-sort-button {
+    margin-left: 8px;
+    background: #fff;
+    border: 1px solid #7c3aed;
+    color: #7c3aed;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ordo-picker-bulk-button:hover,
+.ordo-tier-sort-button:hover {
+    background: #f5f1fe;
+}
+
+.ordo-tier-duplicate {
+    background: none;
+    border: 1px solid #dde3e8;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: #6b7180;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+.ordo-tier-duplicate:hover {
+    border-color: #7c3aed;
+    color: #7c3aed;
+}
+
+.ordo-tier-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7180;
+    font-style: italic;
+}
+
+/* Bulk "Choose from Catalog" modal content (Magento_Ui/js/modal/modal builds the overlay/chrome
+   itself - this only styles the content we hand it). */
+.ordo-picker-modal-search {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.ordo-picker-modal-results {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dde3e8;
+    border-radius: 6px;
+}
+
+.ordo-picker-modal-row {
+    border-bottom: 1px solid #f1f1f5;
+}
+
+.ordo-picker-modal-row:last-child { border-bottom: none; }
+
+.ordo-picker-modal-empty {
+    padding: 20px;
+    text-align: center;
+    color: #6b7180;
+}
+
+/* "Tier cards": the Tiers table restyled into a vertical stack of cards without changing its
+   markup - dynamicRows renders a real <table>, so this repurposes table display roles into a
+   flex layout, the same technique used to make an HTML table look like a card list without a
+   custom row template. Auto-sorting itself is JS (the "Sort tiers" button) since actual
+   reordering needs real logic, not just a visual reflow. */
+[data-index="tiers"].admin__dynamic-rows {
+    display: block;
+    border: none;
+}
+
+[data-index="tiers"].admin__dynamic-rows thead { display: none; }
+
+[data-index="tiers"].admin__dynamic-rows tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px 20px;
+    background: #fff;
+    border: 1px solid #e4e7ee;
+    border-radius: 8px;
+    padding: 14px 16px;
+    position: relative;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td {
+    display: block;
+    padding: 0;
+    border: none;
+    /* Magento's own required-field-cell background (td._required, computed #efefef) - meant to
+       highlight an empty required cell in the original table layout, just reads as a stray grey
+       box now that the row has its own white card background. */
+    background: none;
+}
+
+/* Magento's own .admin__field-label carries float/width/text-align rules meant for its normal
+   label-to-the-left-of-control layout - forcing it visible with just `display: block` left those
+   other rules active, producing a label pinned to the top-right in a stretched box instead of
+   flowing above the input (reported directly against a real screenshot as broken). Simplest
+   robust fix: leave Magento's own label hidden as it already defaults to, and render an
+   independent label this stylesheet fully controls instead - see .ordo-tier-own-label,
+   injected by free-gift-offer-form.js. */
+.ordo-tier-own-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6b7180;
+    margin-bottom: 4px;
+}
+
+/* min_subtotal / gift_slots (also holds the microcopy note + duplicate button - see
+   free-gift-offer-form.js) get sensible fixed/flexible widths instead of every cell defaulting
+   to its own content width. Targeted by the field's own [data-index] (via :has()), not
+   nth-child - dynamicRows optionally renders a drag-handle <td> before the field cells
+   depending on dndConfig, which silently shifted every nth-child assumption by one column and
+   produced an empty 180px grey block instead of a real field (reported directly against a real
+   screenshot). The LAST cell is dynamicRows' own delete button - explicitly kept small and
+   pinned to the card's top-right corner instead of the full-row-width grey bar it inherited by
+   accident when this was still styled as a plain table. */
+[data-index="tiers"].admin__dynamic-rows tr.data-row td.col-draggable {
+    flex: 0 0 20px;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="min_subtotal"]) {
+    flex: 0 0 180px;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:has([data-index="gift_slots"]) {
+    flex: 1 1 320px;
+}
+
+/* Magento's own .admin__field-control carries a default grey background meant for the normal
+   form-field context - left a visible grey strip under the tier card's inputs/note/duplicate
+   button once the card's own white background was introduced. */
+[data-index="tiers"].admin__dynamic-rows .admin__field-control {
+    background: none;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:last-child {
+    flex: 0 0 auto;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:last-child .action-delete {
+    background: none;
+    border: none;
+    color: #6b7180;
+    cursor: pointer;
+    padding: 4px;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:last-child .action-delete:hover {
+    color: #ef4444;
+}
+
+[data-index="tiers"].admin__dynamic-rows tr.data-row td:last-child .action-delete span {
+    /* The button's own visible label text (e.g. "Delete") - the trash icon is the row's own
+       :before glyph from Magento's admin icon font, already applied via .action-delete; showing
+       both is redundant in a card this compact. */
+    display: none;
+}
+
+.ordo-tier-note {
+    margin-top: 10px;
+}
+
+.ordo-tier-duplicate {
+    margin-top: 10px;
+}
