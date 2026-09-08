@@ -60,6 +60,27 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Admin UX, Phases 1-2 of the "become the best-in-market admin experience" initiative
+  (see ROADMAP.md history / git log for the full rationale):
+  - Dashboard's 13 nav cards regrouped from one flat list into merchant-goal-oriented sections
+    (Campaigns & Automation / Audience & Targeting / Channels & Content / Compliance & Settings),
+    with Reorder Cycles and Message Log — the two genuinely bare engine-diagnostic screens —
+    demoted into a visually distinct "Diagnostics" group instead of competing for attention.
+  - Reorder Cycles now resolves customer name/email and product name (no EAV join needed —
+    sourced from `sales_order_item.name`), and adds a real outcome column: reminders sent, last
+    sent, and whether a reminder actually led to a reorder (from `ordo_reorder_reminder_log`'s
+    own `reacted` flag) — turning a raw diagnostic dump into a report that shows whether the
+    automation is actually working.
+  - Message Log now resolves `customer_id` to a real name/email.
+  - RFM Report gained a "Qualifies For" column showing which of the merchant's own enabled
+    segments each customer's current RFM standing qualifies them for, turning the report into
+    a lead-in to action instead of a dead-end number.
+  - Every standalone admin screen (all 10 listing pages plus GDPR/Consent and Campaign
+    Calendar) now has a "Back to Dashboard" link/button — previously the only way back from a
+    page reached via a dashboard card was the browser's own back button, since this module has
+    a single flat admin menu entry rather than a menu tree.
+  - Dashboard's disabled "Shopping feed" state got a real empty-state treatment and a button
+    into Configuration instead of a bare sentence.
 - Extracted `Model\Http\JsonApiClient` (POST JSON, check status, decode JSON response) out of
   `GoogleAdsSyncClient`, `MetaSyncClient`, and `WhatsAppSender`, which each had an identical, independently
   hand-rolled copy of that same HTTP-mechanics shape. Each class keeps its own request-building and

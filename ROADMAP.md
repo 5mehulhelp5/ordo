@@ -64,38 +64,10 @@ average one, and the bar every phase below is measured against:
 
 A full inventory of all 13 screens was already done against this bar (controller/grid classes,
 real columns, CRUD-vs-read-only, existing in-UI explanation) — findings below are grounded in that,
-not speculation. Actual state is better than first assumed: RFM Report already joins customer
-name/email (not just an id), and Campaign Calendar already has real intro prose — proof this
-module can already hit the bar, just inconsistently.
+not speculation.
 
-### Phase 1 — Information architecture (highest leverage, do first)
-
-- Regroup the flat 13-card dashboard into merchant-goal-oriented sections instead of one
-  undifferentiated list, e.g.: **Campaigns & Automation** (Campaigns, Campaign Calendar, Free Gift
-  Offers), **Audience & Targeting** (Segments, Score Rules, RFM Report), **Channels & Content**
-  (Content Blocks, WhatsApp Templates, Ad Audiences), **Compliance** (GDPR/Consent), *Configuration*
-  kept separate as settings always are. Needs a naming/grouping decision pass, not just a CSS
-  reflow.
-- Explicitly demote **Reorder Cycles** and **Message Log** out of that primary grouping into a
-  clearly-labeled **Diagnostics / Advanced** area — both are genuinely "verify the engine is
-  working" tools (confirmed by their own controller docblocks), not merchant workflows, and
-  pretending otherwise is exactly the "internal debug view with a Magento skin" problem stated
-  above. Not deleted, not hidden entirely — honestly labeled for what they are.
-
-### Phase 2 — Turn the two real diagnostic dumps into outcome reports
-
-- **Reorder Cycles**: join `customer_id` → real customer name, raw `SKU` → product name (both
-  already resolvable via existing repository patterns elsewhere in this module), and add the
-  outcome column that's currently entirely missing — did the customer actually reorder after the
-  predicted date, and what was that order's revenue. This is what turns "here is some internal
-  math" into "here is proof this feature makes you money," which is the actual bar, not a coat of
-  paint on the same columns.
-- **Message Log**: customer name instead of raw id; consider linking from each Campaign's own edit
-  page to its filtered message log, rather than one global flat log being the only way to answer
-  "did MY campaign's sends work."
-- **RFM Report** already has the right bones (name/email, quintiles) - the remaining gap is
-  action, not data: surface which segment(s) a customer's current RFM standing would qualify them
-  for, so the report leads directly into an action instead of ending at a number.
+Phases 1-2 (information architecture, and turning the diagnostic screens into real outcome
+reports) are done — see docs/CHANGELOG.md's "Changed" section for what shipped. Remaining:
 
 ### Phase 3 — Explain every screen in context, and guide first use
 
