@@ -67,7 +67,7 @@ class MatchingSegments extends Column
             $rawCustomerId = $item['entity_id'] ?? null;
             $customerId = is_numeric($rawCustomerId) ? (int) $rawCustomerId : 0;
             $matchingNames = $segmentNamesByCustomerId[$customerId] ?? [];
-            $item[$fieldName] = $matchingNames === [] ? '' : implode(', ', $matchingNames);
+            $item[$fieldName] = implode(', ', $matchingNames);
         }
         unset($item);
 

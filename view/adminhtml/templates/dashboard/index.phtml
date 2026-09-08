@@ -110,10 +110,8 @@ $segmentNavDesc = __(
                     . ' Google Shopping listings.'
                 )) ?>
             </p>
-            <a class="ordo-btn ordo-btn-primary"
-               href="<?= $escaper->escapeUrl(
-                   $block->getUrl('adminhtml/system_config/edit/section/ordo_automation')
-               ) ?>">
+            <?php $configUrl = $block->getUrl('adminhtml/system_config/edit/section/ordo_automation'); ?>
+            <a class="ordo-btn ordo-btn-primary" href="<?= $escaper->escapeUrl($configUrl) ?>">
                 <?= $escaper->escapeHtml(__('Enable in Configuration')) ?>
             </a>
         <?php endif; ?>
