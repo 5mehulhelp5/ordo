@@ -84,6 +84,42 @@ class DataProviderTest extends TestCase
         self::assertSame($data, $provider->getData());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetDataMapsGroupRowIntoGroupLogicAndNestedConditions(): void
+    {
+        $segment = $this->createStub(Segment::class);
+        $segment->method('getData')->willReturn(['entity_id' => 1, 'name' => 'VIP customers']);
+        $segment->method('getEntityId')->willReturn(1);
+
+        $collection = $this->createStub(SegmentCollection::class);
+        $collection->method('getItems')->willReturn([$segment]);
+
+        $groupRow = $this->createStub(SegmentCondition::class);
+        $groupRow->method('getType')->willReturn('group');
+        $groupRow->method('getParams')->willReturn([
+            'logic' => 'any',
+            'conditions' => [
+                ['type' => 'tag', 'params' => ['tag' => 'vip']],
+            ],
+        ]);
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addSegmentFilter')->willReturnSelf();
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([$groupRow]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $this->dataPersistor->method('get')->willReturn(null);
+
+        $data = $this->makeProvider($collection)->getData();
+        $groupRowData = $data[1]['conditions']['conditions'][0];
+
+        self::assertSame('group', $groupRowData['type']);
+        self::assertSame('any', $groupRowData['group_logic']);
+        self::assertSame(
+            [['type' => 'tag', 'params' => ['tag' => 'vip']]],
+            json_decode($groupRowData['group_conditions_json'], true)
+        );
+    }
+
     public function testGetDataAppliesPersistedDataAndClearsIt(): void
     {
         $collection = $this->createStub(SegmentCollection::class);

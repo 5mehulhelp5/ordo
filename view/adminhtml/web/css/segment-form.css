@@ -249,6 +249,192 @@
     display: none;
 }
 
+/* A 'group' row's own nested group_logic + group_conditions - rendered as a distinct blue-accent
+   box (left border, tinted background) so a group visually reads as "a sub-container of rules"
+   nested inside the outer AND/OR list, not just more of the same flat rows. dynamicRows renders
+   EVERY declared field's <td> in EVERY row regardless of type (just hidden via a knockout
+   `visible` binding's inline style) - :has([data-index="group_conditions"]) alone matches by
+   DOM presence, not visibility, so it silently matched every row including plain conditions
+   (reported directly against a real screenshot: a stray blue accent bar on a "Monetary Total At
+   Least" row that has nothing to do with groups). Checking the Type select's own selected
+   option instead of a sibling field's mere existence targets only rows actually set to 'group' -
+   data-index="type" lives on the wrapping `.admin__field` div, not the `<select>` itself (same
+   "attribute isn't where you'd guess" gotcha hit once already for condition_logic/conditions on
+   this same form). */
+[data-index="conditions"].admin__dynamic-rows tr.data-row:has([data-index="type"] select option[value="group"]:checked) {
+    display: block;
+    background: #f0f6fb;
+    border-left: 4px solid #1976d2;
+    border-radius: 4px;
+    padding: 12px 44px 12px 14px;
+}
+
+[data-index="group_logic"] {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+[data-index="group_logic"] .admin__field-label {
+    display: block;
+    float: none;
+    width: auto;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0d47a1;
+}
+
+[data-index="group_logic"] .admin__field-control {
+    display: block;
+    float: none;
+    width: auto;
+}
+
+[data-index="group_logic"] .admin__field-note {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 11px;
+    color: #4a6fa1;
+}
+
+/* group_conditions_json is the raw JSON blob a 'group' row's conditions are stored in - managed
+   entirely through Ordo_Automation/js/segment-group-modal.js's modal, never shown to the admin
+   directly (that's exactly the "raw JSON in the form" problem this whole form exists to
+   eliminate - reported directly, in caps, after an earlier version of this switcherConfig
+   accidentally flipped it to visible=true for 'group' rows, showing the raw array on-screen).
+   ordo_segment_form.xml's own switcherConfig now never sets this field's visible to true for any
+   rule; this is a belt-and-suspenders hard hide so a future switcherConfig edit can't
+   reintroduce the same mistake silently. */
+/* Scoped to the field's own [data-index] wrapper specifically, NOT a :has() ancestor search -
+   every row (group or not) renders this field's markup somewhere in its DOM (just hidden via
+   Magento's own visible binding), so a broad `.admin__field:has(textarea[...])` rule matched the
+   dynamicRows' OWN outer .admin__field too (the one wrapping the entire conditions table) and
+   hid the whole conditions list, not just this one field - caught immediately via a real
+   screenshot showing an empty Conditions section. */
+[data-index="group_conditions_json"] {
+    display: none !important;
+}
+
+.ordo-group-manage-button {
+    background: #fff;
+    border: 1px solid #90caf9;
+    color: #0d47a1;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ordo-group-manage-button:hover {
+    background: #e3f2fd;
+}
+
+.ordo-group-preview {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #4a6fa1;
+    font-style: italic;
+}
+
+/* Group conditions modal content (Magento_Ui/js/modal/modal builds the overlay/chrome itself -
+   this only styles the content segment-group-modal.js hands it), same visual language as the
+   Free Gift Offer bulk-picker modal elsewhere in this module. */
+.ordo-group-modal-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f1f5;
+}
+
+.ordo-group-modal-row:last-child {
+    border-bottom: none;
+}
+
+.ordo-group-modal-row select {
+    flex: 1 1 220px;
+}
+
+.ordo-group-modal-value {
+    flex: 1 1 200px;
+}
+
+.ordo-group-modal-value label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7180;
+    margin-bottom: 4px;
+}
+
+.ordo-group-modal-value input,
+.ordo-group-modal-value textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ordo-group-modal-json {
+    font-family: monospace;
+    font-size: 11px;
+    min-height: 32px;
+}
+
+.ordo-group-modal-delete {
+    background: none;
+    border: 1px solid #dde3e8;
+    border-radius: 4px;
+    color: #6b7180;
+    cursor: pointer;
+    padding: 6px 10px;
+    flex: 0 0 auto;
+}
+
+.ordo-group-modal-delete:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.ordo-group-modal-add {
+    margin-top: 12px;
+    background: #fff;
+    border: 1px dashed #90caf9;
+    color: #0d47a1;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ordo-group-modal-add:hover {
+    background: #e3f2fd;
+}
+
+/* "Add Condition" - Magento's default plain <button> styling here (grey fill, grey border, no
+   theme awareness at all) sat inside the now-white/purple-themed card looking like an unstyled
+   leftover, the same "doesn't belong to this page" impression the JSON textarea gave before it
+   was hidden (reported directly). Restyled as a dashed outline button matching the purple accent
+   used everywhere else on this card. */
+[data-index="conditions"] button[data-action="add_new_row"] {
+    background: #fff;
+    border: 1px dashed #b794f6;
+    color: #6b46c1;
+    border-radius: 4px;
+    padding: 7px 14px;
+    margin: 8px 0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+[data-index="conditions"] button[data-action="add_new_row"]:hover {
+    background: #faf5ff;
+    border-color: #7c3aed;
+}
+
 /* "Bulk actions on current members" (bulkactions.phtml) - a bare, unstyled Magento form with the
    same narrow-fixed-label-column layout problem the "Segment matches" field above had, sitting
    right below the now-restyled card conditions and reading as an unfinished, bolted-on

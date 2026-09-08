@@ -79,7 +79,10 @@ class DataProvider extends AbstractDataProvider
      * not just params_json — so the switcherConfig fields in ordo_segment_form.xml (mirrored
      * from the campaign form's own — see Model\Campaign\DataProvider::loadChildRows(), same
      * reasoning) pre-populate correctly when editing an existing segment, instead of only
-     * showing the raw JSON with every dedicated field blank.
+     * showing the raw JSON with every dedicated field blank. A 'group' row's params
+     * ({"logic": ..., "conditions": [...]}) get mapped into group_logic/group_conditions
+     * instead — see ordo_segment_form.xml's own group_logic/group_conditions fields and
+     * Model\Segment\SegmentSaveProcessor::normalizeGroupRow(), the save-side counterpart.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -90,22 +93,69 @@ class DataProvider extends AbstractDataProvider
 
         $rows = [];
         foreach ($collection as $row) {
-            $paramsJson = $row->getParamsJson();
-            $decoded = json_decode($paramsJson, true);
+            $type = (string) $row->getType();
 
-            /** @var array<string, mixed> $rowData */
-            $rowData = [
-                'type' => $row->getType(),
-                'params_json' => $paramsJson,
-            ];
-
-            if (is_array($decoded)) {
-                $rowData += $decoded;
+            if ($type === 'group') {
+                $rows[] = $this->loadGroupRow((array) $row->getParams());
+                continue;
             }
 
-            $rows[] = $rowData;
+            $rows[] = $this->buildLeafRowData($type, (string) $row->getParamsJson());
         }
 
         return $rows;
+    }
+
+    /**
+     * group_conditions_json feeds Ordo_Automation/js/segment-group-modal.js's modal directly (a
+     * plain JSON array of {type, params}) - see that file and
+     * Model\Segment\SegmentSaveProcessor::normalizeGroupRow(), the save-side counterpart, for why
+     * this isn't a nested dynamicRows shape (that pattern is not supported by this Magento_Ui
+     * version - confirmed against every core module).
+     *
+     * @param array<mixed> $groupParams
+     * @return array<string, mixed>
+     */
+    private function loadGroupRow(array $groupParams): array
+    {
+        $logic = ($groupParams['logic'] ?? 'all') === 'any' ? 'any' : 'all';
+        $nested = $groupParams['conditions'] ?? [];
+
+        $nestedConditions = [];
+        if (is_array($nested)) {
+            foreach ($nested as $item) {
+                if (!is_array($item) || !isset($item['type']) || !is_string($item['type'])) {
+                    continue;
+                }
+                $params = is_array($item['params'] ?? null) ? $item['params'] : new \stdClass();
+                $nestedConditions[] = ['type' => $item['type'], 'params' => $params];
+            }
+        }
+
+        return [
+            'type' => 'group',
+            'group_logic' => $logic,
+            'group_conditions_json' => json_encode($nestedConditions) ?: '[]',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildLeafRowData(string $type, string $paramsJson): array
+    {
+        $decoded = json_decode($paramsJson, true);
+
+        /** @var array<string, mixed> $rowData */
+        $rowData = [
+            'type' => $type,
+            'params_json' => $paramsJson,
+        ];
+
+        if (is_array($decoded)) {
+            $rowData += $decoded;
+        }
+
+        return $rowData;
     }
 }

@@ -29,6 +29,15 @@ class SegmentSaveProcessor
      */
     private const array DEDICATED_PARAM_FIELDS = ['tag', 'amount', 'threshold', 'days', 'count', 'percentile'];
 
+    /**
+     * Applies to both the top-level conditions list and a single group's own nested list - the
+     * admin UI has no client-side equivalent cap (Magento_Ui's dynamic-rows.js in this version
+     * has no built-in "max records" option to hook into), so this is the actual enforcement
+     * point: extra rows beyond the 10th are silently dropped rather than saved, matching
+     * ordo_segment_form.xml's own "up to 10" notice text.
+     */
+    private const int MAX_CONDITIONS_PER_LIST = 10;
+
     public function __construct(
         private readonly SegmentFactory $segmentFactory,
         private readonly SegmentResource $segmentResource,
@@ -79,20 +88,62 @@ class SegmentSaveProcessor
         }
 
         $sortOrder = 0;
-        foreach ($conditionRows as $row) {
+        foreach (array_slice($conditionRows, 0, self::MAX_CONDITIONS_PER_LIST) as $row) {
             if (empty($row['type'])) {
                 continue;
             }
 
+            $type = (string) $row['type'];
             $condition = $this->segmentConditionFactory->create();
             $condition->setData([
                 'segment_id' => $segmentId,
-                'type' => (string) $row['type'],
-                'params' => $this->normalizeRowParams($row),
+                'type' => $type,
+                'params' => $type === 'group' ? $this->normalizeGroupRow($row) : $this->normalizeRowParams($row),
                 'sort_order' => $sortOrder++,
             ]);
             $this->segmentConditionResource->save($condition);
         }
+    }
+
+    /**
+     * A 'group' row's own conditions come from group_conditions_json - a plain JSON array of
+     * {type, params} built client-side by Ordo_Automation/js/segment-group-modal.js's modal (see
+     * ordo_segment_form.xml's own comment on group_conditions_json). Nested dynamicRows-inside-
+     * dynamicRows was tried first and is NOT a supported Magento_Ui pattern in this version
+     * (confirmed against every core module: no dynamicRows anywhere nests another dynamicRows in
+     * its own record) - its "Add Condition to Group" button silently did nothing, a real
+     * functional bug rather than a styling one. The modal reuses the exact
+     * "field-per-type-with-a-single-value-slot" model the dedicated fields already established,
+     * just built in vanilla JS instead of another declarative dynamicRows. Re-validated and
+     * re-serialized here (not trusted verbatim) so a hand-crafted/tampered POST can't smuggle
+     * more than MAX_CONDITIONS_PER_LIST rows or a non-array shape into a saved segment. One level
+     * of nesting only: a nested condition can't itself be type 'group' (the modal's own Type
+     * dropdown never offers it - see ordo_segment_form.xml's own comment on
+     * Model\Config\Source\ConditionTypeWithGroup), so this never needs to recurse further.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function normalizeGroupRow(array $row): string
+    {
+        $logic = ($row['group_logic'] ?? 'all') === 'any' ? 'any' : 'all';
+
+        $decoded = json_decode((string) ($row['group_conditions_json'] ?? ''), true);
+        $nestedRows = is_array($decoded) ? $decoded : [];
+
+        $conditions = [];
+        foreach (array_slice($nestedRows, 0, self::MAX_CONDITIONS_PER_LIST) as $nestedRow) {
+            if (!is_array($nestedRow) || empty($nestedRow['type']) || !is_string($nestedRow['type'])) {
+                continue;
+            }
+
+            $params = $nestedRow['params'] ?? [];
+            $conditions[] = [
+                'type' => $nestedRow['type'],
+                'params' => is_array($params) && $params !== [] ? $params : new \stdClass(),
+            ];
+        }
+
+        return json_encode(['logic' => $logic, 'conditions' => $conditions]) ?: '{}';
     }
 
     /**

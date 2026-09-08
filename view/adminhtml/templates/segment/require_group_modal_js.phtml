@@ -1,0 +1,11 @@
+<?php
+/**
+ * Loads the Segment edit page's "Group (nested AND/OR)" condition modal (see
+ * segment-group-modal.js's own docblock for why it's a plain modal, not a second dynamicRows).
+ * This page is otherwise pure ui_component with no other phtml to inline a require([...]) call
+ * from — same reasoning as Ordo_Automation::freegiftoffer/require_form_js.phtml.
+ */
+?>
+<script>
+require(['Ordo_Automation/js/segment-group-modal']);
+</script>

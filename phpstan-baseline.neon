@@ -1285,12 +1285,6 @@ parameters:
 			path: Model/Config/Source/ActionType.php
 
 		-
-			message: '#^Method Ordo\\Automation\\Model\\Config\\Source\\ConditionType\:\:toOptionArray\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: Model/Config/Source/ConditionType.php
-
-		-
 			message: '#^Cannot call method getAttributeCode\(\) on mixed\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -2233,6 +2227,12 @@ parameters:
 			path: Model/Segment.php
 
 		-
+			message: '#^Cannot call method getParams\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Model/Segment/DataProvider.php
+
+		-
 			message: '#^Cannot call method getParamsJson\(\) on mixed\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -2257,15 +2257,15 @@ parameters:
 			path: Model/Segment/DataProvider.php
 
 		-
-			message: '#^Method Ordo\\Automation\\Model\\Segment\\DataProvider\:\:loadConditionRows\(\) should return array\<int, array\<string, mixed\>\> but returns list\<array\<mixed\>\>\.$#'
+			message: '#^Method Ordo\\Automation\\Model\\Segment\\DataProvider\:\:buildLeafRowData\(\) should return array\<string, mixed\> but returns array\<mixed\>\.$#'
 			identifier: return.type
 			count: 1
 			path: Model/Segment/DataProvider.php
 
 		-
-			message: '#^Parameter \#1 \$json of function json_decode expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
 			path: Model/Segment/DataProvider.php
 
 		-
@@ -2307,7 +2307,7 @@ parameters:
 		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 5
+			count: 6
 			path: Model/Segment/SegmentSaveProcessor.php
 
 		-

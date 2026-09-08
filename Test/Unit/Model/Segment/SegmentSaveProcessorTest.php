@@ -188,6 +188,89 @@ class SegmentSaveProcessorTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testProcessSavesGroupRowAsNestedJson(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $segment = $this->createMock(Segment::class);
+        $segment->method('getEntityId')->willReturn(1);
+        $this->segmentFactory->method('create')->willReturn($segment);
+
+        $this->segmentConditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+
+        $condition = $this->createMock(SegmentCondition::class);
+        $condition->expects(self::once())->method('setData')->with(self::callback(
+            fn (array $data) => $data['type'] === 'group'
+                && json_decode($data['params'], true) === [
+                    'logic' => 'any',
+                    'conditions' => [
+                        ['type' => 'tag', 'params' => ['tag' => 'vip']],
+                        ['type' => 'monetary_total_at_least', 'params' => ['amount' => '1']],
+                    ],
+                ]
+        ));
+        $this->segmentConditionFactory->method('create')->willReturn($condition);
+
+        $processor->process([
+            'conditions' => ['conditions' => [[
+                'type' => 'group',
+                'group_logic' => 'any',
+                'group_conditions_json' => json_encode([
+                    ['type' => 'tag', 'params' => ['tag' => 'vip']],
+                    ['type' => 'monetary_total_at_least', 'params' => ['amount' => '1']],
+                ]),
+            ]]],
+        ]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testProcessSkipsNestedGroupRowsWithoutType(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $segment = $this->createMock(Segment::class);
+        $segment->method('getEntityId')->willReturn(1);
+        $this->segmentFactory->method('create')->willReturn($segment);
+
+        $this->segmentConditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+
+        $condition = $this->createMock(SegmentCondition::class);
+        $condition->expects(self::once())->method('setData')->with(self::callback(
+            fn (array $data) => json_decode($data['params'], true) === ['logic' => 'all', 'conditions' => []]
+        ));
+        $this->segmentConditionFactory->method('create')->willReturn($condition);
+
+        $processor->process([
+            'conditions' => ['conditions' => [[
+                'type' => 'group',
+                'group_conditions_json' => json_encode([['type' => '']]),
+            ]]],
+        ]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testProcessCapsConditionsAtMaxPerList(): void
+    {
+        $processor = $this->makeProcessor();
+
+        $segment = $this->createMock(Segment::class);
+        $segment->method('getEntityId')->willReturn(1);
+        $this->segmentFactory->method('create')->willReturn($segment);
+
+        $this->segmentConditionCollectionFactory->method('create')->willReturn($this->emptyConditionCollection());
+
+        $this->segmentConditionFactory->expects(self::exactly(10))->method('create')
+            ->willReturn($this->createStub(SegmentCondition::class));
+
+        $rows = [];
+        for ($i = 0; $i < 15; $i++) {
+            $rows[] = ['type' => 'tag', 'tag' => "tag{$i}"];
+        }
+
+        $processor->process(['conditions' => ['conditions' => $rows]]);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testProcessPropagatesExceptionFromSave(): void
     {
         $processor = $this->makeProcessor();
