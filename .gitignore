@@ -6,6 +6,7 @@ node_modules/
 .phpunit.result.cache
 clover.xml
 junit.xml
+coverage-js/
 .php-cs-fixer.cache
 composer.lock
 .playwright-mcp/

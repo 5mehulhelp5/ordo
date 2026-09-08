@@ -4,16 +4,22 @@
  * A nested dynamicRows-inside-dynamicRows was tried first (a group's own conditions as a second
  * dynamicRows field nested inside the outer conditions row) and does not work: no core Magento
  * module anywhere nests one dynamicRows inside another's own record, and confirmed directly here
- * too - its "Add Condition to Group" button fired with no console error but never added a row
- * (checked past the click handler itself via a plain dispatchEvent, ruling out a click-target
- * problem). Rather than keep guessing at Magento_Ui internals, a group's own conditions are
- * edited in a small modal instead - the exact "+ Choose from Catalog" pattern already proven on
- * the Free Gift Offer form, just editing condition rows instead of picking products. The result
- * is written into a single hidden group_conditions_json field (a plain JSON array of
- * {type, params}) that Model\Segment\SegmentSaveProcessor::normalizeGroupRow() reads directly -
- * no dynamicRows involved on the group's own list at all.
+ * too - its "Add Condition to Group" button fired with no console error but never added a row.
+ * Rather than keep guessing at Magento_Ui internals, a group's own conditions are rendered with a
+ * small hand-rolled row list instead, written into a single hidden group_conditions_json field (a
+ * plain JSON array of {type, params}) that Model\Segment\SegmentSaveProcessor::normalizeGroupRow()
+ * reads directly - no dynamicRows involved on the group's own list at all.
  *
- * Each modal row is Type + one generic "value" input (labeled per-type, e.g. "Minimum score" for
+ * This list renders INLINE, directly under the group's own "Group matches" selector, always
+ * visible - not behind a "Manage group conditions" button opening a modal, which an earlier
+ * version of this file used. Reported directly against that version: hiding a group's conditions
+ * behind a popup means the admin can't see the segment's whole rule tree at a glance ("Tag AND
+ * (Score OR Big Spender)") without clicking into a separate window for every group. The inline
+ * list is simply a visually-nested version of the exact same row markup the modal used to build,
+ * still writing to the same hidden field on every change - no "Done"/"Cancel" step, since there's
+ * no modal to confirm or discard.
+ *
+ * Each row is Type + one generic "value" input (labeled per-type, e.g. "Minimum score" for
  * score_at_least) - the same one-value-per-type shape every dedicated field on the outer form
  * already has, just not switched via a declarative switcherConfig here since there is no
  * declarative row to switch fields on. The 3 condition types with no single dedicated value
@@ -23,7 +29,6 @@
  */
 define([
     'jquery',
-    'Magento_Ui/js/modal/modal',
     'domReady!'
 ], function ($) {
     'use strict';
@@ -69,61 +74,6 @@ define([
     }
 
     /**
-     * @param {Array} conditions [{type, params}]
-     * @return {jQuery}
-     */
-    function buildModalMarkup(conditions, typeOptions) {
-        var $modal = $('<div class="ordo-group-modal"></div>'),
-            $list = $('<div class="ordo-group-modal-rows"></div>').appendTo($modal);
-
-        $('<button type="button" class="ordo-group-modal-add">+ Add Condition</button>')
-            .on('click', function () {
-                appendRow($list, typeOptions, {type: typeOptions[0].value, params: {}});
-            })
-            .appendTo($modal);
-
-        conditions.forEach(function (condition) {
-            appendRow($list, typeOptions, condition);
-        });
-
-        if (conditions.length === 0) {
-            appendRow($list, typeOptions, {type: typeOptions[0].value, params: {}});
-        }
-
-        return $modal;
-    }
-
-    /**
-     * @param {jQuery} $list
-     * @param {Array} typeOptions
-     * @param {Object} condition {type, params}
-     */
-    function appendRow($list, typeOptions, condition) {
-        var $row = $('<div class="ordo-group-modal-row"></div>'),
-            $typeSelect = $('<select class="admin__control-select"></select>'),
-            $valueWrap = $('<div class="ordo-group-modal-value"></div>'),
-            $delete = $('<button type="button" class="ordo-group-modal-delete" title="Remove">✕</button>');
-
-        typeOptions.forEach(function (opt) {
-            $('<option></option>').attr('value', opt.value).text(opt.label).appendTo($typeSelect);
-        });
-        $typeSelect.val(condition.type);
-
-        $delete.on('click', function () {
-            $row.remove();
-        });
-
-        $typeSelect.on('change', function () {
-            renderValueField($valueWrap, $typeSelect.val(), {});
-        });
-
-        $row.append($typeSelect).append($valueWrap).append($delete);
-        $list.append($row);
-
-        renderValueField($valueWrap, condition.type, condition.params || {});
-    }
-
-    /**
      * @param {jQuery} $valueWrap
      * @param {String} type
      * @param {Object} existingParams
@@ -135,13 +85,13 @@ define([
 
         if (field) {
             $('<label></label>').text(field.label).appendTo($valueWrap);
-            $('<input type="text" class="admin__control-text ordo-group-modal-value-input">')
+            $('<input type="text" class="admin__control-text ordo-group-value-input">')
                 .val(existingParams[field.key] || '')
                 .appendTo($valueWrap);
             $valueWrap.data('valueKey', field.key);
         } else {
             $('<label></label>').text('Advanced (JSON)').appendTo($valueWrap);
-            $('<textarea class="admin__control-textarea ordo-group-modal-json"></textarea>')
+            $('<textarea class="admin__control-textarea ordo-group-json"></textarea>')
                 .val(Object.keys(existingParams).length ? JSON.stringify(existingParams) : '')
                 .appendTo($valueWrap);
             $valueWrap.data('valueKey', null);
@@ -149,16 +99,51 @@ define([
     }
 
     /**
-     * @param {jQuery} $list
+     * @param {jQuery} $rows
+     * @param {Array} typeOptions
+     * @param {Object} condition {type, params}
+     * @param {Function} sync call after any change to this row (add/edit/delete)
+     */
+    function appendInlineRow($rows, typeOptions, condition, sync) {
+        var $row = $('<div class="ordo-group-row"></div>'),
+            $typeSelect = $('<select class="admin__control-select"></select>'),
+            $valueWrap = $('<div class="ordo-group-value"></div>'),
+            $delete = $('<button type="button" class="ordo-group-row-delete" title="Remove">✕</button>');
+
+        typeOptions.forEach(function (opt) {
+            $('<option></option>').attr('value', opt.value).text(opt.label).appendTo($typeSelect);
+        });
+        $typeSelect.val(condition.type);
+
+        $delete.on('click', function () {
+            $row.remove();
+            sync();
+        });
+
+        $typeSelect.on('change', function () {
+            renderValueField($valueWrap, $typeSelect.val(), {});
+            sync();
+        });
+
+        $valueWrap.on('change input', sync);
+
+        $row.append($typeSelect).append($valueWrap).append($delete);
+        $rows.append($row);
+
+        renderValueField($valueWrap, condition.type, condition.params || {});
+    }
+
+    /**
+     * @param {jQuery} $rows
      * @return {Array} [{type, params}]
      */
-    function readRows($list) {
+    function readRows($rows) {
         var conditions = [];
 
-        $list.find('.ordo-group-modal-row').each(function () {
+        $rows.find('.ordo-group-row').each(function () {
             var $row = $(this),
                 type = $row.find('select').val(),
-                $valueWrap = $row.find('.ordo-group-modal-value'),
+                $valueWrap = $row.find('.ordo-group-value'),
                 valueKey = $valueWrap.data('valueKey'),
                 params = {};
 
@@ -187,70 +172,54 @@ define([
     }
 
     /**
-     * @param {jQuery} $row the condition row (tr.data-row) currently set to type "group"
-     * @param {jQuery} $previewCell the (visible) cell the manage-button/preview live in - NOT
-     *  necessarily the same cell as group_conditions_json's own (invisible) one, see
-     *  refreshGroupRows()'s own comment on why
+     * Builds the always-visible inline panel for one 'group' row's own conditions and appends it
+     * to $groupCell, wiring every row to serialize straight back into $jsonField on any change -
+     * there's no separate "Done" step to remember to click, since there's no modal to confirm.
+     *
+     * @param {jQuery} $groupCell the group_logic field's own (visible) <td> for this row
+     * @param {jQuery} $jsonField the hidden group_conditions_json textarea for this row
      */
-    function openGroupModal($row, $previewCell) {
-        var $jsonField = $row.find('textarea[name*="[group_conditions_json]"]'),
+    function buildInlinePanel($groupCell, $jsonField) {
+        var typeOptions = readTypeOptions(),
             existing = [],
-            typeOptions = readTypeOptions(),
-            $modalContent;
+            $panel = $('<div class="ordo-group-inline"></div>'),
+            $rows = $('<div class="ordo-group-rows"></div>'),
+            $addButton = $('<button type="button" class="ordo-group-inline-add">+ Add Condition</button>'),
+            sync;
 
         try {
             existing = JSON.parse($jsonField.val() || '[]');
         } catch (e) {
             existing = [];
         }
-
         if (!Array.isArray(existing)) {
             existing = [];
         }
 
-        $modalContent = buildModalMarkup(existing, typeOptions);
+        sync = function () {
+            var conditions = readRows($rows);
 
-        $modalContent.modal({
-            title: 'Group conditions',
-            modalClass: 'ordo-group-modal-wrapper',
-            buttons: [
-                {
-                    text: 'Done',
-                    class: 'action-primary',
-                    click: function () {
-                        var conditions = readRows($modalContent.find('.ordo-group-modal-rows'));
+            $jsonField.val(JSON.stringify(conditions)).trigger('change').trigger('input');
+        };
 
-                        $jsonField.val(JSON.stringify(conditions)).trigger('change').trigger('input');
-                        $modalContent.modal('closeModal');
-                        updatePreview($previewCell, conditions);
-                    }
-                },
-                {
-                    text: 'Cancel',
-                    click: function () {
-                        $modalContent.modal('closeModal');
-                    }
-                }
-            ]
-        }).modal('openModal');
+        existing.forEach(function (condition) {
+            appendInlineRow($rows, typeOptions, condition, sync);
+        });
+
+        $addButton.on('click', function () {
+            appendInlineRow($rows, typeOptions, {type: typeOptions[0].value, params: {}}, sync);
+            sync();
+        });
+
+        $panel.append($rows).append($addButton);
+        $groupCell.append($panel);
     }
 
     /**
-     * @param {jQuery} $groupCell
-     * @param {Array} conditions
-     */
-    function updatePreview($groupCell, conditions) {
-        var $preview = $groupCell.find('.ordo-group-preview'),
-            count = conditions.length;
-
-        $preview.text(count === 1 ? '1 condition configured' : count + ' conditions configured');
-    }
-
-    /**
-     * Finds every condition row currently set to type "group" and, if it doesn't already have
-     * the manage-button/preview injected, adds them next to the hidden group_conditions_json
-     * field. Re-run on every change to the outer Type select and after every dynamicRows
-     * add/delete, since rows (and their type) can change at any time.
+     * Finds every condition row currently set to type "group" and, if it doesn't already have its
+     * inline panel built, builds one next to the hidden group_conditions_json field. Re-run on
+     * every change to the outer Type select and after every dynamicRows add/delete, since rows
+     * (and their type) can change at any time.
      */
     function refreshGroupRows() {
         $('[data-index="conditions"] tr.data-row').each(function () {
@@ -260,10 +229,10 @@ define([
                 // Magento's own knockout binding sets `visible: elem.visible()` on the <td>
                 // itself, not just the field div inside it - since group_conditions_json's own
                 // visible is permanently false (see ordo_segment_form.xml), its <td> is always
-                // display:none too, which would hide anything appended inside it, manage button
-                // included. group_logic's own <td> stays visible for a 'group' row, so the
-                // button/preview are injected there instead - a sibling field's cell, not this
-                // field's own (invisible) one.
+                // display:none too, which would hide anything appended inside it, panel included.
+                // group_logic's own <td> stays visible for a 'group' row, so the panel is
+                // injected there instead - a sibling field's cell, not this field's own
+                // (invisible) one.
                 $groupCell = $row.find('[data-index="group_logic"]').closest('td');
 
             if (!$groupCell.length) {
@@ -271,32 +240,15 @@ define([
             }
 
             if (type !== 'group') {
-                $groupCell.find('.ordo-group-manage-button, .ordo-group-preview').remove();
+                $groupCell.find('.ordo-group-inline').remove();
                 return;
             }
 
-            if ($groupCell.find('.ordo-group-manage-button').length) {
+            if ($groupCell.find('.ordo-group-inline').length) {
                 return;
             }
 
-            var existing = [];
-
-            try {
-                existing = JSON.parse($jsonField.val() || '[]');
-            } catch (e) {
-                existing = [];
-            }
-            if (!Array.isArray(existing)) {
-                existing = [];
-            }
-
-            $('<button type="button" class="ordo-group-manage-button">Manage group conditions</button>')
-                .on('click', function () {
-                    openGroupModal($row, $groupCell);
-                })
-                .appendTo($groupCell);
-            $('<div class="ordo-group-preview"></div>').appendTo($groupCell);
-            updatePreview($groupCell, existing);
+            buildInlinePanel($groupCell, $jsonField);
         });
     }
 
@@ -304,7 +256,11 @@ define([
         // A change on any Type select (including one that just switched a row to/from "group")
         // - re-scan on a tick delay so knockout's own visible-binding toggle for
         // group_conditions_json (see ordo_segment_form.xml's switcherConfig) has already applied
-        // before this looks for it.
+        // before this looks for it. The delegate is scoped to `[data-index="conditions"] select`,
+        // which only matches Magento-rendered selects carrying that ancestor - the plain
+        // <select> elements this file injects into its own inline rows live inside the same
+        // subtree but never trigger a spurious extra rescan beyond the harmless no-op one below,
+        // since refreshGroupRows() only rebuilds a panel that isn't built yet.
         setTimeout(refreshGroupRows, 50);
     });
 
@@ -313,4 +269,21 @@ define([
     });
 
     refreshGroupRows();
+
+    // Exposed purely so Test/js/segment-group-modal.test.js can exercise this module's actual
+    // logic directly (readTypeOptions/renderValueField/readRows are the parts with real branching
+    // - type-with-a-dedicated-field vs the 3 JSON-fallback types, non-empty vs blank values) rather
+    // than only indirectly through full DOM/jQuery event simulation. No other module requires()
+    // this one for its return value - require(['Ordo_Automation/js/segment-group-modal']) in
+    // require_group_modal_js.phtml only ever runs it for its side effects (the $(document).on(...)
+    // delegates and the initial refreshGroupRows() call above, both already wired by this point) -
+    // so adding a return object here changes nothing about how the module behaves in the browser.
+    return {
+        readTypeOptions: readTypeOptions,
+        renderValueField: renderValueField,
+        appendInlineRow: appendInlineRow,
+        readRows: readRows,
+        buildInlinePanel: buildInlinePanel,
+        refreshGroupRows: refreshGroupRows
+    };
 });
