@@ -23,7 +23,7 @@ class WebPushCrypto
 
     public function __construct(
         private readonly Der $der,
-        private readonly Base64Url $base64Url
+        private readonly BaseSixtyFourUrl $base64Url
     ) {
     }
 

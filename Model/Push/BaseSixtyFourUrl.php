@@ -12,7 +12,7 @@ namespace Ordo\Automation\Model\Push;
  * collaborator in this module - Model\Email\SendGridSignatureValidator, Model\WhatsApp\
  * WhatsAppSignatureValidator - a static method can't be intercepted by a plugin/proxy).
  */
-class Base64Url
+class BaseSixtyFourUrl
 {
     public function encode(string $data): string
     {

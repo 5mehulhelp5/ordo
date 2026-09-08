@@ -51,7 +51,7 @@ function openssl_sign(string $data, &$signature, $privateKey, int|string $algo =
 
 namespace Ordo\Automation\Test\Unit\Model\Push;
 
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use Ordo\Automation\Model\Push\Der;
 use Ordo\Automation\Model\Push\WebPushCrypto;
 use PHPUnit\Framework\TestCase;
@@ -68,13 +68,13 @@ use PHPUnit\Framework\TestCase;
 class WebPushCryptoTest extends TestCase
 {
     private WebPushCrypto $webPushCrypto;
-    private Base64Url $base64Url;
+    private BaseSixtyFourUrl $base64Url;
     private Der $der;
 
     protected function setUp(): void
     {
         $this->der = new Der();
-        $this->base64Url = new Base64Url();
+        $this->base64Url = new BaseSixtyFourUrl();
         $this->webPushCrypto = new WebPushCrypto($this->der, $this->base64Url);
     }
 

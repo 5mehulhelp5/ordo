@@ -32,7 +32,7 @@ function openssl_pkey_get_details($key)
 namespace Ordo\Automation\Test\Unit\Console\Command;
 
 use Ordo\Automation\Console\Command\GenerateVapidKeysCommand;
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use Ordo\Automation\Model\Push\Der;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -49,7 +49,7 @@ class GenerateVapidKeysCommandTest extends TestCase
     {
         $GLOBALS['ordo_test_force_pkey_new_failure'] = true;
 
-        $tester = new CommandTester(new GenerateVapidKeysCommand(new Base64Url()));
+        $tester = new CommandTester(new GenerateVapidKeysCommand(new BaseSixtyFourUrl()));
         $exitCode = $tester->execute([]);
 
         self::assertSame(1, $exitCode);
@@ -60,7 +60,7 @@ class GenerateVapidKeysCommandTest extends TestCase
     {
         $GLOBALS['ordo_test_force_pkey_details_failure'] = true;
 
-        $tester = new CommandTester(new GenerateVapidKeysCommand(new Base64Url()));
+        $tester = new CommandTester(new GenerateVapidKeysCommand(new BaseSixtyFourUrl()));
         $exitCode = $tester->execute([]);
 
         self::assertSame(1, $exitCode);
@@ -69,7 +69,7 @@ class GenerateVapidKeysCommandTest extends TestCase
 
     public function testGeneratesAUsableKeyPair(): void
     {
-        $base64Url = new Base64Url();
+        $base64Url = new BaseSixtyFourUrl();
         $der = new Der();
         $tester = new CommandTester(new GenerateVapidKeysCommand($base64Url));
         $exitCode = $tester->execute([]);

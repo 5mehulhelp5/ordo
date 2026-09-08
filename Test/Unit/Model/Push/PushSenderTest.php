@@ -5,7 +5,7 @@ namespace Ordo\Automation\Test\Unit\Model\Push;
 
 use Magento\Framework\HTTP\Client\Curl;
 use Ordo\Automation\Helper\Config;
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use Ordo\Automation\Model\Push\Exception\SubscriptionGoneException;
 use Ordo\Automation\Model\Push\Der;
 use Ordo\Automation\Model\Push\PushEndpointValidator;
@@ -37,7 +37,7 @@ class PushSenderTest extends TestCase
         $this->pushEndpointValidator = $this->createStub(PushEndpointValidator::class);
         $this->pushEndpointValidator->method('isAllowed')->willReturn(true);
 
-        $base64Url = new Base64Url();
+        $base64Url = new BaseSixtyFourUrl();
         $this->sender = new PushSender(
             $this->curl,
             $this->config,
@@ -122,7 +122,7 @@ class PushSenderTest extends TestCase
             $this->curl,
             $this->config,
             $this->vapidTokenBuilder,
-            new WebPushCrypto(new Der(), new Base64Url()),
+            new WebPushCrypto(new Der(), new BaseSixtyFourUrl()),
             $this->pushEndpointValidator
         );
 
