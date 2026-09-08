@@ -39,6 +39,26 @@ function loadAmdModule(loadModule) {
                     }
                 };
             }
+            if (dep === 'Magento_Ui/js/modal/modal') {
+                // Real usage only imports this for its side effect (registering $.fn.modal() on
+                // jQuery) - campaign-flow-editor.js/free-gift-offer-form.js tests exercise their
+                // own pure top-level helpers (unionNodeOutputConnections/isProductSkuField/etc.),
+                // never the actual modal dialog, so nothing needs to consume this value.
+                return undefined;
+            }
+            if (dep === 'uiRegistry') {
+                // Stub matching Magento_Ui's own registry.get(name, callback) shape closely enough
+                // for a module's top-level define() to resolve - never actually invoked by the
+                // tests here (they don't exercise the "Apply flow to form" save path).
+                return { get: function () {} };
+            }
+            if (dep === 'drawflow') {
+                // A no-op stand-in for the Drawflow constructor - real construction
+                // (`new Drawflow(container)`) only happens inside initCampaignFlowEditor()'s own
+                // body, which the tests here never call (they exercise its exposed pure helpers
+                // directly), so this only needs to exist, not actually work.
+                return function Drawflow() {};
+            }
             throw new Error('Test/js/support/amd-shim: unsupported dependency "' + dep + '"');
         });
 

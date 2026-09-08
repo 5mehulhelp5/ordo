@@ -57,7 +57,7 @@ define([
      * @param {String} formProviderName
      * @param {Object} typesConfig
      */
-    return function initCampaignFlowEditor(container, flowData, formProviderName, typesConfig) {
+    var initCampaignFlowEditor = function initCampaignFlowEditor(container, flowData, formProviderName, typesConfig) {
         (function build() {
             var editor = new Drawflow(container);
 
@@ -845,4 +845,13 @@ define([
             });
         }());
     };
+
+    // Exposed for Test/js/campaign-flow-editor.test.js - see segment-group-modal.js's own return
+    // statement for why this is safe (attaching to the exported function, not changing its own
+    // call signature/behavior at all - real callers that only ever do
+    // `initCampaignFlowEditor(container, ...)` are unaffected).
+    initCampaignFlowEditor.unionNodeOutputConnections = unionNodeOutputConnections;
+    initCampaignFlowEditor.findDisconnectedNodeIds = findDisconnectedNodeIds;
+
+    return initCampaignFlowEditor;
 });

@@ -211,12 +211,34 @@
     min-width: 0;
 }
 
-[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) .admin__field-label {
+/* Magento_Ui/js/dynamic-rows/dynamic-rows.js's own initHeader() unconditionally sets every
+   field's labelVisible to false the moment a dynamicRows list initializes its header labels
+   (Magento_Ui/view/base/web/js/dynamic-rows/dynamic-rows.js's initHeader(), regardless of the
+   columnsHeader setting) - normal table-mode dynamicRows expects the <thead> column headers
+   (hidden above, `thead { display: none }`, for this card's one-condition-per-row layout) to
+   label each column instead. With no header row, every dedicated value field here (Tag, Minimum
+   order total, SKU, ...) rendered with NO label at all - reported directly against a real
+   screenshot, an empty box with no indication of what it holds. Knockout's own `visible:
+   labelVisible` binding sets an inline `style="display: none"` on the label element, which beats
+   any plain CSS rule (this file's own previous params_json-only version of this rule proved that
+   the hard way - it styled a label that was still invisible), so `!important` is required here,
+   not optional. Matches the always-visible label pattern segment-group-modal.js's own inline
+   nested-group rows already use (real, hand-built <label> elements, not subject to this Magento
+   dynamicRows behavior at all since that panel isn't a real dynamicRows instance). */
+/* Not the Type field (matches the nested-group inline panel's own layout, which shows no label
+   above its type dropdown either - the selected option text already says what it is) and not
+   group_logic (its own dedicated, more specific rule below already gives it a distinct inline
+   purple/bold treatment next to the select, not this stacked grey-uppercase one - this broader
+   rule would otherwise win on specificity and flatten that back to the generic look). */
+[data-index="conditions"].admin__dynamic-rows tr.data-row
+    .admin__field:not([data-index="type"]):not([data-index="group_logic"]) .admin__field-label {
+    display: block !important;
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     color: var(--ordo-muted);
+    margin-bottom: 2px;
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) textarea {
@@ -298,7 +320,10 @@ td:has(> [data-index="group_logic"]) {
 }
 
 [data-index="group_logic"] .admin__field-label {
-    display: block;
+    /* !important: same Knockout-sets-an-inline-style reason documented above this whole block's
+       sibling rule (dynamic-rows' own initHeader() always sets labelVisible false) - without it
+       this label was invisible too, same bug, just not yet reported for this specific field. */
+    display: block !important;
     float: none;
     width: auto;
     margin: 0;

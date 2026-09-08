@@ -530,4 +530,16 @@ define([
         injectSortTiersButton();
         injectTierRowControls();
     }, 800);
+
+    // Exposed for Test/js/free-gift-offer-form.test.js - see segment-group-modal.js's own return
+    // statement for why this is safe (side-effect-only module, nothing else requires() its own
+    // return value).
+    return {
+        isProductSkuField: isProductSkuField,
+        sleep: sleep,
+        formatMoney: formatMoney,
+        isTierField: isTierField,
+        searchProducts: searchProducts,
+        renderChip: renderChip
+    };
 });

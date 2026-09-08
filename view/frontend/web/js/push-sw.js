@@ -87,3 +87,9 @@ function arrayBufferToBase64Url(buffer) {
     }
     return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
+
+// Exposed for Test/js/push-sw.test.js - guarded since a real service worker context has no
+// CommonJS `module` global at all (this branch never runs there, only under Node/QUnit).
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { arrayBufferToBase64Url: arrayBufferToBase64Url };
+}
