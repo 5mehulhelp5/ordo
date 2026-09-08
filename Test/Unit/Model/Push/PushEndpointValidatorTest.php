@@ -52,6 +52,17 @@ class PushEndpointValidatorTest extends TestCase
         self::assertFalse($this->validator->isAllowed('https://this-host-does-not-exist.invalid/push'));
     }
 
+    /**
+     * A hostname that resolves via real DNS to a loopback address ("localtest.me" is a
+     * well-known public DNS entry that always resolves to 127.0.0.1) - covers the branch inside
+     * the resolved-records loop itself, distinct from testRejectsLoopbackIpLiteral() which never
+     * reaches DNS resolution at all because it's given a literal IP.
+     */
+    public function testRejectsHostnameThatResolvesToALoopbackAddress(): void
+    {
+        self::assertFalse($this->validator->isAllowed('https://localtest.me/push'));
+    }
+
     public function testAllowsAPublicHttpsHostname(): void
     {
         self::assertTrue($this->validator->isAllowed('https://fcm.googleapis.com/fcm/send/abc123'));
