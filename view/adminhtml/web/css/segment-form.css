@@ -129,8 +129,8 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px 16px;
-    padding: 12px 44px 12px 0;
+    gap: 12px 20px;
+    padding: 16px 44px 16px 4px;
     position: relative;
     max-width: 100%;
     box-sizing: border-box;
@@ -263,17 +263,38 @@
    this same form). */
 [data-index="conditions"].admin__dynamic-rows tr.data-row:has([data-index="type"] select option[value="group"]:checked) {
     display: block;
-    background: #f0f6fb;
+    background: #eef5fc;
+    border: 1px solid #bcd9f2;
     border-left: 4px solid #1976d2;
-    border-radius: 4px;
-    padding: 12px 44px 12px 14px;
+    border-radius: 6px;
+    padding: 16px 48px 16px 18px;
+    margin: 6px 0;
+}
+
+/* Type + "Group matches" toggle + manage button + preview all read as one header line instead of
+   four stacked rows each taking their own line (reported directly - "przeokropnie chujowo",
+   cramped/dense/no breathing room). group_logic's own <td> is the one that stays visible for a
+   'group' row (see segment-group-modal.js's own comment on why the manage button/preview are
+   injected here too) - turning it into the flex header row lets everything after group_logic's
+   own select (the injected button + preview) sit on the same line via normal flex flow, wrapping
+   only if the viewport is too narrow. */
+/* The manage-button/preview (see segment-group-modal.js) are injected as siblings of the
+   group_logic .admin__field div, both inside the SAME <td> - making group_logic itself flex only
+   lays out ITS OWN label+select, leaving the button/preview to fall below in normal block flow.
+   The <td> itself needs to be the flex container for everything to share one header line. */
+td:has(> [data-index="group_logic"]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 10px;
 }
 
 [data-index="group_logic"] {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
 }
 
 [data-index="group_logic"] .admin__field-label {
@@ -292,9 +313,14 @@
     width: auto;
 }
 
+[data-index="group_logic"] select {
+    font-weight: 600;
+}
+
 [data-index="group_logic"] .admin__field-note {
     flex-basis: 100%;
-    margin: 0;
+    order: 5;
+    margin: 4px 0 0;
     font-size: 11px;
     color: #4a6fa1;
 }
@@ -317,26 +343,30 @@
     display: none !important;
 }
 
+/* Solid, clearly-clickable buttons - an earlier dashed-outline "ghost button" style (matching a
+   generic wireframe-mockup look) read as disabled/decorative rather than a real action,
+   reported directly. Same shape Magento's own secondary admin buttons use: solid white fill,
+   a real 1px border with enough contrast to read as a button, a visible pressed/hover state. */
 .ordo-group-manage-button {
-    background: #fff;
-    border: 1px solid #90caf9;
-    color: #0d47a1;
-    border-radius: 4px;
-    padding: 7px 14px;
+    background: #1976d2;
+    border: 1px solid #1565c0;
+    color: #fff;
+    border-radius: 3px;
+    padding: 8px 16px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(13, 71, 161, .25);
 }
 
 .ordo-group-manage-button:hover {
-    background: #e3f2fd;
+    background: #1565c0;
 }
 
 .ordo-group-preview {
-    margin-top: 6px;
-    font-size: 11px;
-    color: #4a6fa1;
-    font-style: italic;
+    font-size: 12px;
+    color: #0d47a1;
+    font-weight: 600;
 }
 
 /* Group conditions modal content (Magento_Ui/js/modal/modal builds the overlay/chrome itself -
@@ -399,40 +429,42 @@
 
 .ordo-group-modal-add {
     margin-top: 12px;
-    background: #fff;
-    border: 1px dashed #90caf9;
-    color: #0d47a1;
-    border-radius: 4px;
-    padding: 7px 14px;
+    background: #1976d2;
+    border: 1px solid #1565c0;
+    color: #fff;
+    border-radius: 3px;
+    padding: 8px 16px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 }
 
 .ordo-group-modal-add:hover {
-    background: #e3f2fd;
+    background: #1565c0;
 }
 
 /* "Add Condition" - Magento's default plain <button> styling here (grey fill, grey border, no
    theme awareness at all) sat inside the now-white/purple-themed card looking like an unstyled
    leftover, the same "doesn't belong to this page" impression the JSON textarea gave before it
-   was hidden (reported directly). Restyled as a dashed outline button matching the purple accent
-   used everywhere else on this card. */
+   was hidden (reported directly). A first restyle used a dashed outline, which read as
+   disabled/decorative rather than a real button (reported directly again) - solid purple fill
+   instead, matching the purple accent used everywhere else on this card the same way the manage-
+   group button matches its own blue accent. */
 [data-index="conditions"] button[data-action="add_new_row"] {
-    background: #fff;
-    border: 1px dashed #b794f6;
-    color: #6b46c1;
-    border-radius: 4px;
-    padding: 7px 14px;
-    margin: 8px 0;
+    background: #7c3aed;
+    border: 1px solid #6d28d9;
+    color: #fff;
+    border-radius: 3px;
+    padding: 8px 16px;
+    margin: 10px 0 4px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(76, 29, 149, .25);
 }
 
 [data-index="conditions"] button[data-action="add_new_row"]:hover {
-    background: #faf5ff;
-    border-color: #7c3aed;
+    background: #6d28d9;
 }
 
 /* "Bulk actions on current members" (bulkactions.phtml) - a bare, unstyled Magento form with the
