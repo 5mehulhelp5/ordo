@@ -141,12 +141,23 @@
     flex-direction: column;
 }
 
+/* align-items: flex-start, not center - a 'group' row's own td stretches to the full height of
+   everything the nested group panel renders inside it (see segment-group-modal.js), and
+   flex-wrap groups every item that fits on the same horizontal line into one shared cross-axis
+   for align-items purposes regardless of each item's OWN height. With center, that meant every
+   shorter item on the line (the drag handle, the Type select) was centered against that huge
+   shared height instead of sitting at the top next to the text it belongs with - reported
+   directly against a real screenshot as the drag handle "floating" disconnected from its row.
+   flex-start makes every item start at the row's own top edge instead, which also reads more
+   like a conventional top-aligned form row for the flat (non-group) rows this same rule covers.
+   40px left padding (was 4px) makes room for the drag handle, now taken out of flow entirely -
+   see td.col-draggable below for why. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px var(--ordo-gap);
-    padding: var(--ordo-gap) 44px var(--ordo-gap) 4px;
+    padding: var(--ordo-gap) 44px var(--ordo-gap) 40px;
     position: relative;
     max-width: 100%;
     box-sizing: border-box;
@@ -168,25 +179,47 @@
     background: none;
 }
 
+/* position: absolute, taken out of the row's own flex flow entirely, rather than sized via
+   flex-basis like every other column here. On a 'group' row specifically, this td's flex-basis
+   (0 0 20px, flex-shrink: 0 - should be unshrinkable by spec) was still computing down to a
+   corrupted ~12.6px actual width and dropping onto a separate flex-wrap line from the Type
+   select next to it - a genuine, reproducible flexbox layout bug (confirmed via direct
+   getBoundingClientRect() measurement, not a guess), only on rows whose OTHER visible field
+   (group_logic here) itself renders as a wide flex container. Rather than keep chasing exactly
+   which combination of flex-basis/flex-wrap/content-width interaction causes that, taking the
+   drag handle out of flex layout entirely sidesteps it: it can no longer be pushed onto its own
+   line or resized by anything else on the row, regardless of what that row's own visible field
+   turns out to be. top/left are fixed to match the row's own padding (var(--ordo-gap) is 16px). */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td.col-draggable {
-    flex: 0 0 20px;
+    position: absolute;
+    top: calc(var(--ordo-gap) + 8px);
+    left: 4px;
+    width: 20px;
 }
 
 /* One clean row per condition: Type, then whichever single dedicated field the switcherConfig left
-   visible (tag/amount/threshold/days/count/percentile), then the delete button. min-width: 0 since
-   a flex item's default min-width is its content's own intrinsic width, not 0 - without this a
-   wide native <select> refuses to shrink and overflows on a narrower viewport. */
+   visible (tag/amount/threshold/days/count/percentile/sku/category_id), then the delete button.
+   min-width: 0 since a flex item's default min-width is its content's own intrinsic width, not 0 -
+   without this a wide native <select> refuses to shrink and overflows on a narrower viewport. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="type"]) {
     flex: 1 1 240px;
     min-width: 0;
 }
 
+/* sku/category_id (added later, for the "Purchased Product"/"Purchased From Category" condition
+   types) were missing from this list entirely - with no flex-basis of their own, that td fell
+   back to flex's default (0 1 auto, sized to its own tiny intrinsic content width) while the Type
+   select next to it (flex-grow: 1, nothing else competing for the line's space) grew to fill
+   nearly the entire row, leaving the actual SKU/category input squeezed into a disconnected
+   sliver at the far right - reported directly against a real screenshot. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="tag"]),
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="amount"]),
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="threshold"]),
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="days"]),
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="count"]),
-[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]) {
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="sku"]),
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="category_id"]) {
     flex: 1 1 160px;
     min-width: 0;
 }
@@ -197,7 +230,9 @@
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="threshold"]) input,
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="days"]) input,
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="count"]) input,
-[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]) input {
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="percentile"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="sku"]) input,
+[data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="category_id"]) select {
     width: 100%;
     box-sizing: border-box;
 }
@@ -289,13 +324,22 @@
    inline style), so :has([data-index="group_conditions"]) alone would match by DOM presence, not
    visibility, and hit every row including plain conditions - checking the Type select's own
    selected option instead targets only rows actually set to 'group'. */
+/* padding-left: 40px, matching the flat (non-group) rows' own reserved space for the drag handle
+   (td.col-draggable, position: absolute at left: 4px relative to this same tr) - this rule used to
+   set padding-left: 18px, a completely different value from the flat rows' 40px. The handle's own
+   absolute position never changed between the two cases, but a 'group' row's shallower padding
+   meant its content (the "Group (nested AND/OR)" dropdown) started 22px closer to the row's own
+   edge than a flat row's content does, so the SAME handle position read as "sitting in the middle
+   of the purple box's own padding" on a group row vs "flush against the content's left edge" on a
+   flat row - reported directly as the icon looking disconnected on the purple background
+   specifically. Matching the padding is what actually fixes it, not moving the handle again. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row:has([data-index="type"] select option[value="group"]:checked) {
     display: block;
     background: var(--ordo-accent-tint);
     border: 1px solid var(--ordo-accent-border);
     border-left: 3px solid var(--ordo-accent);
     border-radius: 6px;
-    padding: var(--ordo-gap) 48px var(--ordo-gap) 18px;
+    padding: var(--ordo-gap) 48px var(--ordo-gap) 40px;
     margin: 6px 0;
 }
 
@@ -304,12 +348,25 @@
    segment-group-modal.js for why the manage button/preview are injected here too) - the <td> needs
    to be the flex container itself for everything after group_logic's own select to share one line,
    wrapping only if the viewport is too narrow. */
+/* flex: 1 1 100%; min-width: 0 - this td has no explicit basis, so its default (0 1 auto) sizes
+   it to its own CONTENT's full intrinsic width, which includes the entire nested group panel
+   (segment-group-modal.js's whole inline card, easily 1000+px of "preferred" width from its own
+   width:100% chains). A flex item's auto-basis intrinsic width is computed independently of the
+   parent row's actual available width, so that oversized preferred width was corrupting the
+   ROW's own flex-wrap math for every other sibling on the same line too - found via direct
+   getBoundingClientRect() measurement showing the Type column reporting a ~3000px width on a
+   'group' row (should be ~240px), which is what actually caused the drag handle/Type dropdown
+   misalignment reported against several screenshots, not a simple vertical-alignment nudge.
+   min-width: 0 is the standard fix for a flex item whose intrinsic content width shouldn't
+   constrain its own final size; flex: 1 1 100% makes the intent explicit (full row width, own
+   line) instead of leaving it to accidental auto-sizing. */
 td:has(> [data-index="group_logic"]) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px 14px;
     margin-top: 10px;
+    min-width: 0;
 }
 
 [data-index="group_logic"] {
