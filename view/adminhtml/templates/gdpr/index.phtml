@@ -2,94 +2,103 @@
 /** @var \Ordo\Automation\Block\Adminhtml\Gdpr\Index $block */
 /** @var \Magento\Framework\Escaper $escaper */
 ?>
-<a class="ordo-btn ordo-btn-secondary ordo-back-link"
-   href="<?= $escaper->escapeUrl($block->getUrl('ordo/dashboard/index')) ?>">
-    <?= $escaper->escapeHtml(__('← Back to Dashboard')) ?>
-</a>
-<p class="ordo-listing-intro">
-    <?= $escaper->escapeHtml(__(
-        'Look up one customer by email to view or change their marketing consent, export their'
-        . ' data, or permanently erase it — for handling a GDPR/data-protection rights request.'
-    )) ?>
-</p>
-<div class="admin__fieldset-wrapper">
-    <div class="admin__fieldset-wrapper-title">
-        <strong><?= $escaper->escapeHtml(__('Find a customer')) ?></strong>
+<div class="ordo-dashboard">
+    <div class="ordo-page-toolbar">
+        <a class="ordo-toolbar-back-link" href="<?= $escaper->escapeUrl($block->getUrl('ordo/dashboard/index')) ?>">
+            <?= $escaper->escapeHtml(__('← Back to Dashboard')) ?>
+        </a>
     </div>
-    <div class="admin__fieldset-wrapper-content">
+    <p class="ordo-listing-intro">
+        <?= $escaper->escapeHtml(__(
+            'Look up one customer by email to view or change their marketing consent, export their'
+            . ' data, or permanently erase it — for handling a GDPR/data-protection rights request.'
+        )) ?>
+    </p>
+
+    <div class="ordo-gdpr-card">
+        <div class="ordo-section-head">
+            <h2><?= $escaper->escapeHtml(__('Find a customer')) ?></h2>
+        </div>
         <form action="<?= $escaper->escapeUrl($block->getSearchFormAction()) ?>" method="get">
-            <div class="admin__field">
-                <label class="admin__field-label" for="ordo-gdpr-email">
-                    <span><?= $escaper->escapeHtml(__('Customer email')) ?></span>
-                </label>
-                <div class="admin__field-control">
-                    <input type="email" id="ordo-gdpr-email" name="email" class="admin__control-text"
-                           value="<?= $escaper->escapeHtmlAttr($block->getCustomerEmail()) ?>"/>
+            <div class="ordo-gdpr-search-row">
+                <div class="admin__field">
+                    <label class="admin__field-label" for="ordo-gdpr-email">
+                        <span><?= $escaper->escapeHtml(__('Customer email')) ?></span>
+                    </label>
+                    <div class="admin__field-control">
+                        <input type="email" id="ordo-gdpr-email" name="email" class="ordo-input"
+                               value="<?= $escaper->escapeHtmlAttr($block->getCustomerEmail()) ?>"/>
+                    </div>
                 </div>
-            </div>
-            <div class="admin__field">
-                <button type="submit" class="action-primary">
-                    <span><?= $escaper->escapeHtml(__('Search')) ?></span>
+                <button type="submit" class="ordo-btn ordo-btn-primary">
+                    <?= $escaper->escapeHtml(__('Search')) ?>
                 </button>
             </div>
         </form>
     </div>
-</div>
 
-<?php if ($block->isCustomerResolved()): ?>
-    <?php
-    $consent = $block->getConsentStates();
-    $consentTitle = __('Consent - customer #%1 (%2)', $block->getCustomerId(), $block->getCustomerEmail());
-    ?>
-<div class="admin__fieldset-wrapper" style="margin-top: 20px;">
-    <div class="admin__fieldset-wrapper-title">
-        <strong><?= $escaper->escapeHtml($consentTitle) ?></strong>
-    </div>
-    <div class="admin__fieldset-wrapper-content">
-        <form action="<?= $escaper->escapeUrl($block->getSetConsentFormAction()) ?>" method="post">
-            <?= $block->getBlockHtml('formkey') ?>
-            <input type="hidden" name="customer_id" value="<?= (int) $block->getCustomerId() ?>"/>
-            <input type="hidden" name="email" value="<?= $escaper->escapeHtmlAttr($block->getCustomerEmail()) ?>"/>
-            <?php foreach ($consent as $channel => $consented): ?>
-                <div class="admin__field">
-                    <span class="admin__field-label">
-                        <span><?= $escaper->escapeHtml(ucfirst($channel)) ?></span>
-                    </span>
-                    <div class="admin__field-control">
-                        <?= $escaper->escapeHtml($consented ? __('Opted in') : __('Opted out')) ?>
-                        <button type="submit" name="channel" value="<?= $escaper->escapeHtmlAttr($channel) ?>"
-                                onclick="this.form.consented.value='<?= $consented ? '0' : '1' ?>'"
-                                class="action-secondary">
-                            <span><?= $escaper->escapeHtml($consented ? __('Opt out') : __('Opt in')) ?></span>
-                        </button>
-                    </div>
+    <?php if ($block->isCustomerResolved()): ?>
+        <?php
+        $consent = $block->getConsentStates();
+        $consentTitle = __('Consent — customer #%1 (%2)', $block->getCustomerId(), $block->getCustomerEmail());
+        ?>
+        <div class="ordo-gdpr-card">
+            <div class="ordo-section-head">
+                <h2><?= $escaper->escapeHtml($consentTitle) ?></h2>
+            </div>
+            <form action="<?= $escaper->escapeUrl($block->getSetConsentFormAction()) ?>" method="post">
+                <?= $block->getBlockHtml('formkey') ?>
+                <input type="hidden" name="customer_id" value="<?= (int) $block->getCustomerId() ?>"/>
+                <input type="hidden" name="email" value="<?= $escaper->escapeHtmlAttr($block->getCustomerEmail()) ?>"/>
+                <div class="ordo-trigger-stats">
+                    <?php foreach ($consent as $channel => $consented): ?>
+                        <div class="ordo-gdpr-consent-row">
+                            <span class="ordo-gdpr-consent-label"><?= $escaper->escapeHtml(ucfirst($channel)) ?></span>
+                            <div class="ordo-gdpr-consent-controls">
+                                <span class="ordo-badge <?= $consented ? 'ordo-badge-on' : 'ordo-badge-off' ?>">
+                                    <?=
+                                        $consented
+                                            ? $escaper->escapeHtml(__('Opted in'))
+                                            : $escaper->escapeHtml(__('Opted out'))
+                                    ?>
+                                </span>
+                                <button type="submit" name="channel" value="<?= $escaper->escapeHtmlAttr($channel) ?>"
+                                        onclick="this.form.consented.value='<?= $consented ? '0' : '1' ?>'"
+                                        class="ordo-btn ordo-btn-secondary">
+                                    <?=
+                                        $consented
+                                            ? $escaper->escapeHtml(__('Opt out'))
+                                            : $escaper->escapeHtml(__('Opt in'))
+                                    ?>
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
-            <input type="hidden" name="consented" value=""/>
-        </form>
-    </div>
-</div>
+                <input type="hidden" name="consented" value=""/>
+            </form>
+        </div>
 
-<div class="admin__fieldset-wrapper" style="margin-top: 20px;">
-    <div class="admin__fieldset-wrapper-title">
-        <strong><?= $escaper->escapeHtml(__('Data subject actions')) ?></strong>
-    </div>
-    <div class="admin__fieldset-wrapper-content">
-        <a class="action-secondary" href="<?= $escaper->escapeUrl($block->getExportUrl()) ?>">
-            <span><?= $escaper->escapeHtml(__('Export all data (JSON)')) ?></span>
-        </a>
-        <?php $eraseConfirm = __(
-            'Permanently erase all Ordo Automation data for this customer? This cannot be undone.'
-        ); ?>
-        <form action="<?= $escaper->escapeUrl($block->getEraseFormAction()) ?>" method="post"
-              onsubmit="return confirm('<?= $escaper->escapeJs($eraseConfirm) ?>');"
-              style="display:inline-block; margin-left: 10px;">
-            <?= $block->getBlockHtml('formkey') ?>
-            <input type="hidden" name="customer_id" value="<?= (int) $block->getCustomerId() ?>"/>
-            <button type="submit" class="action-secondary delete">
-                <span><?= $escaper->escapeHtml(__('Erase all data')) ?></span>
-            </button>
-        </form>
-    </div>
+        <div class="ordo-gdpr-card">
+            <div class="ordo-section-head">
+                <h2><?= $escaper->escapeHtml(__('Data subject actions')) ?></h2>
+            </div>
+            <div class="ordo-gdpr-actions">
+                <a class="ordo-btn ordo-btn-secondary" href="<?= $escaper->escapeUrl($block->getExportUrl()) ?>">
+                    <?= $escaper->escapeHtml(__('Export all data (JSON)')) ?>
+                </a>
+                <?php $eraseConfirm = __(
+                    'Permanently erase all Ordo Automation data for this customer? This cannot be undone.'
+                ); ?>
+                <form action="<?= $escaper->escapeUrl($block->getEraseFormAction()) ?>" method="post"
+                      onsubmit="return confirm('<?= $escaper->escapeJs($eraseConfirm) ?>');">
+                    <?= $block->getBlockHtml('formkey') ?>
+                    <input type="hidden" name="customer_id" value="<?= (int) $block->getCustomerId() ?>"/>
+                    <button type="submit" class="ordo-btn ordo-btn-danger">
+                        <?= $escaper->escapeHtml(__('Erase all data')) ?>
+                    </button>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
-<?php endif; ?>

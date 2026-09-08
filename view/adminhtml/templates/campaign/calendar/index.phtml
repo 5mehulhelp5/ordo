@@ -6,10 +6,11 @@
 $viewModel = $block->getData('view_model');
 $campaigns = $viewModel->getCampaigns();
 ?>
-<a class="ordo-btn ordo-btn-secondary ordo-back-link"
-   href="<?= $escaper->escapeUrl($block->getUrl('ordo/dashboard/index')) ?>">
-    <?= $escaper->escapeHtml(__('← Back to Dashboard')) ?>
-</a>
+<div class="ordo-page-toolbar">
+    <a class="ordo-toolbar-back-link" href="<?= $escaper->escapeUrl($block->getUrl('ordo/dashboard/index')) ?>">
+        <?= $escaper->escapeHtml(__('← Back to Dashboard')) ?>
+    </a>
+</div>
 <div class="ordo-dashboard ordo-campaign-calendar">
     <div class="ordo-section-head">
         <h2><?= $escaper->escapeHtml(__('Campaign Calendar')) ?></h2>

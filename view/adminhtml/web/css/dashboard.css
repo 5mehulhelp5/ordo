@@ -5,6 +5,7 @@
   --ordo-primary-dark: #6425c9;
   --ordo-success: #1c9b6a;
   --ordo-success-bg: #e7f7f0;
+  --ordo-danger: #EF4444;
   --ordo-off-bg: #f1f1f5;
   --ordo-off-text: #6b7180;
   --ordo-radius: 10px;
@@ -177,7 +178,82 @@
 .ordo-btn-secondary { background: #fff; border: 1px solid var(--ordo-border); color: #1b1f2a; }
 .ordo-btn-secondary:hover { border-color: var(--ordo-primary); color: #1b1f2a; }
 
-.ordo-back-link { margin-bottom: 16px; }
+/* Matches the grey toolbar bar Magento renders above every ui-component listing (where the
+   declarative "Back to Dashboard"/"+ Add New" buttons land) — GDPR/Consent and Campaign
+   Calendar are plain Template blocks, not ui-components, so they had no such bar and used an
+   inconsistent boxed-button look instead. Reported directly: "czy my mozemy miec jeden styl
+   wszedzie?" (can we have one style everywhere?). */
+.ordo-page-toolbar {
+  background: #fafafb;
+  border: 1px solid var(--ordo-border);
+  border-radius: var(--ordo-radius);
+  padding: 12px 20px;
+  text-align: right;
+  margin-bottom: 20px;
+}
+
+/* Plain text + arrow, no button chrome — matches the "back" class Magento's own ui-component
+   listing toolbar buttons use (see the declarative <class>back</class> buttons added to every
+   listing XML), not a bordered/filled .ordo-btn box. */
+.ordo-toolbar-back-link {
+  display: inline-block;
+  font-size: var(--ordo-font-base);
+  font-weight: var(--ordo-weight-medium);
+  color: #1b1f2a;
+  text-decoration: none;
+}
+
+.ordo-toolbar-back-link:hover { color: var(--ordo-primary); }
+
+/* GDPR/Consent page — was plain default-Magento admin__fieldset-wrapper boxes with inline
+   margin-top styles and no brand styling at all, reported directly as "okropnie wizualnie"
+   (visually terrible) next to the rest of this module's admin screens. Reuses the same card/
+   section-head/badge language as the dashboard instead of a one-off look. */
+.ordo-gdpr-card {
+  background: #fff;
+  border: 1px solid var(--ordo-border);
+  border-radius: var(--ordo-radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.ordo-gdpr-search-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ordo-gdpr-search-row .admin__field { margin: 0; }
+
+.ordo-input {
+  border: 1px solid var(--ordo-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: var(--ordo-font-base);
+  min-width: 320px;
+}
+
+.ordo-input:focus { outline: none; border-color: var(--ordo-primary); }
+
+.ordo-gdpr-consent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+}
+
+.ordo-gdpr-consent-row + .ordo-gdpr-consent-row { border-top: 1px solid var(--ordo-border); }
+
+.ordo-gdpr-consent-label { font-weight: var(--ordo-weight-medium); color: #1b1f2a; }
+
+.ordo-gdpr-consent-controls { display: flex; align-items: center; gap: 12px; }
+
+.ordo-gdpr-actions { display: flex; align-items: center; gap: 12px; }
+
+.ordo-btn-danger { background: #fff; border: 1px solid var(--ordo-danger, #EF4444); color: #EF4444; }
+.ordo-btn-danger:hover { background: #EF4444; color: #fff; }
 
 .ordo-listing-intro {
   color: var(--ordo-text-muted);
