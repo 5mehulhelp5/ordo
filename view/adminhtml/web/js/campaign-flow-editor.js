@@ -402,35 +402,28 @@ define([
              * disconnected trigger -> action chain that LOOKS like its own separate scenario on
              * the canvas but isn't one once saved - every trigger that reaches this module's
              * campaign dispatcher would run every action reachable from any trigger, not just
-             * the pair that were drawn side by side. Confirmed directly, reported as confusing
-             * ("moze byc tylko jeden trigger?"). Warn before adding a second chain rather than
-             * silently building something that saves into a different shape than it displays.
+             * the pair that were drawn side by side.
+             *
+             * This used to warn with a native confirm() before adding a second, disconnected
+             * chain — reported directly as unreliable ("wyskakuje popup na mikrosekunde i
+             * znika"), and the user's own suggested fix was simpler and more robust anyway: let
+             * it be added, just don't let a flow shaped like that be saved. validateFlow()'s own
+             * "triggers must share one chain" check (see checkTriggersShareOneChain()) now
+             * catches this at Apply-time instead, the same way it already catches every other
+             * incomplete-flow problem — one consistent validation path instead of a second,
+             * separate warning mechanism.
              *
              * @param {String} templateKey
              */
             function applyTemplate(templateKey) {
                 var template = FLOW_TEMPLATES[templateKey],
-                    startX,
+                    startX = getNextTemplateStartX(),
                     startY = 80,
-                    previousNodeId = null,
-                    hasExistingTrigger = $(container).find('.drawflow-node.ordo-flow-trigger').length > 0;
+                    previousNodeId = null;
 
                 if (!template) {
                     return;
                 }
-
-                if (hasExistingTrigger && !window.confirm(
-                    'This campaign already has a trigger. A campaign\'s triggers, conditions, and '
-                    + 'actions are one shared sequence - adding another trigger here makes it an '
-                    + 'alternative way to start the SAME sequence, not a separate, independent one. '
-                    + 'This template\'s own action(s) will still run for every trigger that reaches '
-                    + 'them, including the one(s) already on the canvas.\n\n'
-                    + 'Add this template\'s trigger and actions anyway?'
-                )) {
-                    return;
-                }
-
-                startX = getNextTemplateStartX();
 
                 template.nodes.forEach(function (nodeSpec, index) {
                     var nodeId = addNode(nodeSpec.kind, nodeSpec.type, startX + index * 260, startY);
@@ -611,6 +604,53 @@ define([
                 }, 0);
             }
 
+            /**
+             * Union-find over every node's undirected connections, so validateFlow() can tell
+             * whether all triggers ultimately land in one connected component (alternative
+             * starting points for the SAME sequence, the only shape the underlying data model
+             * — one shared flat triggers/conditions/actions list per campaign — actually
+             * supports) or split into two-or-more totally separate islands that only LOOK like
+             * independent scenarios on the canvas.
+             *
+             * @param {Object} exportedData
+             * @return {{find: function(String): String}}
+             */
+            function buildConnectivityGroups(exportedData) {
+                var parent = {};
+
+                function find(id) {
+                    if (parent[id] === undefined) {
+                        parent[id] = id;
+                    }
+                    while (parent[id] !== id) {
+                        parent[id] = parent[parent[id]] || parent[id];
+                        id = parent[id];
+                    }
+                    return id;
+                }
+
+                function union(a, b) {
+                    var rootA = find(a),
+                        rootB = find(b);
+
+                    if (rootA !== rootB) {
+                        parent[rootA] = rootB;
+                    }
+                }
+
+                Object.keys(exportedData).forEach(function (id) {
+                    var node = exportedData[id];
+
+                    Object.keys(node.outputs || {}).forEach(function (outputKey) {
+                        node.outputs[outputKey].connections.forEach(function (connection) {
+                            union(id, connection.node);
+                        });
+                    });
+                });
+
+                return { find: find };
+            }
+
             function validateFlow() {
                 var exported = editor.export().drawflow.Home.data,
                     triggerIds = [],
@@ -641,6 +681,35 @@ define([
                     return { errors: errors, badNodeIds: badNodeIds };
                 }
 
+                // Every trigger must ultimately connect into the SAME chain — a campaign's
+                // triggers/conditions/actions are one shared, flat list underneath, not a set of
+                // independent parallel flows (multiple triggers are alternative starting points
+                // for one scenario, not separate scenarios; see this file's own docs above and
+                // Block\Adminhtml\Campaign\Edit\Flow.php). Two or more triggers that never join
+                // up would each still individually pass the "reaches an Action" check below, so
+                // this needs its own, separate connectivity check.
+                (function checkTriggersShareOneChain() {
+                    var groups = buildConnectivityGroups(exported),
+                        primaryRoot = groups.find(triggerIds[0]),
+                        disconnectedIds = [];
+
+                    Object.keys(exported).forEach(function (id) {
+                        if (groups.find(id) !== primaryRoot) {
+                            disconnectedIds.push(id);
+                        }
+                    });
+
+                    if (disconnectedIds.length) {
+                        errors.push(
+                            'This flow has more than one Trigger chain that never connect to each ' +
+                            'other (highlighted). A campaign\'s triggers must all lead into the ' +
+                            'same shared sequence of conditions/actions — connect them together, ' +
+                            'or build the other one as a separate campaign.'
+                        );
+                        badNodeIds = badNodeIds.concat(disconnectedIds);
+                    }
+                }());
+
                 queue = triggerIds.slice();
                 triggerIds.forEach(function (id) {
                     reachable[id] = true;
@@ -658,6 +727,8 @@ define([
                         expandReachableOutput(outputKey, currentNode, reachable, queue);
                     });
                 }
+
+                var badNodeCountBeforeReachabilityCheck = badNodeIds.length;
 
                 Object.keys(exported).forEach(function (id) {
                     var node = exported[id],
@@ -681,7 +752,11 @@ define([
                     }
                 });
 
-                if (badNodeIds.length) {
+                // Only add this generic message for issues THIS check found — the
+                // triggers-share-one-chain check above already reported its own, more specific
+                // message for the ids it added, avoiding two overlapping error lines for what a
+                // merchant would see as one problem (e.g. loading a second, disconnected template).
+                if (badNodeIds.length > badNodeCountBeforeReachabilityCheck) {
                     errors.push(
                         'Every node must be connected from a Trigger all the way through to an ' +
                         'Action — the highlighted node(s) are either disconnected or a condition ' +
