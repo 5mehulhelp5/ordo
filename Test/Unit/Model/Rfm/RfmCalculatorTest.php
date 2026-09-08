@@ -687,21 +687,35 @@ class RfmCalculatorTest extends TestCase
      * populated but its timestamp still null. Under `&&` (correct), that's not a valid cache hit,
      * so it must recompute; under `||`, it would incorrectly serve the sentinel cached value.
      */
+    /**
+     * The first attempt at this test (setting only percentileRanksCache, leaving
+     * percentileRanksCachedAt null) turned out NOT to distinguish `&&` from `||` after all: with
+     * cachedAt null, `$now - null` is `$now` (PHP coerces null to 0), which is always >= the TTL
+     * regardless of which boolean operator joins the two null-checks - both the real `&&` and the
+     * `||` mutant fall through to a live recompute in that state, so the mutant's own CI run
+     * (correctly) still showed this line escaping. The state that actually tells them apart is
+     * the other way around: cachedAt set (and within the TTL window) while cache itself is null -
+     * under `&&` that still isn't a valid hit (recomputes, fine); under `||` the first disjunct
+     * alone makes the whole condition true and the method would incorrectly `return
+     * $this->percentileRanksCache` - literally null instead of an array.
+     */
     public function testGetPercentileRanksRequiresBothCacheFieldsSetNotEither(): void
     {
+        $now = 1700000000;
+
         $connection = $this->createStub(AdapterInterface::class);
         $connection->method('select')->willReturn($this->makeSelect());
         $connection->method('fetchAll')->willReturn([]);
-        $connection->method('fetchCol')->willReturn([]);
+        $connection->method('fetchCol')->willReturn(['1']);
 
-        $calculator = $this->makeCalculator($connection);
+        $calculator = $this->makeCalculator($connection, $now);
 
-        $cacheProperty = new \ReflectionProperty($calculator, 'percentileRanksCache');
-        $cacheProperty->setAccessible(true);
-        $cacheProperty->setValue($calculator, ['sentinel-should-never-be-returned' => true]);
-        // percentileRanksCachedAt is deliberately left null.
+        $cachedAtProperty = new \ReflectionProperty($calculator, 'percentileRanksCachedAt');
+        $cachedAtProperty->setAccessible(true);
+        $cachedAtProperty->setValue($calculator, $now);
+        // percentileRanksCache is deliberately left null/unset.
 
-        self::assertNotSame(['sentinel-should-never-be-returned' => true], $calculator->getPercentileRanks());
+        self::assertIsArray($calculator->getPercentileRanks());
     }
 
     /**
@@ -811,6 +825,17 @@ class RfmCalculatorTest extends TestCase
      * count-based percentile is a >=-style rank for monetary too). Under a 1.0 filler, the
      * zero-order phantom would no longer tie, quietly changing the paying-nothing customer's
      * percentile - a real (if obscure) ranking bug this test exists specifically to catch.
+     *
+     * NOT covered here, deliberately - the equivalent-mutant sibling of this one: the FREQUENCY
+     * filler's own Increment/Decrement mutants (0 -> 1 or -1) and the CastFloat mutants on all
+     * three fillers (frequency/monetary/recency). Frequency's real minimum for any customer WHO
+     * HAS ORDERED is 1 (COUNT(*) over a GROUP BY can't return a zero row), so a filler of -1, 0,
+     * or 1 for the zero-order phantom is always <= every real ordered customer's frequency either
+     * way - no comparison outcome in countAtMost() can ever depend on which of those three the
+     * filler happens to be, unlike the monetary case above where a genuine $0 order creates a
+     * real tie. The CastFloat mutants (dropping the (float) cast) are equivalent for the same
+     * reason PHP's <=/< operators already compare int and float operands numerically - stripping
+     * a redundant cast changes no comparison's outcome.
      */
     public function testGetPercentileRanksMonetaryFillerForZeroOrderCustomersIsZeroNotOne(): void
     {
@@ -845,6 +870,22 @@ class RfmCalculatorTest extends TestCase
      * on the 3-4 customer fixtures the tests above use. Twelve customers, on purpose with repeated
      * frequency values (ties) and gaps in the monetary values (misses), spans enough distinct
      * binary-search paths to catch an off-by-one at any single comparison.
+     *
+     * KNOWN GAP (tracked, not silently accepted): mutation testing against this exact dataset
+     * still shows countAtMost()/countAtLeast()'s own low/high/mid arithmetic (e.g. `<=` vs `<` on
+     * the loop guard, `intdiv($low + $high, 2)` vs a wrong divisor/operand) escaping - a 12-entry
+     * dataset apparently isn't enough to force every mid-point through every mutated branch
+     * without also risking an infinite loop on some of them (a few of these mutants degrade to a
+     * loop that only advances under specific comparison outcomes). Killing these needs either a
+     * much larger crafted dataset or a dedicated reflection-based unit test that calls
+     * countAtMost()/countAtLeast() directly instead of through the full percentile pipeline -
+     * left as follow-up rather than blocking this round on it.
+     *
+     * Separately, three UnwrapArrayValues mutants (removing the array_values() calls just above
+     * the sort() calls in computePercentileRanks()) are genuinely equivalent, not a coverage gap:
+     * PHP's sort() always reindexes its array to sequential 0-based int keys as a side effect,
+     * discarding whatever keys it started with - so whether array_values() ran first or not, the
+     * array sort() hands back (and everything downstream reads) is byte-identical either way.
      */
     public function testGetPercentileRanksAcrossALargerDatasetWithTiesAndGaps(): void
     {
