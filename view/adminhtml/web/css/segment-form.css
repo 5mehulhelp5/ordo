@@ -1,23 +1,35 @@
 /*
- * Segment condition builder — reported directly against a real screenshot as "masakra" (a bare
- * Type select + a raw JSON textarea, no visual hierarchy at all). The dedicated per-type fields
- * (switcherConfig in ordo_segment_form.xml) already fixed the "must hand-write JSON" problem;
- * this fixes the fact that fixing it changed nothing about how the page LOOKS — same grey table
- * rows, same JSON textarea sitting at full visual weight right next to the field that made it
- * redundant. Same card-ification technique as free-gift-offer-form.css's Tiers section.
+ * Segment condition builder.
+ *
+ * Redesign pass: earlier iterations of this file accumulated three separate accent colors on one
+ * screen (violet for the header strip/Add button, blue for the group box/Manage button, grey for
+ * the JSON fallback) plus inconsistent radii/shadows between the pieces - the form worked but read
+ * as visually disjointed, "przypadkowo posklejane". This pass keeps every functional selector
+ * (the documented :has()/attribute-based workarounds below exist because of real Magento
+ * specificity/DOM bugs, see each comment) and rewrites only the visual language: one accent color,
+ * one spacing scale, one radius, used consistently across the header strip, condition rows, the
+ * nested group box, both action buttons and the bulk-actions panel.
  */
 
-/* "Segment matches" ALL/ANY toggle plus the conditions list below it used to be two visually
-   disconnected boxes (a small purple square floating to the left, an unrelated card below/beside
-   it) - reported directly ("wygląda jak przypadkowo wstawiony element z innego szablonu"). They
-   are two separate sibling elements in the DOM (Magento_Ui doesn't nest a dynamicRows field
-   inside another field's markup), so there's no single wrapping element to put one card border
-   on - this fakes it with matching full-width edges and zero-gap adjoining borders/radii instead:
-   condition_logic becomes the flush TOP strip (square bottom corners, no bottom border) and the
-   conditions dynamicRows becomes the flush BODY below it (square top corners, no top border,
-   same left/right border color) - as long as both span the full same width, the eye reads them
-   as one continuous card, matching the mockup's "Match [ALL|ANY] of the following conditions"
-   header sitting directly on top of the rule list. */
+:root {
+    --ordo-accent: #4f46e5;
+    --ordo-accent-dark: #4338ca;
+    --ordo-accent-tint: #f5f4ff;
+    --ordo-accent-border: #ddd9fb;
+    --ordo-ink: #1b1f2a;
+    --ordo-muted: #6b7180;
+    --ordo-border: #e4e7ee;
+    --ordo-danger: #dc2626;
+    --ordo-radius: 8px;
+    --ordo-gap: 16px;
+}
+
+/* "Segment matches" ALL/ANY toggle plus the conditions list below it are two separate sibling
+   elements in the DOM (Magento_Ui doesn't nest a dynamicRows field inside another field's markup),
+   so there's no single wrapping element to put one card border on - this fakes it with matching
+   full-width edges and zero-gap adjoining borders/radii instead: condition_logic becomes the flush
+   TOP strip and the conditions dynamicRows becomes the flush BODY below it, both sharing the same
+   border color/width so the eye reads them as one continuous card. */
 .admin__fieldset > [data-index="condition_logic"] {
     display: flex;
     align-items: baseline;
@@ -26,24 +38,19 @@
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 14px 16px;
-    background: #faf8ff;
-    border: 1px solid #d9c7fb;
+    padding: 14px var(--ordo-gap);
+    background: var(--ordo-accent-tint);
+    border: 1px solid var(--ordo-accent-border);
     border-bottom: none;
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--ordo-radius) var(--ordo-radius) 0 0;
     box-sizing: border-box;
 }
 
 /* Magento's own `.admin__fieldset > .admin__field > .admin__field-label` rule (3 classes, child
-   combinators) is MORE specific than a plain `[data-index=...] .admin__field-label` (an
-   attribute selector only counts as one class-equivalent) and was silently winning the cascade -
-   confirmed via the actual computed style still showing float:left despite this stylesheet
-   loading after Magento's own (reported directly: the select's own text was clipped,
-   "All conditions (ANL..."). Matching Magento's own selector structure (same 3 "levels", scoped
-   by the attribute instead of the bare class) reliably outweighs it instead of guessing at
-   !important. Laid out inline now (label, select, note all on one line, "Match [ALL/ANY] of the
-   following conditions" style) rather than stacked, since the flex row above already gives it
-   room instead of Magento's own narrow label column. */
+   combinators) is more specific than a plain `[data-index=...] .admin__field-label` (an attribute
+   selector only counts as one class-equivalent) and silently wins the cascade - matching Magento's
+   own selector structure, just scoped by the attribute instead of the bare class, reliably beats
+   it instead of reaching for !important. */
 .admin__fieldset > [data-index="condition_logic"] > .admin__field-label {
     display: block;
     float: none;
@@ -52,7 +59,7 @@
     margin: 0;
     font-size: 13px;
     font-weight: 700;
-    color: #4c1d95;
+    color: var(--ordo-accent-dark);
 }
 
 .admin__fieldset > [data-index="condition_logic"] > .admin__field-control {
@@ -68,32 +75,46 @@
 
 [data-index="condition_logic"] select {
     font-weight: 600;
-    border-color: #7c3aed;
+    border-color: var(--ordo-accent);
 }
 
 [data-index="condition_logic"] .admin__field-note {
     flex-basis: 100%;
     order: 4;
     margin: 0;
-    color: #6b46c1;
+    color: var(--ordo-muted);
 }
 
-/* The conditions list itself: the flush BODY of the merged card described above - white
-   background, matching side/bottom border, square top corners so it sits directly under
-   condition_logic's strip with no visible seam. Individual rows read as a plain divided list
-   (one border-bottom each) instead of nested cards-within-a-card, which doubled up on borders
-   and looked heavier than the single-card mockup. */
-/* dynamicRows puts data-index on its OWN inner .admin__field-control/<table> - unlike a plain
-   select field (condition_logic above), the outer .admin__field wrapper here carries no
-   data-index at all, so the equivalent `.admin__fieldset > [data-index=...]` selector silently
-   matched nothing (confirmed via the actual DOM: `<div class="admin__field"><label>Conditions
-   </label><div class="admin__field-control" data-index="conditions">...`). :has() reaches the
-   outer field from its data-indexed descendant instead of guessing where the attribute lives.
-   Left un-fixed, Magento's own left-floating label column pushed the whole conditions card to
-   the right of "Conditions:", leaving it narrower and misaligned against the header strip above
-   it (reported directly: two boxes of different widths, not one card). The header strip already
-   establishes what this list is, so the second "Conditions" label is redundant - hidden rather
-   than relabeled. */
+/* The conditions list itself: the flush BODY of the merged card above - white background, matching
+   side/bottom border, square top corners so it sits directly under condition_logic's strip with no
+   visible seam. */
+/* dynamicRows puts data-index on its OWN inner .admin__field-control/<table>, not the outer
+   .admin__field wrapper - :has() reaches the outer field from its data-indexed descendant instead
+   of guessing where the attribute lives (confirmed via the actual DOM). The header strip above
+   already names this list, so the redundant second "Conditions" label is hidden rather than
+   relabeled. */
+/* Magento's default two-column layout gives .admin__field a -30px margin-left and its
+   .admin__field-control a compensating +30px margin-left, so a floated label column and the
+   control sitting beside it land in the right place. With the label hidden above, that pairing
+   still fires: the .admin__field wrapper starts 30px to the LEFT of the fieldset's own edge, the
+   control's own +30px margin then only brings it back to the fieldset's left edge, but its
+   width:100% is sized against the wrapper's (already 30px-too-wide) content box - so the control's
+   right edge overflowed 30px past the header strip above it (measured directly: strip right edge
+   at 1440px, card right edge at 1470px, a visible gap where the user asked "where does this box
+   end"). Zeroing both margins removes the now-pointless offset entirely instead of trying to
+   re-balance it. */
+/* Same wrapper also carries Magento's default 15px margin-top between stacked fields - with the
+   header strip above having no bottom border BY DESIGN (so the two pieces read as one seamless
+   card, see the block above), that 15px opened a visible gap between them instead: the purple
+   strip's rounded top corners had nothing directly below to visually "close" into, so it read as
+   an open-ended box rather than the top of a card (reported directly, twice, at two different
+   zoom levels: "to nie ma zamkniecia"). Zeroed for the same reason as the left/right margins -
+   there's no second column of fields for this vertical gap to separate anymore either. */
+.admin__fieldset > .admin__field:has(> [data-index="conditions"].admin__field-control) {
+    margin-left: 0;
+    margin-top: 0;
+}
+
 .admin__fieldset > .admin__field:has(> [data-index="conditions"].admin__field-control) > .admin__field-label {
     display: none;
 }
@@ -102,20 +123,15 @@
     display: block;
     float: none;
     width: 100%;
+    margin-left: 0;
 }
 
 [data-index="conditions"].admin__dynamic-rows {
     display: block;
     background: #fff;
-    border: 1px solid #d9c7fb;
-    border-radius: 0 0 8px 8px;
-    padding: 4px 16px;
-    /* A light 1px border alone read as invisible against the white page background at normal
-       zoom (confirmed: the border WAS applying correctly, just too low-contrast to perceive -
-       reported as "two boxes... don't visually connect" when the real issue was this card
-       reading as borderless, not misaligned). A subtle shadow makes the card's edge actually
-       perceptible without needing a heavier, darker border. */
-    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    border: 1px solid var(--ordo-accent-border);
+    border-radius: 0 0 var(--ordo-radius) var(--ordo-radius);
+    padding: 4px var(--ordo-gap);
 }
 
 [data-index="conditions"].admin__dynamic-rows thead { display: none; }
@@ -129,12 +145,12 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px 20px;
-    padding: 16px 44px 16px 4px;
+    gap: 12px var(--ordo-gap);
+    padding: var(--ordo-gap) 44px var(--ordo-gap) 4px;
     position: relative;
     max-width: 100%;
     box-sizing: border-box;
-    border-bottom: 1px solid #f1f1f5;
+    border-bottom: 1px solid var(--ordo-border);
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row:last-of-type {
@@ -156,13 +172,9 @@
     flex: 0 0 20px;
 }
 
-/* One clean row per condition: Type, then whichever single dedicated field the switcherConfig
-   left visible (tag/amount/threshold/days/count/percentile), then the delete button - matching
-   the mockup's "[Attribute] -> [Value] -> [Delete]" single-line layout. Now that params_json is
-   hidden by default (see ordo_segment_form.xml's switcherConfig - only the 3 fallback-only
-   types show it), a row genuinely has just these two visible fields, so they fit one line
-   instead of wrapping across a whole card. min-width: 0 for the same reason as the Tiers cards:
-   a flex item's default min-width is its content's own intrinsic width, not 0, so without this a
+/* One clean row per condition: Type, then whichever single dedicated field the switcherConfig left
+   visible (tag/amount/threshold/days/count/percentile), then the delete button. min-width: 0 since
+   a flex item's default min-width is its content's own intrinsic width, not 0 - without this a
    wide native <select> refuses to shrink and overflows on a narrower viewport. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="type"]) {
     flex: 1 1 240px;
@@ -190,11 +202,10 @@
     box-sizing: border-box;
 }
 
-/* The raw JSON fallback field is hidden by the switcherConfig itself for the 10 condition types
-   that have a dedicated field (see ordo_segment_form.xml) - it only ever renders at all for the
-   3 fallback-only types (in_segment, loyalty_tier_at_least, nps_score_at_least), where it's the
-   sole way to configure the condition, so this just gives it reasonable sizing rather than
-   hiding it outright (that would make those 3 types unconfigurable). */
+/* Raw JSON fallback field - only ever rendered for the 3 types with no dedicated field
+   (in_segment, loyalty_tier_at_least, nps_score_at_least), where it's the sole way to configure
+   the condition. Kept visually quiet (small, monospace, muted) rather than hidden, since hiding it
+   would make those 3 types unconfigurable. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) {
     flex: 1 1 200px;
     min-width: 0;
@@ -205,15 +216,15 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
-    color: #9ca0ab;
+    color: var(--ordo-muted);
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:has([data-index="params_json"]) textarea {
     width: 100%;
     box-sizing: border-box;
-    background: #f7f7f9;
-    border-color: #e4e7ee;
-    color: #6b7180;
+    background: #fafafc;
+    border-color: var(--ordo-border);
+    color: var(--ordo-muted);
     font-family: monospace;
     font-size: 11px;
     min-height: 32px;
@@ -223,8 +234,8 @@
     font-size: 10px;
 }
 
-/* Delete button: pinned to the row's right edge instead of the full-row-width grey bar it
-   renders as by default in the original table layout. */
+/* Delete button: pinned to the row's right edge instead of the full-row-width grey bar it renders
+   as by default in the original table layout. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child {
     flex: 0 0 auto;
     position: absolute;
@@ -236,52 +247,41 @@
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete {
     background: none;
     border: none;
-    color: #6b7180;
+    color: var(--ordo-muted);
     cursor: pointer;
     padding: 4px;
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete:hover {
-    color: #ef4444;
+    color: var(--ordo-danger);
 }
 
 [data-index="conditions"].admin__dynamic-rows tr.data-row td:last-child .action-delete span {
     display: none;
 }
 
-/* A 'group' row's own nested group_logic + group_conditions - rendered as a distinct blue-accent
-   box (left border, tinted background) so a group visually reads as "a sub-container of rules"
-   nested inside the outer AND/OR list, not just more of the same flat rows. dynamicRows renders
-   EVERY declared field's <td> in EVERY row regardless of type (just hidden via a knockout
-   `visible` binding's inline style) - :has([data-index="group_conditions"]) alone matches by
-   DOM presence, not visibility, so it silently matched every row including plain conditions
-   (reported directly against a real screenshot: a stray blue accent bar on a "Monetary Total At
-   Least" row that has nothing to do with groups). Checking the Type select's own selected
-   option instead of a sibling field's mere existence targets only rows actually set to 'group' -
-   data-index="type" lives on the wrapping `.admin__field` div, not the `<select>` itself (same
-   "attribute isn't where you'd guess" gotcha hit once already for condition_logic/conditions on
-   this same form). */
+/* A 'group' row's own nested group_logic + group_conditions - same accent as the rest of the page
+   (tint background + left border) so a group reads as "a sub-container of rules" nested inside the
+   outer AND/OR list, without introducing a second color. dynamicRows renders EVERY declared
+   field's <td> in EVERY row regardless of type (just hidden via a knockout `visible` binding's
+   inline style), so :has([data-index="group_conditions"]) alone would match by DOM presence, not
+   visibility, and hit every row including plain conditions - checking the Type select's own
+   selected option instead targets only rows actually set to 'group'. */
 [data-index="conditions"].admin__dynamic-rows tr.data-row:has([data-index="type"] select option[value="group"]:checked) {
     display: block;
-    background: #eef5fc;
-    border: 1px solid #bcd9f2;
-    border-left: 4px solid #1976d2;
+    background: var(--ordo-accent-tint);
+    border: 1px solid var(--ordo-accent-border);
+    border-left: 3px solid var(--ordo-accent);
     border-radius: 6px;
-    padding: 16px 48px 16px 18px;
+    padding: var(--ordo-gap) 48px var(--ordo-gap) 18px;
     margin: 6px 0;
 }
 
 /* Type + "Group matches" toggle + manage button + preview all read as one header line instead of
-   four stacked rows each taking their own line (reported directly - "przeokropnie chujowo",
-   cramped/dense/no breathing room). group_logic's own <td> is the one that stays visible for a
-   'group' row (see segment-group-modal.js's own comment on why the manage button/preview are
-   injected here too) - turning it into the flex header row lets everything after group_logic's
-   own select (the injected button + preview) sit on the same line via normal flex flow, wrapping
-   only if the viewport is too narrow. */
-/* The manage-button/preview (see segment-group-modal.js) are injected as siblings of the
-   group_logic .admin__field div, both inside the SAME <td> - making group_logic itself flex only
-   lays out ITS OWN label+select, leaving the button/preview to fall below in normal block flow.
-   The <td> itself needs to be the flex container for everything to share one header line. */
+   stacked rows. group_logic's own <td> is the one that stays visible for a 'group' row (see
+   segment-group-modal.js for why the manage button/preview are injected here too) - the <td> needs
+   to be the flex container itself for everything after group_logic's own select to share one line,
+   wrapping only if the viewport is too narrow. */
 td:has(> [data-index="group_logic"]) {
     display: flex;
     flex-wrap: wrap;
@@ -304,7 +304,7 @@ td:has(> [data-index="group_logic"]) {
     margin: 0;
     font-size: 12px;
     font-weight: 700;
-    color: #0d47a1;
+    color: var(--ordo-accent-dark);
 }
 
 [data-index="group_logic"] .admin__field-control {
@@ -322,176 +322,164 @@ td:has(> [data-index="group_logic"]) {
     order: 5;
     margin: 4px 0 0;
     font-size: 11px;
-    color: #4a6fa1;
+    color: var(--ordo-muted);
 }
 
 /* group_conditions_json is the raw JSON blob a 'group' row's conditions are stored in - managed
-   entirely through Ordo_Automation/js/segment-group-modal.js's modal, never shown to the admin
-   directly (that's exactly the "raw JSON in the form" problem this whole form exists to
-   eliminate - reported directly, in caps, after an earlier version of this switcherConfig
-   accidentally flipped it to visible=true for 'group' rows, showing the raw array on-screen).
-   ordo_segment_form.xml's own switcherConfig now never sets this field's visible to true for any
-   rule; this is a belt-and-suspenders hard hide so a future switcherConfig edit can't
-   reintroduce the same mistake silently. */
-/* Scoped to the field's own [data-index] wrapper specifically, NOT a :has() ancestor search -
-   every row (group or not) renders this field's markup somewhere in its DOM (just hidden via
-   Magento's own visible binding), so a broad `.admin__field:has(textarea[...])` rule matched the
-   dynamicRows' OWN outer .admin__field too (the one wrapping the entire conditions table) and
-   hid the whole conditions list, not just this one field - caught immediately via a real
-   screenshot showing an empty Conditions section. */
+   entirely through segment-group-modal.js's modal, never shown to the admin directly. Scoped to
+   the field's own [data-index] wrapper specifically, NOT a :has() ancestor search - every row
+   (group or not) renders this field's markup somewhere in its DOM (just hidden via Magento's own
+   visible binding), so a broad :has() rule would match the dynamicRows' OWN outer .admin__field
+   too and hide the whole conditions list, not just this one field. This is a belt-and-suspenders
+   hard hide on top of the form's own switcherConfig (which never sets it visible=true). */
 [data-index="group_conditions_json"] {
     display: none !important;
 }
 
-/* Solid, clearly-clickable buttons - an earlier dashed-outline "ghost button" style (matching a
-   generic wireframe-mockup look) read as disabled/decorative rather than a real action,
-   reported directly. Same shape Magento's own secondary admin buttons use: solid white fill,
-   a real 1px border with enough contrast to read as a button, a visible pressed/hover state. */
-.ordo-group-manage-button {
-    background: #1976d2;
-    border: 1px solid #1565c0;
+/* Solid, clearly-clickable buttons throughout - one accent color shared by "Add Condition" and
+   the inline group panel's own "+ Add Condition", instead of a second blue button style living
+   only on the group box. */
+[data-index="conditions"] button[data-action="add_new_row"],
+.ordo-group-inline-add {
+    background: var(--ordo-accent);
+    border: 1px solid var(--ordo-accent-dark);
     color: #fff;
-    border-radius: 3px;
+    border-radius: 4px;
     padding: 8px 16px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(13, 71, 161, .25);
 }
 
-.ordo-group-manage-button:hover {
-    background: #1565c0;
+[data-index="conditions"] button[data-action="add_new_row"]:hover,
+.ordo-group-inline-add:hover {
+    background: var(--ordo-accent-dark);
 }
 
-.ordo-group-preview {
-    font-size: 12px;
-    color: #0d47a1;
-    font-weight: 600;
+/* Magento's own admin theme has a plain `button:focus` rule (grey background, no color/border
+   change) that outranks the two rules above the instant either button is clicked - confirmed
+   directly (computed background dropped to rgb(219, 219, 219) on focus) - so a purple button
+   visibly turned grey and stayed grey after every single click, reported directly. !important is
+   the pragmatic fix rather than chasing that rule's exact selector to out-specify it - this pair
+   of buttons should never look grey/disabled, focused or not. */
+[data-index="conditions"] button[data-action="add_new_row"]:focus,
+[data-index="conditions"] button[data-action="add_new_row"]:active,
+.ordo-group-inline-add:focus,
+.ordo-group-inline-add:active {
+    background: var(--ordo-accent-dark) !important;
 }
 
-/* Group conditions modal content (Magento_Ui/js/modal/modal builds the overlay/chrome itself -
-   this only styles the content segment-group-modal.js hands it), same visual language as the
-   Free Gift Offer bulk-picker modal elsewhere in this module. */
-.ordo-group-modal-row {
+/* The <td> this button renders into keeps Magento's own default table-cell background (a flat
+   grey, #efefef) and padding - with the row's own white card background now surrounding it, that
+   default cell styling read as a separate grey box sitting behind the button rather than the
+   button just living on the card, reported directly ("add condition tez nie pasuje"). Both are
+   reset to nothing here so only the purple button itself remains visible. */
+[data-index="conditions"] tfoot td {
+    background: none;
+    padding: 0;
+}
+
+[data-index="conditions"] button[data-action="add_new_row"] {
+    margin: 10px 0 4px;
+}
+
+/* A group's own conditions, rendered INLINE by segment-group-modal.js directly under its "Group
+   matches" selector - no modal, no "Manage group conditions" button to click through, so the
+   whole rule tree (e.g. "Tag AND (Score OR Big Spender)") reads at a glance on one screen.
+   Reported directly against the earlier modal version: hiding a group's own conditions behind a
+   popup means the admin can't see what a segment actually matches without clicking into a
+   separate window per group. */
+.ordo-group-inline {
+    /* group_logic's own <td> is a flex container (see td:has(> [data-index="group_logic"])
+       above) so its label+select+notice can share one header line - the inline panel is appended
+       into that same <td> after all of Magento's own children, but needs to render below them
+       regardless of DOM position, not wherever a default order:0 flex item would land relative to
+       the notice's own order:5. */
+    order: 6;
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--ordo-accent-border);
+}
+
+.ordo-group-row {
     display: flex;
     align-items: flex-end;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid #f1f1f5;
+    gap: 10px;
+    padding: 6px 0;
 }
 
-.ordo-group-modal-row:last-child {
-    border-bottom: none;
-}
-
-.ordo-group-modal-row select {
+.ordo-group-row select {
     flex: 1 1 220px;
+    min-width: 0;
 }
 
-.ordo-group-modal-value {
+.ordo-group-value {
     flex: 1 1 200px;
+    min-width: 0;
 }
 
-.ordo-group-modal-value label {
+.ordo-group-value label {
     display: block;
     font-size: 11px;
     font-weight: 600;
-    color: #6b7180;
+    color: var(--ordo-muted);
     margin-bottom: 4px;
 }
 
-.ordo-group-modal-value input,
-.ordo-group-modal-value textarea {
+.ordo-group-value input,
+.ordo-group-value textarea {
     width: 100%;
     box-sizing: border-box;
 }
 
-.ordo-group-modal-json {
+.ordo-group-json {
     font-family: monospace;
     font-size: 11px;
     min-height: 32px;
 }
 
-.ordo-group-modal-delete {
+.ordo-group-row-delete {
     background: none;
-    border: 1px solid #dde3e8;
+    border: 1px solid var(--ordo-border);
     border-radius: 4px;
-    color: #6b7180;
+    color: var(--ordo-muted);
     cursor: pointer;
     padding: 6px 10px;
     flex: 0 0 auto;
 }
 
-.ordo-group-modal-delete:hover {
-    border-color: #ef4444;
-    color: #ef4444;
+.ordo-group-row-delete:hover {
+    border-color: var(--ordo-danger);
+    color: var(--ordo-danger);
 }
 
-.ordo-group-modal-add {
-    margin-top: 12px;
-    background: #1976d2;
-    border: 1px solid #1565c0;
-    color: #fff;
-    border-radius: 3px;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
+.ordo-group-inline-add {
+    margin-top: 4px;
 }
 
-.ordo-group-modal-add:hover {
-    background: #1565c0;
-}
-
-/* "Add Condition" - Magento's default plain <button> styling here (grey fill, grey border, no
-   theme awareness at all) sat inside the now-white/purple-themed card looking like an unstyled
-   leftover, the same "doesn't belong to this page" impression the JSON textarea gave before it
-   was hidden (reported directly). A first restyle used a dashed outline, which read as
-   disabled/decorative rather than a real button (reported directly again) - solid purple fill
-   instead, matching the purple accent used everywhere else on this card the same way the manage-
-   group button matches its own blue accent. */
-[data-index="conditions"] button[data-action="add_new_row"] {
-    background: #7c3aed;
-    border: 1px solid #6d28d9;
-    color: #fff;
-    border-radius: 3px;
-    padding: 8px 16px;
-    margin: 10px 0 4px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(76, 29, 149, .25);
-}
-
-[data-index="conditions"] button[data-action="add_new_row"]:hover {
-    background: #6d28d9;
-}
-
-/* "Bulk actions on current members" (bulkactions.phtml) - a bare, unstyled Magento form with the
-   same narrow-fixed-label-column layout problem the "Segment matches" field above had, sitting
-   right below the now-restyled card conditions and reading as an unfinished, bolted-on
-   afterthought by contrast (reported directly - "to dalej nie wyglada dobrze jak profesjonalne
-   narzedzie"). Given the same card treatment and full-width stacked label/control layout as the
-   rest of this page instead of Magento's default two-column field grid. */
+/* "Bulk actions on current members" (bulkactions.phtml) - same card treatment (radius, border,
+   spacing scale) as the conditions card above instead of Magento's default two-column field grid,
+   so it reads as part of the same page rather than a bolted-on afterthought below it. */
 .ordo-bulk-actions-panel {
     max-width: 560px;
     margin-top: 24px;
     background: #fff;
-    border: 1px solid #e4e7ee;
-    border-radius: 8px;
+    border: 1px solid var(--ordo-border);
+    border-radius: var(--ordo-radius);
     padding: 18px 20px;
 }
 
 .ordo-bulk-actions-panel .admin__fieldset-wrapper-title {
     font-size: 14px;
     font-weight: 700;
-    color: #1b1f2a;
+    color: var(--ordo-ink);
     margin-bottom: 4px;
 }
 
 .ordo-bulk-actions-panel .admin__fieldset-wrapper-content > p {
     margin: 0 0 16px;
-    color: #6b7180;
+    color: var(--ordo-muted);
     font-size: 12px;
 }
 
@@ -510,7 +498,7 @@ td:has(> [data-index="group_logic"]) {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
-    color: #6b7180;
+    color: var(--ordo-muted);
 }
 
 .ordo-bulk-actions-panel .admin__field-control {
@@ -527,4 +515,13 @@ td:has(> [data-index="group_logic"]) {
 
 .ordo-bulk-actions-panel .ordo-bulk-actions-submit {
     margin-bottom: 0;
+}
+
+.ordo-bulk-actions-panel .action-primary {
+    background: var(--ordo-accent);
+    border: 1px solid var(--ordo-accent-dark);
+}
+
+.ordo-bulk-actions-panel .action-primary:hover {
+    background: var(--ordo-accent-dark);
 }
