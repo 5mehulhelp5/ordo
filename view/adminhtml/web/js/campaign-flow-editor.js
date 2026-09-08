@@ -395,17 +395,42 @@ define([
              * canvas - loading a template on top of existing work just adds its nodes
              * alongside, same as dragging each one in by hand would.
              *
+             * A campaign's triggers/conditions/actions are one shared, flat list underneath
+             * (Flow.php's own docblock: every trigger fans out to the SAME downstream chain -
+             * "alternative starting points for one scenario, not separate scenarios"), not a
+             * set of independent parallel flows. Loading a second template creates a second,
+             * disconnected trigger -> action chain that LOOKS like its own separate scenario on
+             * the canvas but isn't one once saved - every trigger that reaches this module's
+             * campaign dispatcher would run every action reachable from any trigger, not just
+             * the pair that were drawn side by side. Confirmed directly, reported as confusing
+             * ("moze byc tylko jeden trigger?"). Warn before adding a second chain rather than
+             * silently building something that saves into a different shape than it displays.
+             *
              * @param {String} templateKey
              */
             function applyTemplate(templateKey) {
                 var template = FLOW_TEMPLATES[templateKey],
-                    startX = getNextTemplateStartX(),
+                    startX,
                     startY = 80,
-                    previousNodeId = null;
+                    previousNodeId = null,
+                    hasExistingTrigger = $(container).find('.drawflow-node.ordo-flow-trigger').length > 0;
 
                 if (!template) {
                     return;
                 }
+
+                if (hasExistingTrigger && !window.confirm(
+                    'This campaign already has a trigger. A campaign\'s triggers, conditions, and '
+                    + 'actions are one shared sequence - adding another trigger here makes it an '
+                    + 'alternative way to start the SAME sequence, not a separate, independent one. '
+                    + 'This template\'s own action(s) will still run for every trigger that reaches '
+                    + 'them, including the one(s) already on the canvas.\n\n'
+                    + 'Add this template\'s trigger and actions anyway?'
+                )) {
+                    return;
+                }
+
+                startX = getNextTemplateStartX();
 
                 template.nodes.forEach(function (nodeSpec, index) {
                     var nodeId = addNode(nodeSpec.kind, nodeSpec.type, startX + index * 260, startY);
