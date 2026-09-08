@@ -111,6 +111,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .02em;
+    margin-top: 10px;
 }
 
 .ordo-tier-duplicate:hover {
@@ -119,7 +120,7 @@
 }
 
 .ordo-tier-note {
-    margin-top: 6px;
+    margin-top: 10px;
     font-size: 12px;
     color: #6b7180;
     font-style: italic;
@@ -275,12 +276,4 @@
        :before glyph from Magento's admin icon font, already applied via .action-delete; showing
        both is redundant in a card this compact. */
     display: none;
-}
-
-.ordo-tier-note {
-    margin-top: 10px;
-}
-
-.ordo-tier-duplicate {
-    margin-top: 10px;
 }

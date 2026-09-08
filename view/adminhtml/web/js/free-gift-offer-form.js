@@ -17,6 +17,33 @@
  * the change the normal way. Safer than reaching into dynamicRows' private state, at the cost of
  * being a little more verbose.
  */
+/**
+ * @param {jQuery} $el
+ * @return {Boolean}
+ */
+function isProductSkuField($el) {
+    var name = $el.attr('name') || '';
+    return (/^products\[products]\[\d+]\[sku]$/).test(name);
+}
+
+function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+function formatMoney(value) {
+    var num = Number.parseFloat(value);
+    return Number.isNaN(num) ? value : num.toFixed(2);
+}
+
+/**
+ * @param {jQuery} $el
+ * @return {Boolean}
+ */
+function isTierField($el) {
+    var name = $el.attr('name') || '';
+    return (/^tiers\[tiers]\[\d+]\[(min_subtotal|gift_slots)]$/).test(name);
+}
+
 define([
     'jquery',
     'underscore',
@@ -41,7 +68,7 @@ define([
     function searchProducts(term) {
         return fetch(searchUrl + '?term=' + encodeURIComponent(term), { credentials: 'same-origin' })
             .then(function (response) { return response.ok ? response.json() : { items: [] }; })
-            .then(function (data) { return (data && data.items) || []; })
+            .then(function (data) { return data?.items || []; })
             .catch(function () { return []; });
     }
 
@@ -75,7 +102,7 @@ define([
         var $control = $input.closest('.admin__field-control'),
             $chip = $control.find('.ordo-picker-chip');
 
-        if (!item || !item.sku) {
+        if (!item?.sku) {
             $chip.remove();
             return;
         }
@@ -149,11 +176,6 @@ define([
         });
     }, 300);
 
-    function isProductSkuField($el) {
-        var name = $el.attr('name') || '';
-        return (/^products\[products]\[\d+]\[sku]$/).test(name);
-    }
-
     $(document).on('input', 'input', function () {
         var $input = $(this);
         if (isProductSkuField($input)) {
@@ -203,10 +225,6 @@ define([
             .filter(function (sku) { return sku !== ''; });
     }
 
-    function sleep(ms) {
-        return new Promise(function (resolve) { setTimeout(resolve, ms); });
-    }
-
     /**
      * Clicks the Products dynamicRows' own "Add SKU" button and waits for the resulting new row
      * to actually render, then fills it - reusing dynamicRows' own row-creation path instead of
@@ -241,7 +259,7 @@ define([
 
         for (i = 0; i < items.length; i++) {
             item = items[i];
-            if (existing.indexOf(item.sku) === -1) {
+            if (!existing.includes(item.sku)) {
                 await addProductRow(item);
                 existing.push(item.sku);
             }
@@ -345,11 +363,6 @@ define([
     // Tiers: microcopy, "Sort tiers", "Duplicate" per row
     // ------------------------------------------------------------------
 
-    function formatMoney(value) {
-        var num = parseFloat(value);
-        return isNaN(num) ? value : num.toFixed(2);
-    }
-
     /**
      * @param {jQuery} $row
      */
@@ -361,15 +374,15 @@ define([
             // the microcopy/duplicate button in there fought with the delete icon for space.
             $targetCell = $row.find('[data-index="gift_slots"]').closest('td'),
             $note = $row.find('.ordo-tier-note'),
-            subtotalNum = parseFloat(subtotal),
-            slotsNum = parseInt(slots, 10);
+            subtotalNum = Number.parseFloat(subtotal),
+            slotsNum = Number.parseInt(slots, 10);
 
         if (!$note.length) {
             $note = $('<div class="ordo-tier-note"></div>');
             $targetCell.append($note);
         }
 
-        if (isNaN(subtotalNum) || isNaN(slotsNum) || slotsNum <= 0) {
+        if (Number.isNaN(subtotalNum) || Number.isNaN(slotsNum) || slotsNum <= 0) {
             $note.text('');
             return;
         }
@@ -378,11 +391,6 @@ define([
             'Customer gets ' + slotsNum + (slotsNum === 1 ? ' gift' : ' gifts') +
             ' after reaching $' + formatMoney(subtotalNum) + '.'
         );
-    }
-
-    function isTierField($el) {
-        var name = $el.attr('name') || '';
-        return (/^tiers\[tiers]\[\d+]\[(min_subtotal|gift_slots)]$/).test(name);
     }
 
     $(document).on('input change', 'input', function () {
@@ -409,7 +417,7 @@ define([
             }).get();
 
         values.sort(function (a, b) {
-            return (parseFloat(a.min_subtotal) || 0) - (parseFloat(b.min_subtotal) || 0);
+            return (Number.parseFloat(a.min_subtotal) || 0) - (Number.parseFloat(b.min_subtotal) || 0);
         });
 
         $rows.each(function (index) {
@@ -522,4 +530,16 @@ define([
         injectSortTiersButton();
         injectTierRowControls();
     }, 800);
+
+    // Exposed for Test/js/free-gift-offer-form.test.js - see segment-group-modal.js's own return
+    // statement for why this is safe (side-effect-only module, nothing else requires() its own
+    // return value).
+    return {
+        isProductSkuField: isProductSkuField,
+        sleep: sleep,
+        formatMoney: formatMoney,
+        isTierField: isTierField,
+        searchProducts: searchProducts,
+        renderChip: renderChip
+    };
 });

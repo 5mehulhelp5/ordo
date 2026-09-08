@@ -151,9 +151,8 @@ class CampaignDispatcher
             $campaigns->addEnabledFilter();
 
             foreach ($campaigns as $campaign) {
-                $conditionLogicByCampaign[(int) $campaign->getId()] = (string) $campaign->getData('condition_logic') === 'any'
-                    ? 'any'
-                    : 'all';
+                $conditionLogic = (string) $campaign->getData('condition_logic');
+                $conditionLogicByCampaign[(int) $campaign->getId()] = $conditionLogic === 'any' ? 'any' : 'all';
             }
         }
 

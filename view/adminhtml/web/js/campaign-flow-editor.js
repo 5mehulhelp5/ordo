@@ -9,6 +9,40 @@
  * module never talks to ordo/campaign/save itself, it only fills in provider.data.conditions/
  * actions before calling the provider's own, unmodified save().
  */
+/**
+ * Union all of one node's outgoing connections into the shared connectivity groups -
+ * buildConnectivityGroups()'s own per-node work, pulled out to a top-level function (rather than
+ * nested two forEach()s deep inside buildConnectivityGroups' own forEach) purely to keep the
+ * function-nesting depth within Sonar's 5-level limit; no behavior change.
+ *
+ * @param {String} id
+ * @param {Object} node
+ * @param {function(String, String): void} union
+ */
+function unionNodeOutputConnections(id, node, union) {
+    Object.keys(node.outputs || {}).forEach(function (outputKey) {
+        node.outputs[outputKey].connections.forEach(function (connection) {
+            union(id, connection.node);
+        });
+    });
+}
+
+/**
+ * Every node id whose connectivity group root differs from the primary (first trigger's) root -
+ * validateFlow()'s own disconnected-chain check, pulled out to a top-level function for the same
+ * nesting-depth reason as unionNodeOutputConnections() above.
+ *
+ * @param {Object} exported
+ * @param {{find: function(String): String}} groups
+ * @param {String} primaryRoot
+ * @return {String[]}
+ */
+function findDisconnectedNodeIds(exported, groups, primaryRoot) {
+    return Object.keys(exported).filter(function (id) {
+        return groups.find(id) !== primaryRoot;
+    });
+}
+
 define([
     'jquery',
     'uiRegistry',
@@ -23,7 +57,7 @@ define([
      * @param {String} formProviderName
      * @param {Object} typesConfig
      */
-    return function initCampaignFlowEditor(container, flowData, formProviderName, typesConfig) {
+    var initCampaignFlowEditor = function initCampaignFlowEditor(container, flowData, formProviderName, typesConfig) {
         (function build() {
             var editor = new Drawflow(container);
 
@@ -378,7 +412,7 @@ define([
                 var maxRight = 0;
 
                 $(container).find('.drawflow-node').each(function () {
-                    var left = parseFloat(this.style.left) || 0,
+                    var left = Number.parseFloat(this.style.left) || 0,
                         width = this.offsetWidth || 220;
 
                     maxRight = Math.max(maxRight, left + width);
@@ -639,13 +673,7 @@ define([
                 }
 
                 Object.keys(exportedData).forEach(function (id) {
-                    var node = exportedData[id];
-
-                    Object.keys(node.outputs || {}).forEach(function (outputKey) {
-                        node.outputs[outputKey].connections.forEach(function (connection) {
-                            union(id, connection.node);
-                        });
-                    });
+                    unionNodeOutputConnections(id, exportedData[id], union);
                 });
 
                 return { find: find };
@@ -691,13 +719,7 @@ define([
                 (function checkTriggersShareOneChain() {
                     var groups = buildConnectivityGroups(exported),
                         primaryRoot = groups.find(triggerIds[0]),
-                        disconnectedIds = [];
-
-                    Object.keys(exported).forEach(function (id) {
-                        if (groups.find(id) !== primaryRoot) {
-                            disconnectedIds.push(id);
-                        }
-                    });
+                        disconnectedIds = findDisconnectedNodeIds(exported, groups, primaryRoot);
 
                     if (disconnectedIds.length) {
                         errors.push(
@@ -823,4 +845,13 @@ define([
             });
         }());
     };
+
+    // Exposed for Test/js/campaign-flow-editor.test.js - see segment-group-modal.js's own return
+    // statement for why this is safe (attaching to the exported function, not changing its own
+    // call signature/behavior at all - real callers that only ever do
+    // `initCampaignFlowEditor(container, ...)` are unaffected).
+    initCampaignFlowEditor.unionNodeOutputConnections = unionNodeOutputConnections;
+    initCampaignFlowEditor.findDisconnectedNodeIds = findDisconnectedNodeIds;
+
+    return initCampaignFlowEditor;
 });

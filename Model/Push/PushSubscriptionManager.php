@@ -45,7 +45,16 @@ class PushSubscriptionManager
         $subscription = $this->findByEndpointHash($endpointHash);
         $isNew = !$subscription->getId();
 
-        $this->populate($subscription, $endpoint, $endpointHash, $p256dhKey, $authKey, $customerId, $isNew ? $visitorId : null, $now);
+        $this->populate(
+            $subscription,
+            $endpoint,
+            $endpointHash,
+            $p256dhKey,
+            $authKey,
+            $customerId,
+            $isNew ? $visitorId : null,
+            $now
+        );
 
         try {
             $this->pushSubscriptionResource->save($subscription);

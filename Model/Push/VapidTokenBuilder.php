@@ -22,7 +22,7 @@ class VapidTokenBuilder
     public function __construct(
         private readonly DateTime $dateTime,
         private readonly Der $der,
-        private readonly Base64Url $base64Url
+        private readonly BaseSixtyFourUrl $base64Url
     ) {
     }
 

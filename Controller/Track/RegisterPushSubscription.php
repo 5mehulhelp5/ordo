@@ -64,7 +64,8 @@ class RegisterPushSubscription extends Action implements HttpPostActionInterface
         $auth = is_string($auth) ? trim($auth) : '';
         $visitorId = (string) ($this->cookieManager->getCookie(self::VISITOR_ID_COOKIE) ?? '');
 
-        if ($endpoint === '' || $p256dh === '' || $auth === '' || ($visitorId === '' && !$this->customerSession->isLoggedIn())) {
+        $hasNoIdentity = $visitorId === '' && !$this->customerSession->isLoggedIn();
+        if ($endpoint === '' || $p256dh === '' || $auth === '' || $hasNoIdentity) {
             return $result->setData(['ok' => false, 'reason' => 'invalid_payload']);
         }
 

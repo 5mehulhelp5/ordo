@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Test\Unit\Model\Push;
 
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use PHPUnit\Framework\TestCase;
 
-class Base64UrlTest extends TestCase
+class BaseSixtyFourUrlTest extends TestCase
 {
-    private Base64Url $base64Url;
+    private BaseSixtyFourUrl $base64Url;
 
     protected function setUp(): void
     {
-        $this->base64Url = new Base64Url();
+        $this->base64Url = new BaseSixtyFourUrl();
     }
 
     public function testRoundTripArbitraryBinary(): void

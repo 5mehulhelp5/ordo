@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Ordo\Automation\Console\Command;
 
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -17,7 +17,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class GenerateVapidKeysCommand extends Command
 {
     public function __construct(
-        private readonly Base64Url $base64Url,
+        private readonly BaseSixtyFourUrl $base64Url,
         ?string $name = null
     ) {
         parent::__construct($name);
@@ -34,7 +34,9 @@ class GenerateVapidKeysCommand extends Command
     {
         $key = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
         if ($key === false) {
-            $output->writeln('<error>Failed to generate an EC key pair - is the OpenSSL PHP extension enabled?</error>');
+            $output->writeln(
+                '<error>Failed to generate an EC key pair - is the OpenSSL PHP extension enabled?</error>'
+            );
             return Command::FAILURE;
         }
 

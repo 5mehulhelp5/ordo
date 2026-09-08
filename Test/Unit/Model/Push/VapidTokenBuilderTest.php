@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Ordo\Automation\Test\Unit\Model\Push;
 
 use Magento\Framework\Stdlib\DateTime\DateTime;
-use Ordo\Automation\Model\Push\Base64Url;
+use Ordo\Automation\Model\Push\BaseSixtyFourUrl;
 use Ordo\Automation\Model\Push\Der;
 use Ordo\Automation\Model\Push\VapidTokenBuilder;
 use PHPUnit\Framework\TestCase;
@@ -12,14 +12,14 @@ use PHPUnit\Framework\TestCase;
 class VapidTokenBuilderTest extends TestCase
 {
     private VapidTokenBuilder $builder;
-    private Base64Url $base64Url;
+    private BaseSixtyFourUrl $base64Url;
     private Der $der;
     private string $publicKeyB64url;
     private string $privateKeyB64url;
 
     protected function setUp(): void
     {
-        $this->base64Url = new Base64Url();
+        $this->base64Url = new BaseSixtyFourUrl();
         $this->der = new Der();
 
         $dateTime = $this->createStub(DateTime::class);

@@ -32,7 +32,7 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
-    var url = (event.notification.data && event.notification.data.url) || '/';
+    var url = event.notification.data?.url || '/';
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
@@ -82,8 +82,14 @@ self.addEventListener('pushsubscriptionchange', function (event) {
 function arrayBufferToBase64Url(buffer) {
     var bytes = new Uint8Array(buffer);
     var binary = '';
-    for (var i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    for (var byte of bytes) {
+        binary += String.fromCodePoint(byte);
     }
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+// Exposed for Test/js/push-sw.test.js - guarded since a real service worker context has no
+// CommonJS `module` global at all (this branch never runs there, only under Node/QUnit).
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { arrayBufferToBase64Url: arrayBufferToBase64Url };
 }
