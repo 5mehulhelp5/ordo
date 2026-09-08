@@ -81,6 +81,23 @@ follows [Keep a Changelog](https://keepachangelog.com/).
     a single flat admin menu entry rather than a menu tree.
   - Dashboard's disabled "Shopping feed" state got a real empty-state treatment and a button
     into Configuration instead of a bare sentence.
+  - GDPR/Consent and Campaign Calendar's visual style unified with the rest of the module (same
+    toolbar-bar "Back to Dashboard" look, same card/badge language) instead of bare default
+    Magento admin markup.
+- Admin UX, Phases 3-4 of the same initiative (completes it):
+  - Every listing screen gets a real in-context intro (what it is, why it exists, what to do
+    here), plus a guided first-run empty state with a "create your first X" call to action on
+    all 7 CRUD listings (Campaigns, Free Gift Offers, Segments, Score Rules, Content Blocks,
+    WhatsApp Templates, Ad Audiences) instead of a bare "We couldn't find any records."
+  - Dashboard's response-rate column and loyalty tiers now use functional color (status badges,
+    tier-colored dots) instead of flat monochrome numbers.
+  - Flow editor's Triggers/Conditions/Actions palette is now collapsible, with each group and
+    item color-coded to match that kind's own Flow-canvas node color.
+  - Flow canvas connection curves no longer balloon into a large loop when nodes are placed
+    close together (Drawflow's curvature tuned down from its 0.5 default).
+  - Native campaign edit form's Triggers/Conditions/Actions dynamicRows tables get real styling
+    (card border, zebra striping, monospace JSON textarea, brand-purple "Add" buttons) instead
+    of stock unthemed Magento admin markup.
 - Extracted `Model\Http\JsonApiClient` (POST JSON, check status, decode JSON response) out of
   `GoogleAdsSyncClient`, `MetaSyncClient`, and `WhatsAppSender`, which each had an identical, independently
   hand-rolled copy of that same HTTP-mechanics shape. Each class keeps its own request-building and
