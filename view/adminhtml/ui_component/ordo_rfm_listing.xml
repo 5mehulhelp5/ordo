@@ -111,5 +111,11 @@
                 <sortable>false</sortable>
             </settings>
         </column>
+        <column name="matching_segments" class="Ordo\Automation\Block\Adminhtml\Rfm\Grid\Column\MatchingSegments">
+            <settings>
+                <label translate="true">Qualifies For</label>
+                <sortable>false</sortable>
+            </settings>
+        </column>
     </columns>
 </listing>
