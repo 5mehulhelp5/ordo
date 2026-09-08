@@ -36,4 +36,25 @@ class SegmentTest extends AbstractModelTestCase
         $model->setEnabled(true);
         self::assertTrue($model->isEnabled());
     }
+
+    public function testConditionLogicDefaultsToAllWhenNeverSet(): void
+    {
+        self::assertSame('all', $this->makeModel()->getConditionLogic());
+    }
+
+    public function testConditionLogicRoundTripsAny(): void
+    {
+        $model = $this->makeModel();
+        $model->setConditionLogic('any');
+
+        self::assertSame('any', $model->getConditionLogic());
+    }
+
+    public function testConditionLogicNormalizesAnyOtherValueToAll(): void
+    {
+        $model = $this->makeModel();
+        $model->setConditionLogic('bogus');
+
+        self::assertSame('all', $model->getConditionLogic());
+    }
 }

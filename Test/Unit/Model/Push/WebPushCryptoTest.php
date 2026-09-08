@@ -64,6 +64,63 @@ class WebPushCryptoTest extends TestCase
         self::assertNotSame($bodyA, $bodyB);
     }
 
+    public function testEncryptThrowsWhenThePublicPointIsTheWrongLength(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Invalid subscription keys: expected a 65-byte p256dh point and a 16-byte auth secret.'
+        );
+
+        $this->webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode(str_repeat("\x04", 64)),
+            $this->base64Url->encode(random_bytes(16))
+        );
+    }
+
+    public function testEncryptThrowsWhenTheAuthSecretIsTheWrongLength(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Invalid subscription keys: expected a 65-byte p256dh point and a 16-byte auth secret.'
+        );
+
+        [, $subscriberPoint] = self::generateRawKeypair();
+
+        $this->webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode($subscriberPoint),
+            $this->base64Url->encode(random_bytes(15))
+        );
+    }
+
+    public function testEncryptThrowsWhenEcdhDerivationFails(): void
+    {
+        // A mocked Der whose publicKeyFromRawPoint() hands back a real EC key, just on a
+        // different curve (secp384r1) than the ephemeral P-256 key encrypt() generates
+        // internally - openssl_pkey_derive() between two different-curve keys fails (confirmed
+        // directly), the same shape of failure a corrupted/foreign subscription point could
+        // trigger, without needing to fabricate a byte string that merely happens to look
+        // superficially like a valid point.
+        $mismatchedCurveKey = openssl_pkey_new(['curve_name' => 'secp384r1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+        $details = openssl_pkey_get_details($mismatchedCurveKey);
+        $publicKey = openssl_pkey_get_public($details['key']);
+
+        $der = $this->createStub(Der::class);
+        $der->method('publicKeyFromRawPoint')->willReturn($publicKey);
+
+        $webPushCrypto = new WebPushCrypto($der, $this->base64Url);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('ECDH key derivation failed.');
+
+        $webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode(str_repeat("\x04", 65)),
+            $this->base64Url->encode(random_bytes(16))
+        );
+    }
+
     /**
      * Independent reimplementation of the RFC 8291 *receiving* side - deliberately not calling
      * anything in WebPushCrypto so this can actually catch a bug in it.
