@@ -36,3 +36,27 @@ button[data-action='add_new_row'] {
 button[data-action='add_new_row']:hover {
     background: #6425c9;
 }
+
+/*
+ * Shown only for a brand-new, not-yet-saved campaign (campaign/flow.phtml's "no entity_id yet"
+ * branch) — explains why this quick-start form appears instead of the Flow canvas everywhere
+ * else in this module, so it doesn't read as this module's normal, permanent way to build a
+ * campaign. Reported directly: a merchant landing here expected the visual canvas from the
+ * start ("a to nie mialo byc przez algorytmy?").
+ */
+.ordo-flow-new-campaign-note {
+    background: #fff;
+    border: 1px solid transparent;
+    background-image: linear-gradient(#fff, #fff), linear-gradient(90deg, #E879F9, #0EA5E9);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 0 0 20px;
+}
+
+.ordo-flow-new-campaign-note p {
+    margin: 0;
+    font-size: 13px;
+    color: #1b1f2a;
+}

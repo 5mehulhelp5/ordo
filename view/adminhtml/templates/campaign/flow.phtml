@@ -78,6 +78,16 @@ require(['Ordo_Automation/js/campaign-flow-editor'], function (initCampaignFlowE
 });
 </script>
 <?php else: ?>
+<div class="ordo-flow-new-campaign-note">
+    <p>
+        <?= $escaper->escapeHtml(__(
+            'This is a quick-start form for a brand-new campaign, not the final way to build'
+            . ' it — fill in at least one trigger and one action below, then save. Once saved,'
+            . ' you\'ll get the full visual Flow canvas here instead, to build out and edit the'
+            . ' rest of the sequence by dragging and connecting blocks.'
+        )) ?>
+    </p>
+</div>
 <script>
 require(['uiRegistry'], function (uiRegistry) {
     'use strict';
