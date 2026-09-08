@@ -157,7 +157,8 @@
 
 .ordo-trigger-outcome-table tbody tr + tr { border-top: 1px solid var(--ordo-border); }
 
-.ordo-trigger-outcome-table td:nth-child(4) { font-weight: var(--ordo-weight-bold); color: var(--ordo-primary); }
+/* Response rate cell (4th column) is now an .ordo-badge span with its own functional color
+   (see index.phtml) instead of a flat bold-purple number. */
 
 .ordo-btn {
   display: inline-block;
@@ -329,5 +330,22 @@
 
 .ordo-badge-on { background: var(--ordo-success-bg); color: var(--ordo-success); }
 .ordo-badge-off { background: var(--ordo-off-bg); color: var(--ordo-off-text); }
+.ordo-badge-warning { background: #FEF3C7; color: #B45309; }
+
+/* Loyalty tier dots — functional color matching each tier's own real-world association
+   (bronze/silver/gold), so the tier list reads at a glance instead of three identically
+   black-text rows (ROADMAP.md "Admin UX" Phase 4). */
+.ordo-tier-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.ordo-tier-dot-bronze { background: #B45309; }
+.ordo-tier-dot-silver { background: #94A3B8; }
+.ordo-tier-dot-gold { background: #EAB308; }
 
 .ordo-campaign-trigger { font-size: var(--ordo-font-base); color: var(--ordo-text-muted); }

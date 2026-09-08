@@ -108,17 +108,36 @@
     overflow-y: auto;
 }
 
-.ordo-flow-palette-group h3 {
+/* <details>/<summary> palette groups: colored to match that kind's own Flow-canvas node color
+   (Trigger magenta / Condition blue / Action violet, see the node color rules further down)
+   so a dragged item's color identity carries straight onto the canvas, and each group is
+   collapsible via the native disclosure triangle instead of a fixed-open flat list
+   (ROADMAP.md "Admin UX" Phase 4). */
+.ordo-flow-palette-group {
+    border-left: 3px solid transparent;
+    padding-left: 8px;
+}
+
+.ordo-flow-palette-group-trigger { border-left-color: #c026d3; }
+.ordo-flow-palette-group-condition { border-left-color: #0369a1; }
+.ordo-flow-palette-group-action { border-left-color: #7c3aed; }
+
+.ordo-flow-palette-group summary {
     margin: 0 0 6px;
     font-size: var(--ordo-font-xs);
     font-weight: var(--ordo-weight-medium);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #6b7680;
+    cursor: pointer;
+    user-select: none;
 }
 
+.ordo-flow-palette-group:not(:last-of-type) { margin-bottom: 4px; }
+
 .ordo-flow-palette-item {
-    padding: 7px 10px;
+    position: relative;
+    padding: 7px 10px 7px 20px;
     margin-bottom: 6px;
     border: 1px solid #dde3e8;
     border-radius: 6px;
@@ -128,6 +147,21 @@
     cursor: grab;
     user-select: none;
 }
+
+.ordo-flow-palette-item::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.ordo-flow-palette-group-trigger .ordo-flow-palette-item::before { background: #c026d3; }
+.ordo-flow-palette-group-condition .ordo-flow-palette-item::before { background: #0369a1; }
+.ordo-flow-palette-group-action .ordo-flow-palette-item::before { background: #7c3aed; }
 
 .ordo-flow-palette-item:last-child {
     margin-bottom: 0;

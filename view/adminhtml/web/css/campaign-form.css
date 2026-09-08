@@ -1,0 +1,38 @@
+/*
+ * Polish for the native Triggers/Conditions/Actions dynamicRows tables on the campaign edit
+ * page — reported directly against a real "New Campaign" screenshot as "not simple at all":
+ * bare grey grid rows, an unstyled "Type" dropdown, and a raw JSON params textarea for anything
+ * without a dedicated column (ROADMAP.md "Admin UX" Phase 4). These fieldsets are hidden once a
+ * campaign has an entity_id (the Flow canvas takes over — see campaign/flow.phtml's own
+ * comment), so this only ever renders for a brand-new campaign's first save, but that first
+ * impression still deserves the same brand treatment as the rest of this module rather than
+ * stock, unthemed Magento admin markup. Scoped implicitly to the campaign edit page since this
+ * file is only loaded there (see ordo_campaign_edit.xml) — no extra class needed.
+ */
+.admin__dynamic-rows.admin__control-table {
+    border: 1px solid #e4e7ee;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.admin__dynamic-rows.admin__control-table .data-row:nth-child(even) {
+    background: #fbfcfd;
+}
+
+.admin__dynamic-rows.admin__control-table textarea {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px;
+}
+
+button[data-action='add_new_row'] {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+button[data-action='add_new_row']:hover {
+    background: #6425c9;
+}

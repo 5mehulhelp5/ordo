@@ -3,6 +3,7 @@
     <head>
         <css src="Ordo_Automation::lib/drawflow/drawflow.min.css"/>
         <css src="Ordo_Automation::css/flow.css"/>
+        <css src="Ordo_Automation::css/campaign-form.css"/>
     </head>
     <body>
         <referenceContainer name="content">

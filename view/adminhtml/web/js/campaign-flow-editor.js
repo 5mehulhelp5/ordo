@@ -28,6 +28,17 @@ define([
             var editor = new Drawflow(container);
 
             editor.reroute = true;
+            // Drawflow's default curvature (0.5) offsets each connection's bezier control
+            // points by a fixed proportion of the horizontal distance between nodes -  at
+            // normal spacing this looks fine, but when two nodes are placed close together
+            // (a small campaign with little room to spread out) the same proportion still
+            // pushes the control points out just as far, producing a large looping S-curve
+            // instead of a clean short line. Reported directly as looking bad in that case.
+            // A smaller curvature keeps the same gentle curve at normal spacing while staying
+            // tight at short distances.
+            editor.curvature = 0.26;
+            editor.reroute_curvature = 0.26;
+            editor.reroute_curvature_start_end = 0.26;
             editor.editor_mode = 'edit';
             editor.start();
 

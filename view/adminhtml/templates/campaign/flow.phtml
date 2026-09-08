@@ -23,27 +23,35 @@ $applyFlowButtonLabel = __('Apply flow to form & Save');
     </div>
     <div class="ordo-flow-body">
         <div class="ordo-flow-palette">
-            <div class="ordo-flow-palette-group">
-                <h3><?= $escaper->escapeHtml(__('Triggers')) ?></h3>
+            <!--
+                <details>/<summary> instead of a plain <div> - a free, JS-free collapsible
+                section (native disclosure triangle) so the palette doesn't just grow into an
+                ever-longer flat list as this module gains more trigger/condition/action types
+                (ROADMAP.md "Admin UX" Phase 4). Each group's own accent color (left border,
+                item dot) matches the Flow canvas node color already used for that kind, so a
+                dragged item's color doesn't change once it lands on the canvas.
+            -->
+            <details class="ordo-flow-palette-group ordo-flow-palette-group-trigger" open="open">
+                <summary><?= $escaper->escapeHtml(__('Triggers')) ?></summary>
                 <?php foreach ($block->getTriggerEventLabels() as $type => $label): ?>
                 <div class="ordo-flow-palette-item" draggable="true" data-flow-kind="trigger"
                      data-flow-type="<?= $escaper->escapeHtmlAttr($type) ?>"><?= $escaper->escapeHtml($label) ?></div>
                 <?php endforeach; ?>
-            </div>
-            <div class="ordo-flow-palette-group">
-                <h3><?= $escaper->escapeHtml(__('Conditions')) ?></h3>
+            </details>
+            <details class="ordo-flow-palette-group ordo-flow-palette-group-condition" open="open">
+                <summary><?= $escaper->escapeHtml(__('Conditions')) ?></summary>
                 <?php foreach ($block->getConditionTypeLabels() as $type => $label): ?>
                 <div class="ordo-flow-palette-item" draggable="true" data-flow-kind="condition"
                      data-flow-type="<?= $escaper->escapeHtmlAttr($type) ?>"><?= $escaper->escapeHtml($label) ?></div>
                 <?php endforeach; ?>
-            </div>
-            <div class="ordo-flow-palette-group">
-                <h3><?= $escaper->escapeHtml(__('Actions')) ?></h3>
+            </details>
+            <details class="ordo-flow-palette-group ordo-flow-palette-group-action" open="open">
+                <summary><?= $escaper->escapeHtml(__('Actions')) ?></summary>
                 <?php foreach ($block->getActionTypeLabels() as $type => $label): ?>
                 <div class="ordo-flow-palette-item" draggable="true" data-flow-kind="action"
                      data-flow-type="<?= $escaper->escapeHtmlAttr($type) ?>"><?= $escaper->escapeHtml($label) ?></div>
                 <?php endforeach; ?>
-            </div>
+            </details>
         </div>
         <div id="ordo-campaign-flow" class="ordo-flow-canvas"></div>
     </div>

@@ -65,11 +65,31 @@ $segmentNavDesc = __(
             </thead>
             <tbody>
                 <?php foreach ($viewModel->getTriggerStats() as $triggerStat): ?>
+                    <?php
+                    // Functional, not decorative, color (ROADMAP.md "Admin UX" Phase 4): a
+                    // response rate is the one number on this whole dashboard a merchant should
+                    // act on, so it gets a status color instead of reading identically to every
+                    // other plain black number in the table. Bands are deliberately generous —
+                    // a few percent is a normal marketing-automation response rate, not a
+                    // problem — this flags true zeros (nothing sent responded to at all) and
+                    // rewards clearly-working triggers, not everything in between.
+                    $responseRate = (float) $triggerStat['response_rate'];
+                    $rateBadgeClass = 'ordo-badge-off';
+                    if ($responseRate >= 5.0) {
+                        $rateBadgeClass = 'ordo-badge-on';
+                    } elseif ($responseRate > 0.0) {
+                        $rateBadgeClass = 'ordo-badge-warning';
+                    }
+                    ?>
                     <tr>
                         <td><?= $escaper->escapeHtml($triggerStat['label']) ?></td>
                         <td><?= $escaper->escapeHtml((string) $triggerStat['sent']) ?></td>
                         <td><?= $escaper->escapeHtml((string) $triggerStat['responded']) ?></td>
-                        <td><?= $escaper->escapeHtml(sprintf('%.1f%%', $triggerStat['response_rate'])) ?></td>
+                        <td>
+                            <span class="ordo-badge <?= $escaper->escapeHtmlAttr($rateBadgeClass) ?>">
+                                <?= $escaper->escapeHtml(sprintf('%.1f%%', $responseRate)) ?>
+                            </span>
+                        </td>
                         <td><?= $escaper->escapeHtml($triggerStat['recovered_revenue_formatted']) ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -83,8 +103,23 @@ $segmentNavDesc = __(
         </div>
         <div class="ordo-trigger-stats">
             <?php foreach ($viewModel->getLoyaltyTierDistribution() as $tierRow): ?>
+                <?php
+                // Functional color matching each tier's own real-world association, not an
+                // arbitrary assignment (ROADMAP.md "Admin UX" Phase 4).
+                $tierDotClass = match (strtolower((string) $tierRow['label'])) {
+                    'bronze' => 'ordo-tier-dot-bronze',
+                    'silver' => 'ordo-tier-dot-silver',
+                    'gold' => 'ordo-tier-dot-gold',
+                    default => '',
+                };
+    ?>
                 <div class="ordo-trigger-stat-row">
-                    <span class="ordo-trigger-stat-label"><?= $escaper->escapeHtml($tierRow['label']) ?></span>
+                    <span class="ordo-trigger-stat-label">
+                        <?php if ($tierDotClass !== ''): ?>
+                            <span class="ordo-tier-dot <?= $escaper->escapeHtmlAttr($tierDotClass) ?>"></span>
+                        <?php endif; ?>
+                        <?= $escaper->escapeHtml($tierRow['label']) ?>
+                    </span>
                     <span class="ordo-trigger-stat-value"><?= $escaper->escapeHtml((string) $tierRow['count']) ?></span>
                 </div>
             <?php endforeach; ?>
