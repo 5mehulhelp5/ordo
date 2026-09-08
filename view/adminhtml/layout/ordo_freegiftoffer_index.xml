@@ -1,7 +1,16 @@
 <?xml version="1.0"?>
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Ordo_Automation::css/dashboard.css"/>
+    </head>
     <body>
         <referenceContainer name="content">
+            <block class="Magento\Framework\View\Element\Template" name="ordo_free_gift_offer_listing_intro"
+                   template="Ordo_Automation::listing_intro.phtml" before="ordo_free_gift_offer_listing">
+                <arguments>
+                    <argument name="intro_text" xsi:type="string">Cascading-tier gift rules — e.g. spend $50 and get gift A, spend $100 and get gift A and B — applied automatically at checkout once a customer's cart total crosses a tier threshold.</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_free_gift_offer_listing"/>
         </referenceContainer>
     </body>

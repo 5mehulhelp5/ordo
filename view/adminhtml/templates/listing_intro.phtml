@@ -1,0 +1,17 @@
+<?php
+/**
+ * Shared one-line "what is this screen for" intro, rendered above a listing's uiComponent.
+ * Magento's UI-component listing toolbar has no declarative slot for page-level explanatory
+ * text (unlike form fields, which support <description>) — this is a small standalone
+ * Template block instead, with the text itself passed in as a layout XML argument per screen
+ * (ROADMAP.md "Admin UX" Phase 3: every screen needs an in-context explanation of its purpose).
+ *
+ * @var \Magento\Framework\View\Element\Template $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$introText = (string) $block->getData('intro_text');
+if ($introText === '') {
+    return;
+}
+?>
+<p class="ordo-listing-intro"><?= $escaper->escapeHtml($introText) ?></p>

@@ -1,7 +1,16 @@
 <?xml version="1.0"?>
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Ordo_Automation::css/dashboard.css"/>
+    </head>
     <body>
         <referenceContainer name="content">
+            <block class="Magento\Framework\View\Element\Template" name="ordo_whatsapptemplate_listing_intro"
+                   template="Ordo_Automation::listing_intro.phtml" before="ordo_whatsapptemplate_listing">
+                <arguments>
+                    <argument name="intro_text" xsi:type="string">WhatsApp requires every outbound message template to be pre-approved by Meta before it can be sent. Create a template, submit it for review, and reference it from a Send WhatsApp campaign action once it's approved.</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_whatsapptemplate_listing"/>
         </referenceContainer>
     </body>

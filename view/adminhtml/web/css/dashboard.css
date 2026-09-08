@@ -179,6 +179,13 @@
 
 .ordo-back-link { margin-bottom: 16px; }
 
+.ordo-listing-intro {
+  color: var(--ordo-text-muted);
+  font-size: var(--ordo-font-base);
+  max-width: 900px;
+  margin: 0 0 16px;
+}
+
 .ordo-empty-state { color: var(--ordo-text-muted); font-size: var(--ordo-font-md); }
 
 .ordo-campaigns-grid {

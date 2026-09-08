@@ -6,6 +6,12 @@
    href="<?= $escaper->escapeUrl($block->getUrl('ordo/dashboard/index')) ?>">
     <?= $escaper->escapeHtml(__('← Back to Dashboard')) ?>
 </a>
+<p class="ordo-listing-intro">
+    <?= $escaper->escapeHtml(__(
+        'Look up one customer by email to view or change their marketing consent, export their'
+        . ' data, or permanently erase it — for handling a GDPR/data-protection rights request.'
+    )) ?>
+</p>
 <div class="admin__fieldset-wrapper">
     <div class="admin__fieldset-wrapper-title">
         <strong><?= $escaper->escapeHtml(__('Find a customer')) ?></strong>

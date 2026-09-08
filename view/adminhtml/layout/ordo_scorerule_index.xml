@@ -1,7 +1,16 @@
 <?xml version="1.0"?>
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Ordo_Automation::css/dashboard.css"/>
+    </head>
     <body>
         <referenceContainer name="content">
+            <block class="Magento\Framework\View\Element\Template" name="ordo_scorerule_listing_intro"
+                   template="Ordo_Automation::listing_intro.phtml" before="ordo_scorerule_listing">
+                <arguments>
+                    <argument name="intro_text" xsi:type="string">Point values assigned to specific customer attributes (e.g. company size, industry). A customer's total score across all matching rules can be used as a segment or campaign condition, to prioritize your highest-value leads.</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_scorerule_listing"/>
         </referenceContainer>
     </body>
