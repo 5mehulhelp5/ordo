@@ -102,8 +102,12 @@ jobs:
           node-version: "22"
 
       - name: Run JS unit tests with coverage
+        # --ignore-scripts: none of qunit/jquery/jsdom/c8 need an install-time lifecycle script
+        # (no native addons to compile), so there's nothing to lose by refusing to run arbitrary
+        # postinstall/preinstall scripts from the dependency tree - a real SonarCloud finding
+        # (githubactions:S6505) on the very first version of this step, not a hypothetical one.
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm run test:js:coverage
 
       - name: SonarQube Cloud Scan
