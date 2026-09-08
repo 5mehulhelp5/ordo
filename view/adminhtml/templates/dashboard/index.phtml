@@ -145,7 +145,15 @@ $segmentNavDesc = __(
                     . ' Google Shopping listings.'
                 )) ?>
             </p>
-            <?php $configUrl = $block->getUrl('adminhtml/system_config/edit/section/ordo_automation'); ?>
+            <?php
+            // The '#..._shopping_feed-link' fragment isn't just an anchor jump - Magento's own
+            // config-page JS reads it on load to auto-expand that one collapsed group, so this
+            // lands directly on the Shopping Feed field instead of the top of a config page with
+            // 18 other collapsed groups (reported directly: "to powinno linkowac bezposrednio do
+            // konfiguracji z googlem a nie ogolnej").
+            $configUrl = $block->getUrl('adminhtml/system_config/edit/section/ordo_automation')
+                . '#ordo_automation_shopping_feed-link';
+            ?>
             <a class="ordo-btn ordo-btn-primary" href="<?= $escaper->escapeUrl($configUrl) ?>">
                 <?= $escaper->escapeHtml(__('Enable in Configuration')) ?>
             </a>
