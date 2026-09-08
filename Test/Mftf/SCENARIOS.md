@@ -104,6 +104,7 @@ cases separately from the type-by-type ones.
 |-------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
 | Create a segment (name, enabled, one condition), appears in grid                                                                    | ✅ `AdminCreateSegmentTest`                         |
 | Segment with multiple AND'd conditions                                                                                              | ✅ `AdminCreateSegmentWithMultipleConditionsTest`   |
+| Segment with a nested "Group (nested AND/OR)" condition, built inline (no modal), persists and re-renders on reload                 | ✅ `AdminCreateSegmentWithNestedGroupConditionTest` |
 | Segment referenced by a campaign's `in_segment` condition (real membership match at dispatch time)                                  | ✅ `AdminCampaignInSegmentConditionTest`            |
 | Bulk action on a segment's current members — add tag (`SegmentBulkActionConsumer`, async via `ordo.automation.segment.bulk_action`) | ✅ `AdminSegmentBulkActionAddTagTest`               |
 | Bulk action on a segment's current members — add points                                                                             | ✅ `AdminSegmentBulkActionAddPointsTest`            |

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCreateSegmentWithNestedGroupConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Saved segments"/>
+            <title value="Admin can build a top-level AND with a nested OR group, entirely inline"/>
+            <description value="Sibling to AdminCreateSegmentWithMultipleConditionsTest, which only covers two flat AND'd rows - this covers the 'Group (nested AND/OR)' condition type added later and then reworked mid-session from a 'Manage group conditions' modal to an always-visible inline panel (segment-group-modal.js), specifically because hiding a group's own conditions behind a popup meant the admin couldn't see the segment's whole rule tree at a glance. No MFTF coverage existed for the group condition type at all before this test, in either its modal or inline form. Proves: (1) selecting type 'group' on a condition row renders its own conditions list INLINE, with no modal/popup ever appearing - the 'Manage group conditions' button is asserted absent, guarding against a regression back to the modal; (2) conditions can be added to the group via its own inline '+ Add Condition' button and round-trip through save; (3) reloading the edit page re-renders the same group conditions inline from the persisted group_conditions_json, proving refreshGroupRows()/buildInlinePanel() correctly rebuild from real saved data, not just a freshly-built row. UI/persistence only, same scope as AdminCreateSegmentWithMultipleConditionsTest - live membership matching against a nested group is a separate scenario."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <!-- See AdminCreateCampaignTest.xml's comment on this same wait — a cold, freshly
+             deployed developer-mode instance's first admin page load can lag behind
+             waitForPageLoad's document.readyState check. -->
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Test Nested Group Segment" stepKey="fillName"/>
+        <!-- Same toggle-switch checkbox as the campaign form's "enabled" field — the real
+             <input> is visually covered by its own wrapper, so click the adjacent <label>
+             instead of the input itself. -->
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSegment"/>
+
+        <!-- Row 0: a plain top-level condition, via its dedicated "tag" field (the
+             switcherConfig-driven field, not the params_json fallback other sibling tests use -
+             deliberately exercised here since it's the field an admin actually sees/uses day to
+             day). -->
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addTopLevelConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForTopLevelConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="tag" stepKey="selectTopLevelConditionType"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][tag]']" stepKey="waitForTagField"/>
+        <fillField selector="[name='conditions[conditions][0][tag]']" userInput="vip" stepKey="fillTagValue"/>
+
+        <!-- Row 1: the nested group. Selecting "group" must render segment-group-modal.js's
+             inline panel directly under this row's own "Group matches" selector - no popup ever
+             opens, so there is nothing to click through to reach it. -->
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addGroupConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][1][type]']" stepKey="waitForGroupConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][1][type]']" userInput="group" stepKey="selectGroupConditionType"/>
+        <waitForElementVisible selector=".ordo-group-inline" stepKey="waitForInlineGroupPanel"/>
+
+        <!-- The regression guard this test exists to provide: the modal button this UI used to
+             have is gone, and nothing on the page opens a popup to manage the group's own
+             conditions - see this test's own description. -->
+        <dontSeeElement selector=".ordo-group-manage-button" stepKey="dontSeeManageGroupButton"/>
+        <dontSee selector=".ordo-group-inline" userInput="Manage group conditions" stepKey="dontSeeManageGroupButtonText"/>
+
+        <!-- "Group matches" - real Magento field, has its own name attribute unlike the inline
+             rows below it (see next comment). -->
+        <selectOption selector="[name='conditions[conditions][1][group_logic]']" userInput="Any condition (OR)" stepKey="selectGroupLogic"/>
+
+        <!-- The group's own condition rows are NOT real named form fields - segment-group-modal.js
+             renders them as plain, unnamed <select>/<input> elements and serializes them into a
+             single hidden group_conditions_json textarea on every change (see that file's own
+             docblock for why: a nested dynamicRows-inside-dynamicRows doesn't work in this
+             Magento_Ui version). With no name/id to hook, these two inline rows are targeted
+             structurally instead, scoped under .ordo-group-inline so they can never match the
+             outer conditions list's own (fully named) fields by accident. -->
+        <click selector=".ordo-group-inline .ordo-group-inline-add" stepKey="addFirstInlineGroupRow"/>
+        <waitForElementVisible selector="(//div[contains(@class, 'ordo-group-row')])[1]" stepKey="waitForFirstInlineGroupRow"/>
+        <selectOption selector="(//div[contains(@class, 'ordo-group-row')])[1]//select" userInput="Score At Least" stepKey="selectFirstInlineGroupRowType"/>
+        <fillField selector="(//div[contains(@class, 'ordo-group-row')])[1]//input" userInput="999" stepKey="fillFirstInlineGroupRowValue"/>
+
+        <click selector=".ordo-group-inline .ordo-group-inline-add" stepKey="addSecondInlineGroupRow"/>
+        <waitForElementVisible selector="(//div[contains(@class, 'ordo-group-row')])[2]" stepKey="waitForSecondInlineGroupRow"/>
+        <selectOption selector="(//div[contains(@class, 'ordo-group-row')])[2]//select" userInput="Monetary Total At Least" stepKey="selectSecondInlineGroupRowType"/>
+        <fillField selector="(//div[contains(@class, 'ordo-group-row')])[2]//input" userInput="1" stepKey="fillSecondInlineGroupRowValue"/>
+
+        <!-- Save & Continue Edit (not the plain "save" button) specifically to stay on the edit
+             page and carry entity_id in the redirect URL for the reload-and-verify step below. -->
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
+
+        <!-- Reload-and-verify: a fresh page load (not a reuse of the just-submitted, still-live
+             form state), the same distinction AdminEditSegmentConditionChangesMembershipTest.xml
+             draws for this exact form. conditions_fieldset has <visible>false</visible> in
+             ordo_segment_form.xml (collapsible template) - forced open the same uiRegistry way
+             that test already establishes as the working pattern for this specific fieldset. -->
+        <amOnPage url="admin/ordo/segment/edit/entity_id/{$grabSegmentId}" stepKey="goToSegmentEditPage"/>
+        <waitForPageLoad stepKey="waitForSegmentEditPage"/>
+        <executeJS function="require(['uiRegistry'], function (uiRegistry) { uiRegistry.get('ordo_segment_form.ordo_segment_form.conditions_fieldset', function (fieldset) { fieldset.opened(true); fieldset.visible(true); }); });" stepKey="expandConditionsFieldset"/>
+        <waitForElementVisible selector="[name='conditions[conditions][1][type]']" stepKey="waitForReloadedGroupRow"/>
+
+        <!-- The real proof of persistence: refreshGroupRows() re-scanning the reloaded page must
+             independently rebuild the inline panel from the segment's own saved
+             group_conditions_json, restoring both rows this test added above - not from any
+             in-memory state carried over from the save, since this is a genuinely fresh page
+             load. -->
+        <waitForElementVisible selector=".ordo-group-inline" stepKey="waitForReloadedInlinePanel"/>
+        <seeNumberOfElements selector=".ordo-group-row" userInput="2" stepKey="seeTwoReloadedGroupRows"/>
+        <dontSeeElement selector=".ordo-group-manage-button" stepKey="dontSeeManageGroupButtonAfterReload"/>
+    </test>
+</tests>
