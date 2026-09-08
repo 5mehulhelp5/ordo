@@ -86,6 +86,35 @@ class VapidTokenBuilderTest extends TestCase
         self::assertSame('https://updates.push.services.mozilla.com', $payloadClaims['aud']);
     }
 
+    public function testAudienceIncludesAnExplicitPort(): void
+    {
+        $header = $this->builder->buildAuthorizationHeader(
+            'https://push.example.com:8443/subscription/abc123',
+            $this->publicKeyB64url,
+            $this->privateKeyB64url,
+            'mailto:ops@example.com'
+        );
+
+        preg_match('/^vapid t=([^,]+),/', $header, $matches);
+        [, $jwtPayload] = explode('.', $matches[1]);
+        $payloadClaims = json_decode($this->base64Url->decode($jwtPayload), true);
+
+        self::assertSame('https://push.example.com:8443', $payloadClaims['aud']);
+    }
+
+    public function testThrowsWhenTheEndpointHasNoDeterminableOrigin(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cannot determine origin of push endpoint "/relative/path-only"');
+
+        $this->builder->buildAuthorizationHeader(
+            '/relative/path-only',
+            $this->publicKeyB64url,
+            $this->privateKeyB64url,
+            'mailto:ops@example.com'
+        );
+    }
+
     private static function rawToDerSignature(string $r, string $s): string
     {
         $encodeInt = static function (string $bytes): string {

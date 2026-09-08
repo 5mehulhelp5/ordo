@@ -593,4 +593,45 @@ class SegmentMemberResolverTest extends TestCase
 
         self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupWithOnlyMalformedItemsResolvesToNobody(): void
+    {
+        // Distinct from an entirely empty "conditions" array (testEmptyNestedGroupResolvesToNobody
+        // above) - this group's list is non-empty, but every entry is malformed (a bare string,
+        // and an item whose "type" isn't itself a string), so zero real specs survive filtering.
+        $this->stubSegmentConditionLogic('any');
+        $this->stubSegment(1, [
+            [
+                'type' => 'group',
+                'params' => ['logic' => 'any', 'conditions' => ['not-an-array', ['type' => 42]]],
+            ],
+        ]);
+        $this->primeFactory();
+
+        self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupItemsNonArrayParamsAreNormalizedToEmpty(): void
+    {
+        $this->stubSegmentConditionLogic('all');
+        $this->stubSegment(1, [
+            [
+                'type' => 'group',
+                'params' => [
+                    'logic' => 'all',
+                    'conditions' => [['type' => 'score_at_least', 'params' => 'not-an-array']],
+                ],
+            ],
+        ]);
+        $this->primeFactory();
+
+        // params normalized to [] means "threshold" is absent - resolveScoreAtLeast() fails
+        // closed on a missing threshold the same way it would for a hand-written row missing
+        // the field entirely, never reaching the customer score manager at all.
+        $this->customerScoreManager->expects(self::never())->method('getCustomerIdsWithScoreAtLeast');
+
+        self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
+    }
 }

@@ -32,4 +32,13 @@ class CollectionTest extends AbstractCollectionTestCase
 
         self::assertSame($collection, $result);
     }
+
+    public function testAddCustomerIdsAndChannelFilterIsFluent(): void
+    {
+        $collection = $this->makeCollection();
+
+        $result = $collection->addCustomerIdsAndChannelFilter([42, 43], 'email');
+
+        self::assertSame($collection, $result);
+    }
 }

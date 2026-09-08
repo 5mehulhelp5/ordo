@@ -428,6 +428,30 @@ class WebhookTest extends AbstractFrontendActionTestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testPostWithUnmappedTemplateStatusEventIsIgnored(): void
+    {
+        $controller = $this->makeController();
+        $rawBody = json_encode([
+            'entry' => [[
+                'changes' => [[
+                    'field' => 'message_template_status_update',
+                    'value' => [
+                        'message_template_id' => 'meta-template-1',
+                        'event' => 'some_future_event_we_dont_map_yet',
+                    ],
+                ]],
+            ]],
+        ]);
+        $this->request->method('isGet')->willReturn(false);
+        $this->request->method('getHeader')->willReturn($this->signatureFor($rawBody));
+        $this->request->method('getContent')->willReturn($rawBody);
+
+        $this->whatsAppTemplateCollectionFactory->expects(self::never())->method('create');
+
+        $controller->execute();
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testCreateCsrfValidationExceptionReturnsNull(): void
     {
         $controller = $this->makeController();

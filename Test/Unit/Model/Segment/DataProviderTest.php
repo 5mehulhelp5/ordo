@@ -120,6 +120,43 @@ class DataProviderTest extends TestCase
         );
     }
 
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetDataSkipsMalformedNestedGroupItems(): void
+    {
+        $segment = $this->createStub(Segment::class);
+        $segment->method('getData')->willReturn(['entity_id' => 1, 'name' => 'VIP customers']);
+        $segment->method('getEntityId')->willReturn(1);
+
+        $collection = $this->createStub(SegmentCollection::class);
+        $collection->method('getItems')->willReturn([$segment]);
+
+        $groupRow = $this->createStub(SegmentCondition::class);
+        $groupRow->method('getType')->willReturn('group');
+        $groupRow->method('getParams')->willReturn([
+            'logic' => 'all',
+            'conditions' => [
+                'not an array',
+                ['params' => ['tag' => 'vip']],
+                ['type' => 42, 'params' => ['tag' => 'vip']],
+                ['type' => 'tag', 'params' => ['tag' => 'vip']],
+            ],
+        ]);
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addSegmentFilter')->willReturnSelf();
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([$groupRow]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $this->dataPersistor->method('get')->willReturn(null);
+
+        $data = $this->makeProvider($collection)->getData();
+        $groupRowData = $data[1]['conditions']['conditions'][0];
+
+        self::assertSame(
+            [['type' => 'tag', 'params' => ['tag' => 'vip']]],
+            json_decode($groupRowData['group_conditions_json'], true)
+        );
+    }
+
     public function testGetDataAppliesPersistedDataAndClearsIt(): void
     {
         $collection = $this->createStub(SegmentCollection::class);

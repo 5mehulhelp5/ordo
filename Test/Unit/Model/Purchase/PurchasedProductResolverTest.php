@@ -119,6 +119,22 @@ class PurchasedProductResolverTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testGetCustomerIdsWhoPurchasedInCategoryReturnsEmptyWhenSubtreeHasNoProducts(): void
+    {
+        // Bulk-method equivalent of testHasPurchasedInCategoryReturnsFalseWhenSubtreeHasNoProducts:
+        // a genuinely valid category id whose subtree resolves to zero product ids must short-circuit
+        // to [] without ever running the customer-ids query.
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->stubSelect());
+        $connection->expects(self::once())->method('fetchCol')->willReturn([]);
+        $connection->expects(self::never())->method('fetchOne');
+
+        $resolver = new PurchasedProductResolver($this->stubResourceConnection($connection));
+
+        self::assertSame([], $resolver->getCustomerIdsWhoPurchasedInCategory(15));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testHasPurchasedInCategoryReturnsTrueWhenCountIsPositive(): void
     {
         $connection = $this->createMock(AdapterInterface::class);

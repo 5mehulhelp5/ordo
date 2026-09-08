@@ -526,6 +526,106 @@ class CampaignDispatcherTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchTreatsAnEmptyNestedGroupAsUnsatisfied(): void
+    {
+        // Unlike a campaign with zero top-level conditions (which fires unconditionally), a
+        // 'group' row an admin built and left with no conditions inside it fails closed - same
+        // as SegmentMatcher::evaluateGroup()'s identical rule.
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1)])
+        );
+
+        $groupRow = $this->createStub(CampaignCondition::class);
+        $groupRow->method('getCampaignId')->willReturn(1);
+        $groupRow->method('getData')->willReturnMap([['type', 'group']]);
+        $groupRow->method('getParams')->willReturn(['logic' => 'all', 'conditions' => []]);
+
+        $this->conditionCollectionFactory->method('create')
+            ->willReturn($this->makeConditionCollection([$groupRow]));
+
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([]));
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::never())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchSkipsMalformedItemsInsideANestedGroup(): void
+    {
+        // Every entry in this group's own "conditions" is malformed (a bare string, and an item
+        // whose "type" isn't itself a string) - both get filtered out by the same guard a
+        // hand-crafted/tampered POST could otherwise smuggle past, leaving zero real specs to
+        // evaluate, which fails closed exactly like an empty group does.
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1)])
+        );
+
+        $groupRow = $this->createStub(CampaignCondition::class);
+        $groupRow->method('getCampaignId')->willReturn(1);
+        $groupRow->method('getData')->willReturnMap([['type', 'group']]);
+        $groupRow->method('getParams')->willReturn([
+            'logic' => 'any',
+            'conditions' => ['not-an-array', ['type' => 42]],
+        ]);
+
+        $this->conditionCollectionFactory->method('create')
+            ->willReturn($this->makeConditionCollection([$groupRow]));
+
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([]));
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::never())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchNormalizesANestedGroupItemsNonArrayParamsToEmpty(): void
+    {
+        // The group's one real item has a "params" that survived JSON-decoding as a plain
+        // string, not the string-keyed map a real CampaignCondition row's own getParams() always
+        // is - normalized to [] (same as an entirely missing "params" key) rather than passed
+        // through as-is or rejected outright.
+        $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeCampaignCollection([$this->makeCampaign(1)])
+        );
+
+        $groupRow = $this->createStub(CampaignCondition::class);
+        $groupRow->method('getCampaignId')->willReturn(1);
+        $groupRow->method('getData')->willReturnMap([['type', 'group']]);
+        $groupRow->method('getParams')->willReturn([
+            'logic' => 'all',
+            'conditions' => [['type' => 'score_at_least', 'params' => 'not-an-array']],
+        ]);
+
+        $this->conditionCollectionFactory->method('create')
+            ->willReturn($this->makeConditionCollection([$groupRow]));
+
+        $scoreCondition = $this->createMock(ConditionInterface::class);
+        $scoreCondition->expects(self::once())->method('isSatisfied')->with([], [])->willReturn(true);
+        $this->conditionPool = new ConditionPool(['score_at_least' => $scoreCondition]);
+
+        $actionRow = $this->createMock(CampaignAction::class);
+        $actionRow->method('getCampaignId')->willReturn(1);
+        $actionRow->method('getData')->willReturnMap([['type', 'tag_customer']]);
+        $actionRow->method('getParams')->willReturn([]);
+        $this->actionCollectionFactory->method('create')->willReturn($this->makeActionCollection([$actionRow]));
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::once())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatch('order_placed', []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testDispatchLogsAndAbortsWhenBatchLoadingConditionsThrows(): void
     {
         $this->triggerCollectionFactory->method('create')->willReturn($this->makeTriggerCollection([1]));
