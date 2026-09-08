@@ -44,7 +44,9 @@ class SendWinBackEmails
         // One query each for the whole batch instead of one hasTag()/hasConsent() call per
         // candidate below - found via a performance audit, same reasoning as
         // ConsentManager::hasConsentForCustomers().
-        $alreadySent = array_flip($this->customerTagManager->getCustomerIdsWithTagFromSet($customerIds, self::TAG_WIN_BACK_SENT));
+        $alreadySent = array_flip(
+            $this->customerTagManager->getCustomerIdsWithTagFromSet($customerIds, self::TAG_WIN_BACK_SENT)
+        );
         $consentByCustomer = $this->consentManager->hasConsentForCustomers($customerIds, ConsentChannel::Email);
 
         $sent = 0;

@@ -37,7 +37,10 @@ class PurchasedProductResolver
 
         $count = $connection->fetchOne(
             $connection->select()
-                ->from(['o' => $this->resourceConnection->getTableName('sales_order')], ['count' => new \Zend_Db_Expr('COUNT(*)')])
+                ->from(
+                    ['o' => $this->resourceConnection->getTableName('sales_order')],
+                    ['count' => new \Zend_Db_Expr('COUNT(*)')]
+                )
                 ->joinInner(
                     ['oi' => $this->resourceConnection->getTableName('sales_order_item')],
                     'oi.order_id = o.entity_id',
@@ -104,7 +107,10 @@ class PurchasedProductResolver
 
         $count = $connection->fetchOne(
             $connection->select()
-                ->from(['o' => $this->resourceConnection->getTableName('sales_order')], ['count' => new \Zend_Db_Expr('COUNT(*)')])
+                ->from(
+                    ['o' => $this->resourceConnection->getTableName('sales_order')],
+                    ['count' => new \Zend_Db_Expr('COUNT(*)')]
+                )
                 ->joinInner(
                     ['oi' => $this->resourceConnection->getTableName('sales_order_item')],
                     'oi.order_id = o.entity_id',

@@ -62,7 +62,9 @@ class SendWhatsApp implements ActionInterface
         }
 
         if (!$this->config->isWhatsAppEnabled()) {
-            $this->logger->debug('Ordo_Automation: send_whatsapp action skipped, WhatsApp sending is disabled in config.');
+            $this->logger->debug(
+                'Ordo_Automation: send_whatsapp action skipped, WhatsApp sending is disabled in config.'
+            );
             return;
         }
 

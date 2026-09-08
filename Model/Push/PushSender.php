@@ -46,7 +46,10 @@ class PushSender
         // server, so it's the one that must never be skipped.
         if (!$this->pushEndpointValidator->isAllowed($endpoint)) {
             throw new RuntimeException(
-                sprintf('Push subscription #%d has an endpoint that failed validation.', (int) $subscription->getEntityId())
+                sprintf(
+                    'Push subscription #%d has an endpoint that failed validation.',
+                    (int) $subscription->getEntityId()
+                )
             );
         }
 

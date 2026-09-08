@@ -34,7 +34,9 @@ class GenerateVapidKeysCommand extends Command
     {
         $key = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
         if ($key === false) {
-            $output->writeln('<error>Failed to generate an EC key pair - is the OpenSSL PHP extension enabled?</error>');
+            $output->writeln(
+                '<error>Failed to generate an EC key pair - is the OpenSSL PHP extension enabled?</error>'
+            );
             return Command::FAILURE;
         }
 

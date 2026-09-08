@@ -40,7 +40,9 @@ class WebPushCrypto
         $uaPublicPoint = $this->base64Url->decode($p256dhKeyB64url);
         $authSecret = $this->base64Url->decode($authKeyB64url);
         if (strlen($uaPublicPoint) !== 65 || strlen($authSecret) !== 16) {
-            throw new RuntimeException('Invalid subscription keys: expected a 65-byte p256dh point and a 16-byte auth secret.');
+            throw new RuntimeException(
+                'Invalid subscription keys: expected a 65-byte p256dh point and a 16-byte auth secret.'
+            );
         }
 
         // A fresh ephemeral EC keypair per message, as RFC 8291 requires ("as" = "application

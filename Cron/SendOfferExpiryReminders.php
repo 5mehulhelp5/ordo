@@ -88,7 +88,10 @@ class SendOfferExpiryReminders
             // Claim (log) BEFORE sending, not after - a crash between a successful send and the
             // log write must never cause a resend on the next tick. If the send itself then
             // fails, the claim is rolled back so this offer is retried next run.
-            $reminderLogRow = $this->buildReminderLogRow((int) $offer->getEntityId(), self::REMINDER_TYPE_EXPIRING_SOON);
+            $reminderLogRow = $this->buildReminderLogRow(
+                (int) $offer->getEntityId(),
+                self::REMINDER_TYPE_EXPIRING_SOON
+            );
             $this->reminderLogStore->insert(self::REMINDER_LOG_TABLE, $reminderLogRow);
 
             try {

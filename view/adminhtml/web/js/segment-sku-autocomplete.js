@@ -11,6 +11,16 @@
  * there's nothing to bulk-add and no second value to show a persistent chip for once the field
  * already displays the SKU itself.
  */
+/**
+ * @param {jQuery} $el
+ * @return {Boolean}
+ */
+function isSkuField($el) {
+    var name = $el.attr('name') || '';
+
+    return /^conditions\[conditions]\[\d+]\[sku]$/.test(name);
+}
+
 define([
     'jquery',
     'underscore',
@@ -36,7 +46,7 @@ define([
                 return response.ok ? response.json() : {items: []};
             })
             .then(function (data) {
-                return (data && data.items) || [];
+                return data?.items || [];
             })
             .catch(function () {
                 return [];
@@ -76,16 +86,6 @@ define([
         });
 
         $input.after($dropdown);
-    }
-
-    /**
-     * @param {jQuery} $el
-     * @return {Boolean}
-     */
-    function isSkuField($el) {
-        var name = $el.attr('name') || '';
-
-        return /^conditions\[conditions]\[\d+]\[sku]$/.test(name);
     }
 
     var debouncedSuggest = _.debounce(function ($input) {
