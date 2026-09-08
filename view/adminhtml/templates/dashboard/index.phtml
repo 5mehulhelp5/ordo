@@ -104,9 +104,18 @@ $segmentNavDesc = __(
                 <?= $escaper->escapeHtml(__('Refresh Now')) ?>
             </a>
         <?php else: ?>
-            <p><?= $escaper->escapeHtml(__(
-                'Disabled — enable "Shopping Feed" in Configuration to publish a Google Merchant Center feed.'
-            )) ?></p>
+            <p class="ordo-empty-state">
+                <?= $escaper->escapeHtml(__(
+                    'Not set up yet — publish your catalog as a Google Merchant Center feed to unlock free'
+                    . ' Google Shopping listings.'
+                )) ?>
+            </p>
+            <a class="ordo-btn ordo-btn-primary"
+               href="<?= $escaper->escapeUrl(
+                   $block->getUrl('adminhtml/system_config/edit/section/ordo_automation')
+               ) ?>">
+                <?= $escaper->escapeHtml(__('Enable in Configuration')) ?>
+            </a>
         <?php endif; ?>
     </div>
 
