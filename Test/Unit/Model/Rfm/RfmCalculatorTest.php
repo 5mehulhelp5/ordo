@@ -502,4 +502,405 @@ class RfmCalculatorTest extends TestCase
 
         self::assertNull($calculator->getRfmScoreLabel(999));
     }
+
+    /**
+     * Four boundary cases for the shared "days since last order" formula
+     * (getRecencyDays()/getAggregatesForAllCustomers() both use it) - each one targets a specific
+     * off-by-one/rounding mistake a careless edit could introduce, not just "some plausible day
+     * count" that would coincidentally match a broken formula too:
+     *  - 86399 seconds (1s under a full day) must floor to 0, not 1 - catches an 86400->86399
+     *    divisor typo, which would only show up at this exact boundary.
+     *  - An order timestamp in the future (clock skew / a customer's very last order landing
+     *    after "now" by a second) must clamp to 0, not go negative.
+     *  - An order a few hours old (same calendar day) must floor to 0, not round up to 1.
+     *  - 1.5 days old must floor to 1, not ceil/round to 2 - the docblock's own "coarsest unit
+     *    that divides evenly" promise depends on this being a floor, not a round.
+     */
+    public function testGetRecencyDaysBoundaries(): void
+    {
+        $now = 1700000000;
+
+        $cases = [
+            'just under one day' => [$now - 86399, 0],
+            'order timestamp in the future' => [$now + 3600, 0],
+            'same-day order' => [$now - 3600, 0],
+            'one and a half days' => [$now - 129600, 1],
+        ];
+
+        foreach ($cases as $label => [$orderTimestamp, $expectedDays]) {
+            $connection = $this->createStub(AdapterInterface::class);
+            $connection->method('select')->willReturn($this->makeSelect());
+            $connection->method('fetchOne')->willReturn(date('Y-m-d H:i:s', $orderTimestamp));
+
+            $calculator = $this->makeCalculator($connection, $now);
+
+            self::assertSame($expectedDays, $calculator->getRecencyDays(42), $label);
+        }
+    }
+
+    /**
+     * Same boundary cases as testGetRecencyDaysBoundaries(), through
+     * getAggregatesForAllCustomers()'s own copy of the identical formula - the two must never
+     * drift apart (that's this class's own docblock promise), so every mutant that formula test
+     * catches needs an equivalent guard here too.
+     */
+    public function testGetAggregatesForAllCustomersRecencyBoundaries(): void
+    {
+        $now = 1700000000;
+
+        $rows = [
+            ['customer_id' => '1', 'frequency' => '1', 'monetary' => '10', 'last_order_at' => date('Y-m-d H:i:s', $now - 86399)],
+            ['customer_id' => '2', 'frequency' => '1', 'monetary' => '10', 'last_order_at' => date('Y-m-d H:i:s', $now + 3600)],
+            ['customer_id' => '3', 'frequency' => '1', 'monetary' => '10', 'last_order_at' => date('Y-m-d H:i:s', $now - 3600)],
+            ['customer_id' => '4', 'frequency' => '1', 'monetary' => '10', 'last_order_at' => date('Y-m-d H:i:s', $now - 129600)],
+        ];
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn($rows);
+
+        $calculator = $this->makeCalculator($connection, $now);
+        $aggregates = $calculator->getAggregatesForAllCustomers();
+
+        self::assertSame(0, $aggregates[1]['recency_days'], 'just under one day');
+        self::assertSame(0, $aggregates[2]['recency_days'], 'order timestamp in the future');
+        self::assertSame(0, $aggregates[3]['recency_days'], 'same-day order');
+        self::assertSame(1, $aggregates[4]['recency_days'], 'one and a half days');
+    }
+
+    /**
+     * customer_id comes back from the DB as a string - a non-canonical one (leading space) is
+     * deliberately used here rather than a clean "5", because PHP auto-normalizes a clean numeric
+     * string used as an array key to an int on its own, which would make the explicit (int) cast
+     * look redundant to a test using a clean digit string even though removing it is a real bug
+     * for any less-clean value the DB driver could hand back.
+     */
+    public function testGetAggregatesForAllCustomersCastsCustomerIdKeysToInt(): void
+    {
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([
+            ['customer_id' => ' 5', 'frequency' => '1', 'monetary' => '10', 'last_order_at' => null],
+        ]);
+
+        $calculator = $this->makeCalculator($connection);
+        $aggregates = $calculator->getAggregatesForAllCustomers();
+
+        self::assertArrayHasKey(5, $aggregates);
+        self::assertSame([5], array_keys($aggregates));
+    }
+
+    /**
+     * Same int-cast guard as testGetAggregatesForAllCustomersCastsCustomerIdKeysToInt(), for the
+     * precomputed-table read path.
+     */
+    public function testGetPercentileRanksCastsCustomerIdKeysToIntWhenReadingTheStoredTable(): void
+    {
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([
+            [
+                'customer_id' => ' 5',
+                'recency_percentile' => '10.0',
+                'frequency_percentile' => '10.0',
+                'monetary_percentile' => '10.0',
+            ],
+        ]);
+
+        $calculator = $this->makeCalculator($connection);
+        $ranks = $calculator->getPercentileRanks();
+
+        self::assertArrayHasKey(5, $ranks);
+        self::assertSame([5], array_keys($ranks));
+    }
+
+    /**
+     * getAggregatesForAllCustomers() must select customer_id itself, not just the three
+     * aggregates - without it there's no key to group results by at all.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetAggregatesForAllCustomersSelectsCustomerIdColumn(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('where')->willReturnSelf();
+        $select->method('group')->willReturnSelf();
+        $select->expects(self::once())->method('from')->with(
+            'sales_order',
+            self::identicalTo([
+                'customer_id' => 'customer_id',
+                'frequency' => 'COUNT(*)',
+                'monetary' => 'SUM(grand_total)',
+                'last_order_at' => 'MAX(created_at)',
+            ])
+        )->willReturnSelf();
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('fetchAll')->willReturn([]);
+
+        $calculator = $this->makeCalculator($connection);
+        $calculator->getAggregatesForAllCustomers();
+    }
+
+    /**
+     * The stored-percentile-table read must select customer_id (there'd be no key to index the
+     * result by otherwise) from the correctly-aliased table ('s') the join condition
+     * ('s.customer_id = c.entity_id') depends on.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetPercentileRanksSelectsFromTheAliasedTableWithCustomerIdColumn(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('join')->willReturnSelf();
+        $select->expects(self::once())->method('from')->with(
+            self::identicalTo(['s' => 'ordo_customer_rfm_score']),
+            self::identicalTo([
+                'customer_id',
+                'recency_percentile',
+                'frequency_percentile',
+                'monetary_percentile',
+            ])
+        )->willReturnSelf();
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        // A non-empty result, so getPercentileRanks() takes the stored-table path and never
+        // falls back to the live computePercentileRanks() (which would call ->from() again on
+        // this same mock, for an unrelated query, and violate the expects(once()) above).
+        $connection->method('fetchAll')->willReturn([
+            [
+                'customer_id' => '1',
+                'recency_percentile' => '10.0',
+                'frequency_percentile' => '10.0',
+                'monetary_percentile' => '10.0',
+            ],
+        ]);
+
+        $calculator = $this->makeCalculator($connection);
+        $calculator->getPercentileRanks();
+    }
+
+    /**
+     * Both cache fields only ever get set together (right after a fresh computation), so a plain
+     * "call twice" test can't observe the difference between the real `&&` and a mutated `||` -
+     * this uses Reflection to force the one state that CAN tell them apart: the cache array
+     * populated but its timestamp still null. Under `&&` (correct), that's not a valid cache hit,
+     * so it must recompute; under `||`, it would incorrectly serve the sentinel cached value.
+     */
+    public function testGetPercentileRanksRequiresBothCacheFieldsSetNotEither(): void
+    {
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([]);
+        $connection->method('fetchCol')->willReturn([]);
+
+        $calculator = $this->makeCalculator($connection);
+
+        $cacheProperty = new \ReflectionProperty($calculator, 'percentileRanksCache');
+        $cacheProperty->setAccessible(true);
+        $cacheProperty->setValue($calculator, ['sentinel-should-never-be-returned' => true]);
+        // percentileRanksCachedAt is deliberately left null.
+
+        self::assertNotSame(['sentinel-should-never-be-returned' => true], $calculator->getPercentileRanks());
+    }
+
+    /**
+     * Exactly at the TTL boundary (elapsed === PERCENTILE_CACHE_TTL_SECONDS) the cache must be
+     * treated as expired (strict `<`), not still valid (`<=`) - a customer segment computed from
+     * a 60-second-stale cache one tick too late is a real (if minor) staleness bug.
+     */
+    public function testGetPercentileRanksTreatsTheCacheAsExpiredExactlyAtTheTtlBoundary(): void
+    {
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([]);
+        // Twice, one full recompute per call - if the cache were (incorrectly) still considered
+        // valid at exactly the boundary, this would only fire once.
+        $connection->expects(self::exactly(2))->method('fetchCol')->willReturn([]);
+
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(fn (string $t) => $t);
+
+        $dateTime = $this->createStub(DateTime::class);
+        $dateTime->method('gmtTimestamp')->willReturnOnConsecutiveCalls(1700000000, 1700000060);
+
+        $calculator = new RfmCalculator($resourceConnection, $dateTime);
+
+        $calculator->getPercentileRanks();
+        $calculator->getPercentileRanks();
+    }
+
+    /**
+     * array_chunk($rows, 500) - a store with just over one chunk's worth of customers must
+     * produce two insertMultiple() calls (500 + 1), not one (a 501-sized chunk, the
+     * IncrementInteger mutant) or two lopsided ones (499 + 2, the DecrementInteger mutant).
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testRecomputeAndStoreScoresChunksInsertsAtExactlyFiveHundredRows(): void
+    {
+        $now = 1700000000;
+        $lastOrderAt = date('Y-m-d H:i:s', $now - 5 * 86400);
+
+        $customerCount = 501;
+        $ids = range(1, $customerCount);
+        $rows = array_map(
+            static fn (int $id): array => [
+                'customer_id' => (string) $id,
+                'frequency' => '1',
+                'monetary' => (string) $id,
+                'last_order_at' => $lastOrderAt,
+            ],
+            $ids
+        );
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchCol')->willReturn(array_map('strval', $ids));
+        $connection->method('fetchAll')->willReturn($rows);
+        $connection->method('delete');
+
+        $chunkSizes = [];
+        $connection->expects(self::exactly(2))->method('insertMultiple')->willReturnCallback(
+            function (string $table, array $chunk) use (&$chunkSizes): void {
+                $chunkSizes[] = count($chunk);
+            }
+        );
+
+        $calculator = $this->makeCalculator($connection, $now);
+        $calculator->recomputeAndStoreScores();
+
+        self::assertSame([500, 1], $chunkSizes);
+    }
+
+    /**
+     * quintileFromPercentile()'s two divide-by-20 boundary mistakes, both only visible on a
+     * non-round-number percentile:
+     *  - 21.0 -> ceil(21/20) = ceil(1.05) = quintile 2; PHP's round(1.05) is 1 (rounds to
+     *    nearest, and 1.05 isn't a .5 tie), so a ceil->round mutant would report quintile 1.
+     *  - 61.0 -> ceil(61/20) = ceil(3.05) = quintile 4; a /20->/21 divisor mutant gives
+     *    ceil(61/21) = ceil(2.90...) = quintile 3.
+     * (The third quintile mutant, min(5,...)->min(6,...), is not tested here: a percentile can
+     * never exceed 100.0 by construction - see computePercentileRanks() - so ceil(100/20) never
+     * reaches 6 and that branch is unreachable, an equivalent mutant.)
+     */
+    public function testGetRfmScoreLabelQuintileBoundaries(): void
+    {
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchAll')->willReturn([
+            [
+                'customer_id' => '1',
+                'recency_percentile' => '21.0',
+                'frequency_percentile' => '61.0',
+                'monetary_percentile' => '50.0',
+            ],
+        ]);
+
+        $calculator = $this->makeCalculator($connection);
+
+        self::assertSame('243', $calculator->getRfmScoreLabel(1));
+    }
+
+    /**
+     * Regression guard for the OneZeroFloat mutant on the zero-order customer's monetary filler
+     * (0.0 -> 1.0): a real customer whose one order has grand_total = 0 (e.g. a 100%-off coupon)
+     * legitimately ties with a zero-order customer's monetary filler value. Under the correct
+     * 0.0 filler, both tie at the bottom, so the paying-nothing customer still ranks at the very
+     * top (100th percentile - "least bad", everyone else spent >= them... this file's own
+     * count-based percentile is a >=-style rank for monetary too). Under a 1.0 filler, the
+     * zero-order phantom would no longer tie, quietly changing the paying-nothing customer's
+     * percentile - a real (if obscure) ranking bug this test exists specifically to catch.
+     */
+    public function testGetPercentileRanksMonetaryFillerForZeroOrderCustomersIsZeroNotOne(): void
+    {
+        $now = 1700000000;
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        // Two customers total; only customer 1 has ever ordered (a single order, grand_total 0).
+        $connection->method('fetchCol')->willReturn(['1', '2']);
+        $connection->method('fetchAll')->willReturnOnConsecutiveCalls(
+            [],
+            [
+                [
+                    'customer_id' => '1',
+                    'frequency' => '1',
+                    'monetary' => '0',
+                    'last_order_at' => date('Y-m-d H:i:s', $now - 86400),
+                ],
+            ]
+        );
+
+        $calculator = $this->makeCalculator($connection, $now);
+        $ranks = $calculator->getPercentileRanks();
+
+        self::assertSame(100.0, $ranks[1]['monetary_percentile']);
+    }
+
+    /**
+     * countAtMost()/countAtLeast() are the two private binary-search helpers computePercentileRanks()
+     * relies on for its O(N log N) sort-then-count approach - a bug in either only shows up on a
+     * dataset large/varied enough to exercise several distinct mid-points and duplicate ties, not
+     * on the 3-4 customer fixtures the tests above use. Twelve customers, on purpose with repeated
+     * frequency values (ties) and gaps in the monetary values (misses), spans enough distinct
+     * binary-search paths to catch an off-by-one at any single comparison.
+     */
+    public function testGetPercentileRanksAcrossALargerDatasetWithTiesAndGaps(): void
+    {
+        $now = 1700000000;
+
+        // frequency: 1,1,2,2,2,3,4,5,5,6,7,8 (ties at 1/2/5) — monetary has gaps (no customer
+        // spent exactly 250 or 600) so countAtMost() must handle both "value present" and
+        // "value between two sorted entries" mid-point cases.
+        $fixture = [
+            1 => ['frequency' => 1, 'monetary' => 50],
+            2 => ['frequency' => 1, 'monetary' => 100],
+            3 => ['frequency' => 2, 'monetary' => 150],
+            4 => ['frequency' => 2, 'monetary' => 200],
+            5 => ['frequency' => 2, 'monetary' => 300],
+            6 => ['frequency' => 3, 'monetary' => 400],
+            7 => ['frequency' => 4, 'monetary' => 500],
+            8 => ['frequency' => 5, 'monetary' => 700],
+            9 => ['frequency' => 5, 'monetary' => 800],
+            10 => ['frequency' => 6, 'monetary' => 900],
+            11 => ['frequency' => 7, 'monetary' => 1000],
+            12 => ['frequency' => 8, 'monetary' => 1100],
+        ];
+
+        $rows = [];
+        foreach ($fixture as $customerId => $values) {
+            $rows[] = [
+                'customer_id' => (string) $customerId,
+                'frequency' => (string) $values['frequency'],
+                'monetary' => (string) $values['monetary'],
+                'last_order_at' => date('Y-m-d H:i:s', $now - $customerId * 86400),
+            ];
+        }
+
+        $connection = $this->createStub(AdapterInterface::class);
+        $connection->method('select')->willReturn($this->makeSelect());
+        $connection->method('fetchCol')->willReturn(array_map('strval', array_keys($fixture)));
+        $connection->method('fetchAll')->willReturnOnConsecutiveCalls([], $rows);
+
+        $calculator = $this->makeCalculator($connection, $now);
+        $ranks = $calculator->getPercentileRanks();
+
+        // frequency=1 (customers 1,2): 2 of 12 <= 1 -> 2/12*100
+        self::assertEqualsWithDelta(16.666666666667, $ranks[1]['frequency_percentile'], 0.0001);
+        // frequency=2 (customers 3,4,5): 5 of 12 <= 2 -> 5/12*100
+        self::assertEqualsWithDelta(41.666666666667, $ranks[4]['frequency_percentile'], 0.0001);
+        // frequency=5 (customers 8,9), the tie at the upper-middle of the range: 9 of 12 <= 5
+        self::assertEqualsWithDelta(75.0, $ranks[9]['frequency_percentile'], 0.0001);
+        // frequency=8 (customer 12), the very last element: all 12 <= 8
+        self::assertSame(100.0, $ranks[12]['frequency_percentile']);
+        // monetary=150 (customer 3), sitting between two sorted neighbors (100 and 200), not on
+        // a duplicate: 3 of 12 <= 150
+        self::assertEqualsWithDelta(25.0, $ranks[3]['monetary_percentile'], 0.0001);
+        // recency: customer 1 ordered most recently (1 day ago) of the whole set, so every one
+        // of the 12 has "days >= mine" -> 100th percentile.
+        self::assertSame(100.0, $ranks[1]['recency_percentile']);
+        // customer 12 ordered longest ago (12 days) - only themselves has "days >= mine".
+        self::assertEqualsWithDelta(8.333333333333, $ranks[12]['recency_percentile'], 0.0001);
+    }
 }
