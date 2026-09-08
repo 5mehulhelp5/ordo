@@ -27,6 +27,30 @@ $applyFlowButtonLabel = __('Apply flow to form & Save');
         <h2><?= $escaper->escapeHtml(__('Flow')) ?></h2>
         <p><?= $escaper->escapeHtml($flowIntro) ?></p>
         <div class="ordo-flow-toolbar">
+            <!--
+                Ready-made starting points for common, repeated scenarios (reported directly:
+                a merchant shouldn't have to hand-drag/wire the same trigger->action chain every
+                time for a scenario this module already knows is popular). The actual node
+                graph for each key is defined once in campaign-flow-editor.js's FLOW_TEMPLATES -
+                these labels must stay in sync with those keys.
+            -->
+            <details class="ordo-flow-templates">
+                <summary><?= $escaper->escapeHtml(__('Load a Template')) ?></summary>
+                <div class="ordo-flow-templates-menu">
+                    <button type="button" data-flow-template="abandoned_cart">
+                        <?= $escaper->escapeHtml(__('Abandoned Cart Recovery')) ?>
+                    </button>
+                    <button type="button" data-flow-template="welcome_new_customer">
+                        <?= $escaper->escapeHtml(__('Welcome New Customer')) ?>
+                    </button>
+                    <button type="button" data-flow-template="post_purchase_coupon">
+                        <?= $escaper->escapeHtml(__('Post-Purchase Thank You + Coupon')) ?>
+                    </button>
+                    <button type="button" data-flow-template="tagged_customer_followup">
+                        <?= $escaper->escapeHtml(__('Follow Up on Tagged Customers')) ?>
+                    </button>
+                </div>
+            </details>
             <button type="button" class="action-primary" data-flow-action="apply"><?=
                 $escaper->escapeHtml($applyFlowButtonLabel)
             ?></button>

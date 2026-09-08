@@ -295,6 +295,8 @@ define([
                 );
 
                 bindNode($(container).find('#node-' + nodeId).find('[data-kind]'), kind);
+
+                return nodeId;
             }
 
             /**
@@ -317,6 +319,85 @@ define([
                     y: (clientY - rect.y) / zoom
                 };
             }
+
+            /**
+             * Ready-made starting points for the most common repeatable automation scenarios,
+             * so building one of these doesn't mean dragging/wiring every node by hand each
+             * time (reported directly: "przygotowal gotowa baze szablonow alogrytmow w ktore
+             * klikniesz i nie musisz ich sam ukladc"). Each is just a trigger -> (optional
+             * condition) -> action chain using types every install of this module already has
+             * (Model\Campaign\TypeLabels' own ACTION_LABELS/CONDITION_LABELS) - loading one only
+             * saves the layout/wiring step, the merchant still fills in the actual field values
+             * (email content, tag name, coupon rule, etc.) same as any hand-built node.
+             *
+             * @type {Object<String, {label: String, nodes: Array<{kind: String, type: String}>}>}
+             */
+            var FLOW_TEMPLATES = {
+                abandoned_cart: {
+                    label: 'Abandoned Cart Recovery',
+                    nodes: [
+                        { kind: 'trigger', type: 'cart_abandoned' },
+                        { kind: 'action', type: 'send_email' }
+                    ]
+                },
+                welcome_new_customer: {
+                    label: 'Welcome New Customer',
+                    nodes: [
+                        { kind: 'trigger', type: 'customer_registered' },
+                        { kind: 'action', type: 'send_email' }
+                    ]
+                },
+                post_purchase_coupon: {
+                    label: 'Post-Purchase Thank You + Coupon',
+                    nodes: [
+                        { kind: 'trigger', type: 'order_placed' },
+                        { kind: 'action', type: 'send_email' },
+                        { kind: 'action', type: 'generate_coupon' }
+                    ]
+                },
+                tagged_customer_followup: {
+                    label: 'Follow Up on Tagged Customers',
+                    nodes: [
+                        { kind: 'trigger', type: 'tag_added' },
+                        { kind: 'condition', type: 'tag' },
+                        { kind: 'action', type: 'send_email' }
+                    ]
+                }
+            };
+
+            /**
+             * Adds one template's whole node chain to the canvas and wires it trigger ->
+             * condition(s) -> action(s) in the order given, left to right. Does not touch or
+             * clear whatever is already on the canvas - loading a template on top of existing
+             * work just adds its nodes alongside, same as dragging each one in by hand would.
+             *
+             * @param {String} templateKey
+             */
+            function applyTemplate(templateKey) {
+                var template = FLOW_TEMPLATES[templateKey],
+                    startX = 60 + Math.random() * 80, // NOSONAR: cosmetic placement jitter only
+                    startY = 60 + Math.random() * 300, // NOSONAR: cosmetic placement jitter only
+                    previousNodeId = null;
+
+                if (!template) {
+                    return;
+                }
+
+                template.nodes.forEach(function (nodeSpec, index) {
+                    var nodeId = addNode(nodeSpec.kind, nodeSpec.type, startX + index * 260, startY);
+
+                    if (previousNodeId !== null) {
+                        editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
+                    }
+
+                    previousNodeId = nodeId;
+                });
+            }
+
+            $(document).on('click', '[data-flow-template]', function () {
+                applyTemplate($(this).attr('data-flow-template'));
+                $(this).closest('details.ordo-flow-templates').removeAttr('open');
+            });
 
             // Drawflow renders node HTML as-is; delete buttons are wired via event delegation
             // since nodes are added/removed dynamically after the container's own listeners are

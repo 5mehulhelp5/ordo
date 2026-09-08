@@ -89,6 +89,74 @@
     background: #6425c9;
 }
 
+/* "Load a Template" dropdown — same <details>/<summary> mechanism as the palette groups below,
+   styled as a small popover menu instead of an inline list since its content (a handful of
+   named scenarios) reads better as a menu than as a permanently-open block taking up toolbar
+   space. */
+.ordo-flow-templates {
+    position: relative;
+    margin-right: auto;
+}
+
+.ordo-flow-templates summary {
+    list-style: none;
+    cursor: pointer;
+    margin: 0;
+    border-radius: 20px;
+    padding: 7px 18px;
+    font-size: var(--ordo-font-sm);
+    font-weight: var(--ordo-weight-medium);
+    background: #f4f5f6;
+    border: 1px solid #dadfe3;
+    color: #41454b;
+}
+
+.ordo-flow-templates summary::-webkit-details-marker { display: none; }
+
+.ordo-flow-templates summary::after {
+    content: '▾';
+    margin-left: 6px;
+}
+
+.ordo-flow-templates[open] summary::after {
+    content: '▴';
+}
+
+.ordo-flow-templates summary:hover {
+    background: #e9ebee;
+}
+
+.ordo-flow-templates-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    background: #fff;
+    border: 1px solid #dde3e8;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+    padding: 6px;
+}
+
+.ordo-flow-templates-menu button {
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: var(--ordo-font-sm);
+    color: #2f3944;
+    cursor: pointer;
+}
+
+.ordo-flow-templates-menu button:hover {
+    background: #f4f5f6;
+    color: #7c3aed;
+}
+
 .ordo-flow-body {
     display: flex;
     gap: 12px;
@@ -123,6 +191,9 @@
 .ordo-flow-palette-group-action { border-left-color: #7c3aed; }
 
 .ordo-flow-palette-group summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin: 0 0 6px;
     font-size: var(--ordo-font-xs);
     font-weight: var(--ordo-weight-medium);
@@ -131,6 +202,21 @@
     color: #6b7680;
     cursor: pointer;
     user-select: none;
+    list-style: none;
+}
+
+/* Native <details> markers render inconsistently across browsers (a triangle in some, nothing
+   visible at this small size/color in others) — an explicit chevron makes "this expands" obvious
+   regardless. Reported directly: it wasn't visually clear these headers were collapsible. */
+.ordo-flow-palette-group summary::-webkit-details-marker { display: none; }
+
+.ordo-flow-palette-group summary::after {
+    content: '▾';
+    font-size: var(--ordo-font-sm);
+}
+
+.ordo-flow-palette-group[open] summary::after {
+    content: '▴';
 }
 
 .ordo-flow-palette-group:not(:last-of-type) { margin-bottom: 4px; }
