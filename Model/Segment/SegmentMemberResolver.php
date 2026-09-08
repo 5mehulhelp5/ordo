@@ -5,6 +5,7 @@ namespace Ordo\Automation\Model\Segment;
 
 use Ordo\Automation\Model\CustomerScoreManager;
 use Ordo\Automation\Model\CustomerTagManager;
+use Ordo\Automation\Model\Purchase\PurchasedProductResolver;
 use Ordo\Automation\Model\ResourceModel\Segment as SegmentResource;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\CollectionFactory as SegmentConditionCollectionFactory;
 use Ordo\Automation\Model\Rfm\RfmCalculator;
@@ -59,7 +60,8 @@ class SegmentMemberResolver
         private readonly RfmCalculator $rfmCalculator,
         private readonly SegmentFactory $segmentFactory,
         private readonly SegmentResource $segmentResource,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly PurchasedProductResolver $purchasedProductResolver
     ) {
     }
 
@@ -223,6 +225,10 @@ class SegmentMemberResolver
                 return $this->resolvePercentileAtLeast($params, 'monetary_percentile');
             case 'in_segment':
                 return $this->resolveInSegment($params, $visitedSegmentIds);
+            case 'purchased_sku':
+                return $this->resolvePurchasedSku($params);
+            case 'purchased_category':
+                return $this->resolvePurchasedCategory($params);
             case 'order_total_gte':
             case 'visitor_tag':
                 return [];
@@ -245,6 +251,36 @@ class SegmentMemberResolver
         }
 
         return $this->customerTagManager->getCustomerIdsWithTag($tag);
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return int[]
+     */
+    private function resolvePurchasedSku(array $params): array
+    {
+        $sku = trim((string) ($params['sku'] ?? ''));
+
+        if ($sku === '') {
+            return [];
+        }
+
+        return $this->purchasedProductResolver->getCustomerIdsWhoPurchasedSku($sku);
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return int[]
+     */
+    private function resolvePurchasedCategory(array $params): array
+    {
+        $categoryId = $params['category_id'] ?? null;
+
+        if (!is_numeric($categoryId) || (int) $categoryId <= 0) {
+            return [];
+        }
+
+        return $this->purchasedProductResolver->getCustomerIdsWhoPurchasedInCategory((int) $categoryId);
     }
 
     /**
