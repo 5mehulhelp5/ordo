@@ -60,6 +60,36 @@ specific date/time instead of only on a customer event?**
 Needs a scoping decision before implementation: is a one-off scheduled send (e.g. "Black Friday
 email, Nov 28 9am") or a recurring schedule (e.g. "every Monday") the more valuable first case.
 
+## Visual rule builder for Segment/Campaign conditions (AND/OR groups)
+
+Raised after the Segment condition form got dedicated per-type fields (no more raw JSON for the
+common condition types): the remaining gap is structural, not cosmetic. Both `Segment` and
+`Campaign` conditions are a **flat list always joined by AND** — `SegmentSaveProcessor`/
+`CampaignSaveProcessor` delete-and-reinsert a plain row-per-condition, and the matching logic
+(`SegmentMemberResolver`, campaign condition evaluation) has no concept of a nested group or an
+OR join. A real "(A AND B) OR (C AND D)" builder needs, in order:
+
+- A schema change: either a `group_id`/`parent_group_id` + `join_type` (AND/OR) column set on the
+  condition tables, or a switch to storing the whole tree as one JSON Logic-style blob per
+  segment/campaign (trades relational queryability for structural flexibility — worth an explicit
+  decision, not a default).
+- Matching logic in `SegmentMemberResolver` (and wherever campaign conditions are evaluated) to
+  walk the group tree instead of AND-ing a flat list — the actual segment-membership SQL/PHP
+  changes shape, not just the form.
+- Only then does the admin UI part make sense: a nested drag-and-drop group builder with an
+  ALL/ANY toggle per group and an "Add a condition group" action. Off-the-shelf JS toward this:
+  `react-querybuilder` (the closest to a de-facto standard; exports directly to JSON Logic) or,
+  scoped down to fit Magento's own `Magento_Ui/js` component style rather than pulling in React,
+  a bespoke tree UI following the same field-per-type pattern the current switcherConfig already
+  uses, just nested.
+- A live "estimated audience size" counter next to the segment builder — needs a fast
+  count-only path through the same matching logic above; naive re-running the full member
+  resolver on every keystroke would be too slow to feel live.
+- Separately (independent of the above): the "Bulk actions on current members" block sharing the
+  same form/page as the condition builder was flagged as a mis-grouping risk (an action button
+  living directly below unrelated condition rows). Worth its own tab/section or a confirmation
+  step before this gets built out further, regardless of when/whether the AND/OR rework happens.
+
 ## Localization
 
 - **Native-speaker review of the 10 machine-translated locales** (`de_DE`, `fr_FR`, `es_ES`, `it_IT`, `pt_BR`,
