@@ -72,4 +72,20 @@ class TrackerViewModelTest extends TestCase
 
         self::assertSame(30, (new TrackerViewModel($config))->getNpsSurveyPollIntervalSeconds());
     }
+
+    public function testIsPushEnabledReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('isPushEnabled')->willReturn(true);
+
+        self::assertTrue((new TrackerViewModel($config))->isPushEnabled());
+    }
+
+    public function testGetVapidPublicKeyReflectsConfig(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getVapidPublicKey')->willReturn('public-key-b64url');
+
+        self::assertSame('public-key-b64url', (new TrackerViewModel($config))->getVapidPublicKey());
+    }
 }

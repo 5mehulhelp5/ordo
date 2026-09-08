@@ -248,4 +248,44 @@ class SegmentMatcherTest extends TestCase
 
         self::assertFalse($this->matcher->isCustomerInSegment(3, 42));
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupWithOnlyMalformedItemsFailsClosed(): void
+    {
+        // Distinct from an entirely empty "conditions" array (testEmptyNestedGroupFailsClosed
+        // above) - this group's list is non-empty, but every entry is malformed (a bare string,
+        // and an item whose "type" isn't itself a string), so zero real specs survive filtering.
+        $this->stubSegmentConditionLogic('any');
+
+        $groupRow = $this->makeConditionRow('group', [
+            'logic' => 'any',
+            'conditions' => ['not-an-array', ['type' => 42]],
+        ]);
+        $this->collection->method('getSize')->willReturn(1);
+        $this->collection->method('getIterator')->willReturn(new \ArrayIterator([$groupRow]));
+
+        self::assertFalse($this->matcher->isCustomerInSegment(3, 42));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedGroupItemsNonArrayParamsAreNormalizedToEmpty(): void
+    {
+        $this->stubSegmentConditionLogic('all');
+
+        $groupRow = $this->makeConditionRow('group', [
+            'logic' => 'all',
+            'conditions' => [['type' => 'score_at_least', 'params' => 'not-an-array']],
+        ]);
+        $this->collection->method('getSize')->willReturn(1);
+        $this->collection->method('getIterator')->willReturn(new \ArrayIterator([$groupRow]));
+
+        $scoreCondition = $this->createMock(ConditionInterface::class);
+        $scoreCondition->expects(self::once())->method('isSatisfied')
+            ->with(['customer_id' => 42, '_in_segment_visited' => [3]], [])
+            ->willReturn(true);
+
+        $this->conditionPool->method('get')->willReturnMap([['score_at_least', $scoreCondition]]);
+
+        self::assertTrue($this->matcher->isCustomerInSegment(3, 42));
+    }
 }

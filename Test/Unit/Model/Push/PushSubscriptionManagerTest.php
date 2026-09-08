@@ -232,4 +232,75 @@ class PushSubscriptionManagerTest extends TestCase
 
         $this->manager->register('https://push.example.com/new', 'p256dh-key', 'auth-key', 42, null);
     }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testRegisterSkipsCapEnforcementWhenNeitherCustomerNorVisitorIdIsKnown(): void
+    {
+        // Shouldn't happen from a real Controller\Track\RegisterPushSubscription call (it always
+        // has at least a visitor id), but the guard exists regardless - nothing to cap a limit
+        // per-owner against without an owner, so enforceSubscriptionCap() bails out before ever
+        // building a second collection.
+        $noRow = $this->createStub(PushSubscription::class);
+        $noRow->method('getId')->willReturn(null);
+
+        // Called twice - once for findByEndpointHash(), once more for enforceSubscriptionCap()'s
+        // own collection (built before the customer/visitor check, then discarded unused) - the
+        // guard this test targets is "return before doing anything with it", not "never call
+        // create() at all".
+        $this->collectionFactory->expects(self::exactly(2))->method('create')
+            ->willReturn($this->makeCollection([], $noRow));
+        $this->resource->expects(self::never())->method('delete');
+
+        $this->manager->register('https://push.example.com/anon', 'p256dh-key', 'auth-key', null, null);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testRegisterNeverEvictsTheJustCreatedSubscriptionItself(): void
+    {
+        // getId() is null until save() runs (isNew check at the top of register()), then 100
+        // afterward (as if the DB had just assigned it) - modeling the same "id only exists
+        // after save()" reality a real AbstractModel row has, since enforceSubscriptionCap()'s
+        // justCreatedId is read via $subscription->getId() again AFTER the save() call.
+        $saved = false;
+        $row = $this->createStub(PushSubscription::class);
+        $row->method('getId')->willReturnCallback(static fn () => $saved ? 100 : null);
+        $this->resource->method('save')->willReturnCallback(function () use (&$saved) {
+            $saved = true;
+        });
+
+        // The newly-created row (now id=100) sorts first (oldest by last_seen_at) in this
+        // contrived fixture - without the "skip if this is the row we just created" guard, it
+        // would be the very first one evicted. 22 items total (2 over the cap of 20): the
+        // just-created row plus 21 others (each with a distinct, non-matching id), so exactly 2
+        // of the OTHER rows must still be deleted once it's skipped.
+        $others = [];
+        for ($i = 0; $i < 21; $i++) {
+            $other = $this->createStub(PushSubscription::class);
+            $other->method('getId')->willReturn(200 + $i);
+            $others[] = $other;
+        }
+        $overflowItems = array_merge([$row], $others);
+
+        $callCount = 0;
+        $this->collectionFactory->method('create')->willReturnCallback(
+            function () use (&$callCount, $row, $overflowItems) {
+                $callCount++;
+                if ($callCount === 1) {
+                    return $this->makeCollection([], $row);
+                }
+                return $this->makeCollection($overflowItems, $row);
+            }
+        );
+        $deleted = [];
+        $this->resource->method('delete')->willReturnCallback(function ($subscription) use (&$deleted) {
+            $deleted[] = $subscription;
+        });
+
+        $this->manager->register('https://push.example.com/new', 'p256dh-key', 'auth-key', 42, null);
+
+        self::assertCount(2, $deleted);
+        foreach ($deleted as $subscription) {
+            self::assertNotSame($row, $subscription, 'the just-created row must never be evicted');
+        }
+    }
 }

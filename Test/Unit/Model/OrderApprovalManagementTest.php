@@ -177,6 +177,47 @@ class OrderApprovalManagementTest extends TestCase
         $this->management->rejectByToken('');
     }
 
+    /**
+     * Same race-condition guard as testApproveByTokenThrowsWhenAnotherRequestAlreadyClaimedTheApproval,
+     * for the reject side.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testRejectByTokenThrowsWhenAnotherRequestAlreadyClaimedTheApproval(): void
+    {
+        $approval = $this->createMock(OrderApproval::class);
+        $approval->method('getId')->willReturn(1);
+        $approval->method('isPending')->willReturn(true);
+        $approval->method('getOrderId')->willReturn(7);
+        $this->orderApprovalFactory->method('create')->willReturn($approval);
+
+        $this->orderApprovalResource->method('claimPending')->willReturn(false);
+        $this->orderRepository->expects(self::never())->method('save');
+
+        $this->expectException(NoSuchEntityException::class);
+        $this->management->rejectByToken('tok');
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testRejectByTokenThrowsWhenOrderNotFound(): void
+    {
+        $approval = $this->createMock(OrderApproval::class);
+        $approval->method('getId')->willReturn(1);
+        $approval->method('isPending')->willReturn(true);
+        $approval->method('getOrderId')->willReturn(7);
+        $this->orderApprovalFactory->method('create')->willReturn($approval);
+        $this->orderApprovalResource->method('claimPending')->willReturn(true);
+
+        $order = $this->createMock(Order::class);
+        $order->method('getId')->willReturn(null);
+        $orderCollection = $this->createStub(OrderCollection::class);
+        $orderCollection->method('addFieldToFilter')->willReturnSelf();
+        $orderCollection->method('getFirstItem')->willReturn($order);
+        $this->orderCollectionFactory->method('create')->willReturn($orderCollection);
+
+        $this->expectException(LocalizedException::class);
+        $this->management->rejectByToken('tok');
+    }
+
     #[AllowMockObjectsWithoutExpectations]
     public function testGetDecisionLinksByIdThrowsWhenNotPending(): void
     {
