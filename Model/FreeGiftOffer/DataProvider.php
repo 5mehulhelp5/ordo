@@ -56,22 +56,30 @@ class DataProvider extends AbstractDataProvider
             $offerData = $offer->getData();
             $offerId = (int) $offer->getEntityId();
 
+            // Magento_Ui/js/dynamic-rows/dynamic-rows.js reads/writes each row at
+            // `${dataScope}.${dataScope}.${rowIndex}...` (the dynamicRows' own name repeated,
+            // matching how ordo_free_gift_offer_form.xml posts each row as e.g.
+            // "tiers[tiers][0][min_subtotal]") - a flat array here left every existing tier/
+            // product invisible on the edit form despite being saved correctly (Save.php reads
+            // the posted, correctly-double-nested shape, so saving was never affected - only
+            // loading was silently broken). Same double-nesting Model\Campaign\DataProvider
+            // already uses for its own triggers/conditions/actions.
             $tierCollection = $this->tierCollectionFactory->create();
             $tierCollection->addOfferFilter($offerId);
-            $offerData['tiers'] = array_values(array_map(
+            $offerData['tiers'] = ['tiers' => array_values(array_map(
                 static fn (FreeGiftOfferTier $tier) => [
                     'min_subtotal' => $tier->getMinSubtotal(),
                     'gift_slots' => $tier->getGiftSlots(),
                 ],
                 $tierCollection->getItems()
-            ));
+            ))];
 
             $productCollection = $this->productCollectionFactory->create();
             $productCollection->addOfferFilter($offerId);
-            $offerData['products'] = array_values(array_map(
+            $offerData['products'] = ['products' => array_values(array_map(
                 static fn (FreeGiftOfferProduct $product) => ['sku' => $product->getSku()],
                 $productCollection->getItems()
-            ));
+            ))];
 
             $this->loadedData[$offerId] = $offerData;
         }

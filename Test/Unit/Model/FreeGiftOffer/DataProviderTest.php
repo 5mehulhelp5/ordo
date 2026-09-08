@@ -76,8 +76,14 @@ class DataProviderTest extends TestCase
         $provider = $this->makeProvider($collection);
         $data = $provider->getData();
 
-        self::assertSame(['min_subtotal' => 100.0, 'gift_slots' => 1], $data[1]['tiers'][0]);
-        self::assertSame(['sku' => 'GIFT-MUG'], $data[1]['products'][0]);
+        // Double-nested ('tiers' => ['tiers' => [...]]), matching how
+        // ordo_free_gift_offer_form.xml's dynamicRows post each row (e.g.
+        // "tiers[tiers][0][min_subtotal]") and how Model\Campaign\DataProvider already nests
+        // its own triggers/conditions/actions - a flat array here left every existing tier/
+        // product invisible on the edit form despite loading successfully (this test's own
+        // previous assertions locked in exactly that bug, real live saved data revealed it).
+        self::assertSame(['min_subtotal' => 100.0, 'gift_slots' => 1], $data[1]['tiers']['tiers'][0]);
+        self::assertSame(['sku' => 'GIFT-MUG'], $data[1]['products']['products'][0]);
 
         // Second call must hit the cached $loadedData branch, not reload from the collection.
         self::assertSame($data, $provider->getData());
