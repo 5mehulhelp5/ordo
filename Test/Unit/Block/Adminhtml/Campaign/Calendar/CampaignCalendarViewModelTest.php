@@ -185,4 +185,36 @@ class CampaignCalendarViewModelTest extends TestCase
 
         self::assertSame([], $viewModel->getActionTimelineForCampaign(5));
     }
+
+    public function testFormatOffsetMinutesReturnsImmediateForZeroOrNegative(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('immediate', $viewModel->formatOffsetMinutes(0));
+        self::assertSame('immediate', $viewModel->formatOffsetMinutes(-5));
+    }
+
+    public function testFormatOffsetMinutesPrefersWholeDays(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('+1 day', $viewModel->formatOffsetMinutes(1440));
+        self::assertSame('+2 days', $viewModel->formatOffsetMinutes(2880));
+    }
+
+    public function testFormatOffsetMinutesPrefersWholeHoursOverRawMinutes(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('+1 hour', $viewModel->formatOffsetMinutes(60));
+        self::assertSame('+3 hours', $viewModel->formatOffsetMinutes(180));
+    }
+
+    public function testFormatOffsetMinutesFallsBackToRawMinutesWhenNotAWholeHourOrDay(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('+90 min', $viewModel->formatOffsetMinutes(90));
+        self::assertSame('+45 min', $viewModel->formatOffsetMinutes(45));
+    }
 }

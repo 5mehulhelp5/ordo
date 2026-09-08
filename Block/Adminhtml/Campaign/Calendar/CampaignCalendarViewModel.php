@@ -88,6 +88,34 @@ class CampaignCalendarViewModel implements ArgumentInterface
     }
 
     /**
+     * Raw "+1440 min" / "+2880 min" was reported directly as unreadable — a minute count doesn't
+     * read as "a day" or "two days" at a glance, which is exactly the scale most delay_minutes
+     * values actually sit at (this module's own action-editing UI and campaign templates commonly
+     * use 1440/2880-minute delays for "next day"/"two days later" follow-ups). Picks the coarsest
+     * unit that divides evenly (days when a whole number of days, else hours when a whole number
+     * of hours, else minutes) rather than always showing a combined "1d 2h 3m" breakdown, since
+     * these delays are near-universally round numbers a merchant chose in whole days/hours.
+     */
+    public function formatOffsetMinutes(int $minutes): string
+    {
+        if ($minutes <= 0) {
+            return (string) __('immediate');
+        }
+
+        if ($minutes % 1440 === 0) {
+            $days = intdiv($minutes, 1440);
+            return $days === 1 ? (string) __('+1 day') : (string) __('+%1 days', $days);
+        }
+
+        if ($minutes % 60 === 0) {
+            $hours = intdiv($minutes, 60);
+            return $hours === 1 ? (string) __('+1 hour') : (string) __('+%1 hours', $hours);
+        }
+
+        return (string) __('+%1 min', $minutes);
+    }
+
+    /**
      * @param int[] $campaignIds
      * @return array<int, string>
      */

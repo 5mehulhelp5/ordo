@@ -75,11 +75,9 @@ $campaigns = $viewModel->getCampaigns();
                                                 <?= $escaper->escapeHtml($step['label']) ?>
                                             </span>
                                             <span class="ordo-calendar-step-offset">
-                                                <?= $step['offset_minutes'] > 0
-                                                    ? $escaper->escapeHtml(
-                                                        __('+%1 min', $step['offset_minutes'])
-                                                    )
-                                                    : $escaper->escapeHtml(__('immediate')) ?>
+                                                <?= $escaper->escapeHtml(
+                                                    $viewModel->formatOffsetMinutes($step['offset_minutes'])
+                                                ) ?>
                                             </span>
                                         </li>
                                     <?php endforeach; ?>
