@@ -349,13 +349,17 @@ class CampaignCalendarViewModelTest extends TestCase
         $triggerCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
         $campaignTriggerCollectionFactory = $this->createStub(CampaignTriggerCollectionFactory::class);
         $campaignTriggerCollectionFactory->method('create')->willReturn($triggerCollection);
-        $triggerCollection->expects(self::once())->method('addFieldToFilter')->with('campaign_id', ['in' => [0]]);
+        // self::identicalTo(), not the loose equality with()'s bare-array form uses by default -
+        // PHP's own 0 == null is true, so a bare ['in' => [0]] argument constraint would have let
+        // an uncast null silently pass and never actually catch the missing (int) cast.
+        $triggerCollection->expects(self::once())->method('addFieldToFilter')
+            ->with('campaign_id', self::identicalTo(['in' => [0]]));
 
         $actionCollection = $this->createMock(CampaignActionCollection::class);
         $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
         $campaignActionCollectionFactory = $this->createStub(CampaignActionCollectionFactory::class);
         $campaignActionCollectionFactory->method('create')->willReturn($actionCollection);
-        $actionCollection->expects(self::once())->method('addCampaignIdsFilter')->with([0]);
+        $actionCollection->expects(self::once())->method('addCampaignIdsFilter')->with(self::identicalTo([0]));
 
         $viewModel = $this->makeViewModel(
             $campaignCollectionFactory,
