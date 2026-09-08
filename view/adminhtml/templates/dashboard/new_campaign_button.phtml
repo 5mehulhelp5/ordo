@@ -1,0 +1,15 @@
+<?php
+/**
+ * "+ New Campaign" as an actual top-of-page toolbar button (rendered into Magento's own
+ * page.actions.toolbar container, right under the "Dashboard" title) instead of buried at the
+ * bottom of the page under every card and table — this module's main feature should never
+ * require scrolling to reach. Reported directly, and correctly: putting a gradient CTA at the
+ * bottom of a long page and calling that "at the top" missed the actual point.
+ *
+ * @var \Magento\Framework\View\Element\Template $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+?>
+<a class="ordo-btn ordo-btn-hero" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/new')) ?>">
+    <?= $escaper->escapeHtml(__('+ New Campaign')) ?>
+</a>

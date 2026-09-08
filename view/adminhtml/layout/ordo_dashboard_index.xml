@@ -4,6 +4,11 @@
         <css src="Ordo_Automation::css/dashboard.css"/>
     </head>
     <body>
+        <referenceContainer name="page.actions.toolbar">
+            <block class="Magento\Framework\View\Element\Template"
+                   name="ordo_dashboard_new_campaign_button"
+                   template="Ordo_Automation::dashboard/new_campaign_button.phtml"/>
+        </referenceContainer>
         <referenceContainer name="content">
             <block class="Magento\Framework\View\Element\Template"
                    name="ordo_dashboard"

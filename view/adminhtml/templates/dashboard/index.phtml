@@ -285,10 +285,9 @@ $segmentNavDesc = __(
 
     <div class="ordo-dashboard-campaigns">
         <div class="ordo-section-head">
+            <!-- "+ New Campaign" now lives once, at the top of the page (page.actions.toolbar,
+                 see ordo_dashboard_index.xml) - not repeated down here too. -->
             <h2><?= $escaper->escapeHtml(__('Campaigns')) ?></h2>
-            <a class="ordo-btn ordo-btn-hero" href="<?= $escaper->escapeUrl($block->getUrl('ordo/campaign/new')) ?>">
-                <?= $escaper->escapeHtml(__('+ New Campaign')) ?>
-            </a>
         </div>
 
         <?php if (empty($campaigns)): ?>
