@@ -19,7 +19,7 @@ class CalendarTest extends AbstractAdminActionTestCase
         $context = $this->makeContext();
 
         $title = $this->createMock(Title::class);
-        $title->expects(self::once())->method('prepend')->with(__('Campaign Calendar'));
+        $title->expects(self::once())->method('prepend')->with(__('Campaign Action Timeline'));
 
         $pageConfig = $this->createStub(PageConfig::class);
         $pageConfig->method('getTitle')->willReturn($title);

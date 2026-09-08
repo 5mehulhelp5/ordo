@@ -29,7 +29,13 @@ class Calendar extends Action implements HttpGetActionInterface
     {
         $resultPage = $this->resultPageFactory->create();
         $resultPage->setActiveMenu('Ordo_Automation::top_level');
-        $resultPage->getConfig()->getTitle()->prepend(__('Campaign Calendar'));
+        // Renamed from "Campaign Calendar" - reported directly, correctly: this shows relative
+        // trigger->action delay offsets ("+1440 min"), not calendar dates - trigger-based
+        // campaigns fire on customer events (order placed, cart abandoned), not fixed schedule
+        // times, so there are no dates to put on an actual calendar. Controller/route/class
+        // names kept as-is (Calendar.php, ordo/campaign/calendar) to avoid a breaking URL
+        // change for an existing bookmark/menu entry - only the user-facing label changed.
+        $resultPage->getConfig()->getTitle()->prepend(__('Campaign Action Timeline'));
 
         return $resultPage;
     }
