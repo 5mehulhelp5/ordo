@@ -40,75 +40,101 @@ Full inventory with what's covered and why: `Test/Mftf/SCENARIOS.md`. Every row 
 gaps. Kept as the standing scope check for anything newly added to the module (new trigger/condition/action/
 controller/cron gets a row there before it's considered done).
 
-## Admin information architecture & business-value pass
+## Admin UX: become the best-in-market admin experience, not a patched one
 
-- **A whole-module audit of every admin screen against one question: what business outcome does
-  this give a non-technical merchant, and does the screen actually communicate that, or does it
-  just expose raw internal data?** Surfaced by direct user feedback while manually verifying
-  `send_push` (real admin screenshots, not a design review from mockups) — starting from "what is
-  the Reorder Cycles grid even for" and generalizing to: the module has genuine functionality
-  (13 dashboard cards' worth) with no consistent answer, screen to screen, about what it's *for*.
-  This supersedes treating it as a visual/CSS redesign — the root problem is information
-  architecture and missing explanation, not (only) missing color.
-  - **Every screen needs classifying, honestly, before any redesign work starts.** First pass,
-    from the 13 cards `Block/Adminhtml/Dashboard/DashboardViewModel.php` currently lists as equals:
-    - **Direct merchant value** (a store owner acts on this or it visibly makes them money):
-      Campaigns, Free Gift Offers, GDPR/Consent (compliance, not optional), Ad Audience Sync.
-    - **Configuration/setup** (necessary, but not itself a "report" - fine as a settings screen if
-      clearly labeled as one): Segments, Score Rules, Content Blocks, WhatsApp Templates,
-      Configuration.
-    - **Technical/diagnostic tools** (built to verify the *engine* is working, not to be browsed
-      by a merchant looking for insight) — currently presented as first-class, equal-weight
-      features: **Reorder Cycles** (raw `customer_id`/SKU/interval-days numbers - see below),
-      **Message Log** (delivery status - a support/debugging tool), and likely **RFM Report** and
-      **Score Rules**' own scoring output once actually read with this lens applied.
-    - Campaign Calendar sits in between - genuinely useful for a merchant ("what's about to fire
-      this week") but currently presented with the same raw-data style as the diagnostic group.
-  - **For the "technical/diagnostic" group, the real question isn't "add tooltips" - it's "should
-    a merchant see this screen in primary navigation at all."** Two honest options, not both:
-    demote them into an explicitly-labeled "Advanced / Diagnostics" area (a merchant never needs
-    to open Reorder Cycles for `SendReorderReminders` to work - the value is the automated email,
-    not the grid), or rebuild them as an actual business report (customer *name* not id, product
-    *name* not SKU, and outcome data like "reminder sent → did they reorder, revenue recovered" -
-    the same shape the dashboard's own "Trigger performance" block already uses with its
-    Sent/Responded/Response Rate/Recovered Revenue columns). Concretely reported example: Reorder
-    Cycles today shows `customer_id`, raw SKU, avg-interval-days, and "orders considered" with zero
-    in-page explanation - a viewer has no way to tell it's a read-only "here's what the detection
-    engine currently believes" view without reading `Cron\CalculateReorderCycle`'s own source.
-  - **For screens kept as merchant-facing, each needs an actual in-UI explanation of its purpose**
-    - a short page-level description block (this module's docstrings already write this kind of
-    "why does this exist" prose; it just never made it into the admin UI itself) plus column
-    tooltips where a column name alone doesn't explain itself.
-  - Secondary, UI-level findings from the same feedback pass, real but subordinate to the
-    classification work above - fix once the "what should even be visible" question is answered,
-    not before:
-    - Dashboard reads as a wall of monochrome text/tables once its actual content is decided.
-    - The Flow editor's palette panel (Triggers/Conditions/Actions) is a flat, uncategorized list -
-      no per-kind color coding, not collapsible, gets long and hard to scan.
-    - The Flow canvas's connection curves look poor when nodes are close together (Drawflow's
-      default bezier control-point math doesn't adapt to short distances).
-    - The native campaign edit form's Triggers/Conditions/Actions dynamicRows tables (what a "New
-      Campaign" load lands on before anyone opens the Flow canvas) are bare grey grid rows with a
-      plain "Type" dropdown and a raw JSON params textarea for anything without a dedicated
-      column - reported directly as "not simple at all" against a real New Campaign screenshot.
-  - **This module already has a real brand palette** to design against once the content itself is
-    sorted, established in `.github/assets/hero.svg` (the README hero banner) and reused by the
-    admin menu icon (`view/adminhtml/web/images/icon.svg`): a pink-to-blue gradient accent
-    (`#E879F9` → `#0EA5E9`), a dark navy/slate base (`#0B1E2E`/`#0F172A`/`#161F32`), and semantic
-    status colors already in use elsewhere (success `#22C55E`, warning `#F59E0B`, danger
-    `#EF4444`) - use these deliberately (status colors, section accents, the gradient as a rare
-    highlight), not grey Magento-stock defaults everywhere nor a decorative rainbow of ad-hoc
-    colors.
-  - Two small, unrelated visual bugs found in passing during the same session were already fixed
-    directly (not part of this item, no further action needed): the Flow canvas's connection
-    arrowheads rendering detached/misaligned (`campaign-flow-editor.js`'s SVG `<marker>` had
-    inconsistent `markerUnits`), and the sidebar's brand-mark icon being off-center in the
-    collapsed icon-only menu (`menu-icon.css` needed block+`margin:auto` centering, not
-    inline-block+vertical-align).
-  - **Needs a real scoping session before any implementation** - go through all 13 (or however
-    many after this audit) screens one by one, decide keep/demote/rebuild/merge for each, *then*
-    design. This entry exists so that scoping happens deliberately, as a real product decision,
-    rather than the module accumulating more equally-weighted screens indefinitely.
+Explicit product bar, stated directly by the project owner after an initial "just add a
+description to every screen" proposal was correctly rejected as a patch, not a real fix: **this
+isn't about making 13 screens individually less confusing — it's about the whole admin experience
+competing with Klaviyo/HubSpot/ActiveCampaign-caliber tools, not reading as "a developer's
+internal debug views with a Magento skin."** Concretely, what separates those tools from an
+average one, and the bar every phase below is measured against:
+
+1. Reports show **business outcomes** (revenue, conversion, response rate) — never raw internal
+   engine state as the main event.
+2. Internal-engine diagnostics are **not first-class navigation items** competing for attention
+   with real merchant workflows — a merchant should never need to know `Cron\CalculateReorderCycle`
+   exists to trust that reorder reminders work.
+3. Navigation is organized **around merchant goals** ("grow repeat purchases", "recover carts"),
+   not around this module's own internal data model (a flat list of every entity type it happens
+   to persist).
+4. A first-time user is **guided to their first real action**, not shown 13 equally-weighted empty
+   grids with no indication of where to start.
+5. Color and visual hierarchy are **functional** (status, priority, this module's own brand
+   palette — see below) — never decorative, never absent (flat monochrome grey) either.
+
+A full inventory of all 13 screens was already done against this bar (controller/grid classes,
+real columns, CRUD-vs-read-only, existing in-UI explanation) — findings below are grounded in that,
+not speculation. Actual state is better than first assumed: RFM Report already joins customer
+name/email (not just an id), and Campaign Calendar already has real intro prose — proof this
+module can already hit the bar, just inconsistently.
+
+### Phase 1 — Information architecture (highest leverage, do first)
+
+- Regroup the flat 13-card dashboard into merchant-goal-oriented sections instead of one
+  undifferentiated list, e.g.: **Campaigns & Automation** (Campaigns, Campaign Calendar, Free Gift
+  Offers), **Audience & Targeting** (Segments, Score Rules, RFM Report), **Channels & Content**
+  (Content Blocks, WhatsApp Templates, Ad Audiences), **Compliance** (GDPR/Consent), *Configuration*
+  kept separate as settings always are. Needs a naming/grouping decision pass, not just a CSS
+  reflow.
+- Explicitly demote **Reorder Cycles** and **Message Log** out of that primary grouping into a
+  clearly-labeled **Diagnostics / Advanced** area — both are genuinely "verify the engine is
+  working" tools (confirmed by their own controller docblocks), not merchant workflows, and
+  pretending otherwise is exactly the "internal debug view with a Magento skin" problem stated
+  above. Not deleted, not hidden entirely — honestly labeled for what they are.
+
+### Phase 2 — Turn the two real diagnostic dumps into outcome reports
+
+- **Reorder Cycles**: join `customer_id` → real customer name, raw `SKU` → product name (both
+  already resolvable via existing repository patterns elsewhere in this module), and add the
+  outcome column that's currently entirely missing — did the customer actually reorder after the
+  predicted date, and what was that order's revenue. This is what turns "here is some internal
+  math" into "here is proof this feature makes you money," which is the actual bar, not a coat of
+  paint on the same columns.
+- **Message Log**: customer name instead of raw id; consider linking from each Campaign's own edit
+  page to its filtered message log, rather than one global flat log being the only way to answer
+  "did MY campaign's sends work."
+- **RFM Report** already has the right bones (name/email, quintiles) - the remaining gap is
+  action, not data: surface which segment(s) a customer's current RFM standing would qualify them
+  for, so the report leads directly into an action instead of ending at a number.
+
+### Phase 3 — Explain every screen in context, and guide first use
+
+- Every remaining screen gets a real intro (what this is, why it exists, what to do here) -
+  mirroring the quality of prose this module's own docblocks already have, not boilerplate.
+  Column tooltips wherever a column name alone doesn't explain itself.
+- Empty states matter as much as populated ones: a merchant with zero campaigns/segments/offers
+  should land on a clear "here's your first action" state, not a bare empty grid identical to a
+  configured one.
+
+### Phase 4 — Visual/interaction polish (last — wasted if the content above isn't fixed first)
+
+- Dashboard: functional color coding for status (enabled/disabled, response-rate bands, loyalty
+  tiers) instead of monochrome text/tables.
+- Flow editor's palette panel (Triggers/Conditions/Actions): color-coded by kind, collapsible
+  sections - currently a flat, ever-growing list of plain boxes.
+- Flow canvas connection curves look poor when nodes are close together (Drawflow's default
+  bezier control-point math doesn't adapt to short distances) - needs curve-parameter tuning or a
+  different connection-rendering approach.
+- Native campaign edit form's Triggers/Conditions/Actions dynamicRows tables (what "New Campaign"
+  lands on before anyone opens the Flow canvas) are bare grey grid rows with a plain "Type"
+  dropdown and a raw JSON params textarea for anything without a dedicated column.
+- **Brand palette to design against** (established in `.github/assets/hero.svg`, the README hero
+  banner, already reused by the admin menu icon): pink-to-blue gradient accent (`#E879F9` →
+  `#0EA5E9`), dark navy/slate base (`#0B1E2E`/`#0F172A`/`#161F32`), semantic status colors already
+  in use elsewhere (success `#22C55E`, warning `#F59E0B`, danger `#EF4444`) - used deliberately
+  (status, section accents, the gradient as a rare highlight), never grey Magento-stock defaults
+  everywhere nor a decorative rainbow of ad-hoc colors.
+
+Two small, unrelated visual bugs found in passing during the same feedback session were already
+fixed directly (not part of this item, no further action needed): the Flow canvas's connection
+arrowheads rendering detached/misaligned (`campaign-flow-editor.js`'s SVG `<marker>` had
+inconsistent `markerUnits`), and the sidebar's brand-mark icon being off-center in the collapsed
+icon-only menu (`menu-icon.css` needed block+`margin:auto` centering, not inline-block+
+vertical-align).
+
+**Sequencing is deliberate**: Phase 1-2 (architecture, real outcome data) is where "best in
+market" is actually won or lost; Phase 4 (visual polish) on top of unfixed information
+architecture would just be a prettier version of the same underlying problem.
 
 ## Localization
 
