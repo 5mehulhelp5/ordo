@@ -1,6 +1,54 @@
 <?php
 declare(strict_types=1);
 
+// Namespaced function overrides: an unqualified openssl_pkey_new()/openssl_pkey_get_details()/
+// openssl_encrypt() call inside Ordo\Automation\Model\Push resolves to this namespace's function
+// first (PHP's own namespace-fallback rule), letting the three genuinely-defensive OpenSSL-failure
+// branches in WebPushCrypto::encrypt() be exercised without adding any test-only seam to the
+// production class. Each defaults to delegating to the real global function, so every other test
+// in this file (and Der/VapidTokenBuilder, which share the namespace) is unaffected unless a test
+// explicitly flips its flag.
+namespace Ordo\Automation\Model\Push;
+
+$GLOBALS['ordo_test_force_pkey_new_failure'] = false;
+$GLOBALS['ordo_test_force_pkey_details_failure'] = false;
+$GLOBALS['ordo_test_force_encrypt_failure'] = false;
+// Shared with VapidTokenBuilderTest, which lives in this same namespace and calls
+// openssl_sign() - both classes' unqualified calls resolve to this one override.
+$GLOBALS['ordo_test_force_sign_failure'] = false;
+
+function openssl_pkey_new(array $options = [])
+{
+    if ($GLOBALS['ordo_test_force_pkey_new_failure'] ?? false) {
+        return false;
+    }
+    return \openssl_pkey_new($options);
+}
+
+function openssl_pkey_get_details($key)
+{
+    if ($GLOBALS['ordo_test_force_pkey_details_failure'] ?? false) {
+        return false;
+    }
+    return \openssl_pkey_get_details($key);
+}
+
+function openssl_encrypt(string $data, string $cipherAlgo, string $passphrase, int $options = 0, string $iv = '', &$tag = null, string $aad = '', int $tagLength = 16)
+{
+    if ($GLOBALS['ordo_test_force_encrypt_failure'] ?? false) {
+        return false;
+    }
+    return \openssl_encrypt($data, $cipherAlgo, $passphrase, $options, $iv, $tag, $aad, $tagLength);
+}
+
+function openssl_sign(string $data, &$signature, $privateKey, int|string $algo = OPENSSL_ALGO_SHA1): bool
+{
+    if ($GLOBALS['ordo_test_force_sign_failure'] ?? false) {
+        return false;
+    }
+    return \openssl_sign($data, $signature, $privateKey, $algo);
+}
+
 namespace Ordo\Automation\Test\Unit\Model\Push;
 
 use Ordo\Automation\Model\Push\Base64Url;
@@ -117,6 +165,58 @@ class WebPushCryptoTest extends TestCase
         $webPushCrypto->encrypt(
             'payload',
             $this->base64Url->encode(str_repeat("\x04", 65)),
+            $this->base64Url->encode(random_bytes(16))
+        );
+    }
+
+    protected function tearDown(): void
+    {
+        $GLOBALS['ordo_test_force_pkey_new_failure'] = false;
+        $GLOBALS['ordo_test_force_pkey_details_failure'] = false;
+        $GLOBALS['ordo_test_force_encrypt_failure'] = false;
+        $GLOBALS['ordo_test_force_sign_failure'] = false;
+    }
+
+    public function testEncryptThrowsWhenEphemeralKeypairGenerationFails(): void
+    {
+        $GLOBALS['ordo_test_force_pkey_new_failure'] = true;
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to generate ephemeral EC keypair.');
+
+        $this->webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode(str_repeat("\x04", 65)),
+            $this->base64Url->encode(random_bytes(16))
+        );
+    }
+
+    public function testEncryptThrowsWhenEphemeralKeypairDetailsCannotBeRead(): void
+    {
+        $GLOBALS['ordo_test_force_pkey_details_failure'] = true;
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to read ephemeral EC keypair details.');
+
+        $this->webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode(str_repeat("\x04", 65)),
+            $this->base64Url->encode(random_bytes(16))
+        );
+    }
+
+    public function testEncryptThrowsWhenAesGcmEncryptionFails(): void
+    {
+        $GLOBALS['ordo_test_force_encrypt_failure'] = true;
+
+        [, $subscriberPoint] = self::generateRawKeypair();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('AES-128-GCM encryption failed.');
+
+        $this->webPushCrypto->encrypt(
+            'payload',
+            $this->base64Url->encode($subscriberPoint),
             $this->base64Url->encode(random_bytes(16))
         );
     }

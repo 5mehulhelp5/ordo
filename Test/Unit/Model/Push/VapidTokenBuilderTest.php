@@ -115,6 +115,31 @@ class VapidTokenBuilderTest extends TestCase
         );
     }
 
+    protected function tearDown(): void
+    {
+        $GLOBALS['ordo_test_force_sign_failure'] = false;
+    }
+
+    /**
+     * Uses the namespaced openssl_sign() override declared in WebPushCryptoTest.php - both
+     * classes live in Ordo\Automation\Model\Push, so their unqualified calls resolve to the same
+     * override function.
+     */
+    public function testThrowsWhenSigningFails(): void
+    {
+        $GLOBALS['ordo_test_force_sign_failure'] = true;
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to sign VAPID JWT.');
+
+        $this->builder->buildAuthorizationHeader(
+            'https://fcm.googleapis.com/fcm/send/abc123',
+            $this->publicKeyB64url,
+            $this->privateKeyB64url,
+            'mailto:ops@example.com'
+        );
+    }
+
     private static function rawToDerSignature(string $r, string $s): string
     {
         $encodeInt = static function (string $bytes): string {

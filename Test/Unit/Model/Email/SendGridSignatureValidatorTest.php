@@ -96,4 +96,15 @@ class SendGridSignatureValidatorTest extends TestCase
 
         self::assertFalse($validator->isValid('not-a-valid-key', '1700000000', '{"event":"delivered"}', $signature));
     }
+
+    public function testNonBase64SignatureIsRejectedWithoutError(): void
+    {
+        $validator = new SendGridSignatureValidator();
+
+        // Strict-mode base64_decode() rejects this ("!" isn't in the base64 alphabet) - must fail
+        // closed rather than let a garbage string through to openssl_verify().
+        self::assertFalse(
+            $validator->isValid($this->publicKeyBase64, '1700000000', '{"event":"delivered"}', 'not!valid!base64!')
+        );
+    }
 }
