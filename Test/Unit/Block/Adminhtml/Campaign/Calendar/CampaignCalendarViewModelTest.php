@@ -186,6 +186,55 @@ class CampaignCalendarViewModelTest extends TestCase
         self::assertSame([], $viewModel->getActionTimelineForCampaign(5));
     }
 
+    /**
+     * loadTimelineByCampaignId() must keep every campaign's own timeline, not just the first -
+     * same truncation risk as testGetCampaignsReturnsEveryCampaignNotJustTheFirst, here for the
+     * per-campaign_id action-timeline map getCampaigns() populates in one query.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCampaignsPopulatesActionTimelinesForEveryCampaignNotJustTheFirst(): void
+    {
+        $campaignOne = $this->createStub(Campaign::class);
+        $campaignOne->method('getEntityId')->willReturn(5);
+        $campaignTwo = $this->createStub(Campaign::class);
+        $campaignTwo->method('getEntityId')->willReturn(9);
+
+        $collection = $this->createStub(CampaignCollection::class);
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$campaignOne, $campaignTwo]));
+        $campaignCollectionFactory = $this->createStub(CampaignCollectionFactory::class);
+        $campaignCollectionFactory->method('create')->willReturn($collection);
+
+        $triggerCollection = $this->createStub(CampaignTriggerCollection::class);
+        $triggerCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignTriggerCollectionFactory = $this->createStub(CampaignTriggerCollectionFactory::class);
+        $campaignTriggerCollectionFactory->method('create')->willReturn($triggerCollection);
+
+        $actionOne = $this->createStub(CampaignAction::class);
+        $actionOne->method('getCampaignId')->willReturn(5);
+        $actionOne->method('getType')->willReturn('add_tag');
+        $actionOne->method('getDelayMinutes')->willReturn(0);
+
+        $actionTwo = $this->createStub(CampaignAction::class);
+        $actionTwo->method('getCampaignId')->willReturn(9);
+        $actionTwo->method('getType')->willReturn('send_email');
+        $actionTwo->method('getDelayMinutes')->willReturn(0);
+
+        $actionCollection = $this->createStub(CampaignActionCollection::class);
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([$actionOne, $actionTwo]));
+        $campaignActionCollectionFactory = $this->createStub(CampaignActionCollectionFactory::class);
+        $campaignActionCollectionFactory->method('create')->willReturn($actionCollection);
+
+        $viewModel = $this->makeViewModel(
+            $campaignCollectionFactory,
+            $campaignTriggerCollectionFactory,
+            $campaignActionCollectionFactory
+        );
+        $viewModel->getCampaigns();
+
+        self::assertSame('add_tag', $viewModel->getActionTimelineForCampaign(5)[0]['type']);
+        self::assertSame('send_email', $viewModel->getActionTimelineForCampaign(9)[0]['type']);
+    }
+
     public function testFormatOffsetMinutesReturnsImmediateForZeroOrNegative(): void
     {
         $viewModel = $this->makeViewModel();
@@ -216,5 +265,122 @@ class CampaignCalendarViewModelTest extends TestCase
 
         self::assertSame('+90 min', $viewModel->formatOffsetMinutes(90));
         self::assertSame('+45 min', $viewModel->formatOffsetMinutes(45));
+    }
+
+    /**
+     * intdiv($minutes, 1440) at large multiples - regression-guards the exact divisor, not just
+     * "some plausible day count", since 1439 (a mutation-testing-caught off-by-one) agrees with
+     * 1440 for every multiple below 1439 days and only diverges at this boundary
+     * (1440 * 1439 = 1439 whole days under the correct divisor, 1440 under the wrong one).
+     */
+    public function testFormatOffsetMinutesUsesExactlyOneThousandFourHundredFortyMinutesPerDay(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('+1439 days', $viewModel->formatOffsetMinutes(1440 * 1439));
+    }
+
+    /**
+     * Same off-by-one guard as above, for the hours divisor: intdiv($minutes, 60) vs. an
+     * accidental 59 first diverges at 59 whole hours (59 * 60 = 3540 minutes).
+     */
+    public function testFormatOffsetMinutesUsesExactlySixtyMinutesPerHour(): void
+    {
+        $viewModel = $this->makeViewModel();
+
+        self::assertSame('+59 hours', $viewModel->formatOffsetMinutes(59 * 60));
+    }
+
+    /**
+     * getCampaigns() must return every campaign, not just the first - a real bug a careless
+     * refactor (e.g. an accidental early "take the first match" shortcut) could introduce without
+     * any single-campaign test ever noticing.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCampaignsReturnsEveryCampaignNotJustTheFirst(): void
+    {
+        $campaignOne = $this->createStub(Campaign::class);
+        $campaignOne->method('getEntityId')->willReturn(5);
+        $campaignTwo = $this->createStub(Campaign::class);
+        $campaignTwo->method('getEntityId')->willReturn(9);
+
+        $collection = $this->createStub(CampaignCollection::class);
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$campaignOne, $campaignTwo]));
+        $campaignCollectionFactory = $this->createStub(CampaignCollectionFactory::class);
+        $campaignCollectionFactory->method('create')->willReturn($collection);
+
+        $triggerCollection = $this->createStub(CampaignTriggerCollection::class);
+        $triggerCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignTriggerCollectionFactory = $this->createStub(CampaignTriggerCollectionFactory::class);
+        $campaignTriggerCollectionFactory->method('create')->willReturn($triggerCollection);
+
+        $actionCollection = $this->createStub(CampaignActionCollection::class);
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignActionCollectionFactory = $this->createStub(CampaignActionCollectionFactory::class);
+        $campaignActionCollectionFactory->method('create')->willReturn($actionCollection);
+
+        $viewModel = $this->makeViewModel(
+            $campaignCollectionFactory,
+            $campaignTriggerCollectionFactory,
+            $campaignActionCollectionFactory
+        );
+
+        self::assertSame([$campaignOne, $campaignTwo], $viewModel->getCampaigns());
+    }
+
+    /**
+     * getEntityId() is typed ?int, so it can return null (a detached/not-yet-persisted entity) -
+     * the explicit (int) cast before building $campaignIds must actually run, turning that null
+     * into 0, or the addFieldToFilter('campaign_id', ['in' => $campaignIds]) call downstream ends
+     * up with a literal null in the filter list instead.
+     */
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetCampaignsCastsEntityIdsToIntBeforeFilteringTriggers(): void
+    {
+        $campaign = $this->createStub(Campaign::class);
+        $campaign->method('getEntityId')->willReturn(null);
+
+        $collection = $this->createStub(CampaignCollection::class);
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$campaign]));
+        $campaignCollectionFactory = $this->createStub(CampaignCollectionFactory::class);
+        $campaignCollectionFactory->method('create')->willReturn($collection);
+
+        $triggerCollection = $this->createMock(CampaignTriggerCollection::class);
+        $triggerCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignTriggerCollectionFactory = $this->createStub(CampaignTriggerCollectionFactory::class);
+        $campaignTriggerCollectionFactory->method('create')->willReturn($triggerCollection);
+        $triggerCollection->expects(self::once())->method('addFieldToFilter')->with('campaign_id', ['in' => [0]]);
+
+        $actionCollection = $this->createMock(CampaignActionCollection::class);
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $campaignActionCollectionFactory = $this->createStub(CampaignActionCollectionFactory::class);
+        $campaignActionCollectionFactory->method('create')->willReturn($actionCollection);
+        $actionCollection->expects(self::once())->method('addCampaignIdsFilter')->with([0]);
+
+        $viewModel = $this->makeViewModel(
+            $campaignCollectionFactory,
+            $campaignTriggerCollectionFactory,
+            $campaignActionCollectionFactory
+        );
+
+        $viewModel->getCampaigns();
+    }
+
+    /**
+     * loadTriggerLabelsByCampaignId() must actually filter by the requested campaign ids, not
+     * hand the trigger collection an unfiltered/empty filter - otherwise every campaign would
+     * show every other campaign's triggers.
+     */
+    public function testGetTriggerLabelsForCampaignFiltersByTheRequestedCampaignId(): void
+    {
+        $triggerCollection = $this->createMock(CampaignTriggerCollection::class);
+        $triggerCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $triggerCollection->expects(self::once())->method('addFieldToFilter')->with('campaign_id', ['in' => [5]]);
+        $campaignTriggerCollectionFactory = $this->createStub(CampaignTriggerCollectionFactory::class);
+        $campaignTriggerCollectionFactory->method('create')->willReturn($triggerCollection);
+
+        $viewModel = $this->makeViewModel(null, $campaignTriggerCollectionFactory);
+
+        $viewModel->getTriggerLabelsForCampaign(5);
     }
 }
