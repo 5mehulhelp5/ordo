@@ -366,17 +366,41 @@ define([
             };
 
             /**
+             * Finds where the next template's chain should start so it lands clear of every
+             * node already on the canvas, instead of guessing a random spot that can overlap
+             * existing nodes — reported directly, and reproducible: loading a second template
+             * (or loading one after already building something by hand) stacked its nodes
+             * right on top of what was already there.
+             *
+             * @return {Number}
+             */
+            function getNextTemplateStartX() {
+                var maxRight = 0;
+
+                $(container).find('.drawflow-node').each(function () {
+                    var left = parseFloat(this.style.left) || 0,
+                        width = this.offsetWidth || 220;
+
+                    maxRight = Math.max(maxRight, left + width);
+                });
+
+                return maxRight > 0 ? maxRight + 60 : 60;
+            }
+
+            /**
              * Adds one template's whole node chain to the canvas and wires it trigger ->
-             * condition(s) -> action(s) in the order given, left to right. Does not touch or
-             * clear whatever is already on the canvas - loading a template on top of existing
-             * work just adds its nodes alongside, same as dragging each one in by hand would.
+             * condition(s) -> action(s) in the order given, left to right, starting clear of
+             * every existing node (see getNextTemplateStartX()) rather than at a random spot
+             * that could overlap them. Does not touch or clear whatever is already on the
+             * canvas - loading a template on top of existing work just adds its nodes
+             * alongside, same as dragging each one in by hand would.
              *
              * @param {String} templateKey
              */
             function applyTemplate(templateKey) {
                 var template = FLOW_TEMPLATES[templateKey],
-                    startX = 60 + Math.random() * 80, // NOSONAR: cosmetic placement jitter only
-                    startY = 60 + Math.random() * 300, // NOSONAR: cosmetic placement jitter only
+                    startX = getNextTemplateStartX(),
+                    startY = 80,
                     previousNodeId = null;
 
                 if (!template) {
