@@ -45,10 +45,16 @@
                 <label translate="true">Channel</label>
             </settings>
         </column>
-        <column name="customer_id">
+        <column name="customer_name">
             <settings>
                 <filter>text</filter>
-                <label translate="true">Customer ID</label>
+                <label translate="true">Customer</label>
+            </settings>
+        </column>
+        <column name="customer_email">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Customer Email</label>
             </settings>
         </column>
         <column name="to_address">

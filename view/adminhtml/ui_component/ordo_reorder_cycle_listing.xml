@@ -39,15 +39,28 @@
                 <label translate="true">ID</label>
             </settings>
         </column>
-        <column name="customer_id">
+        <column name="customer_name">
             <settings>
                 <filter>text</filter>
-                <label translate="true">Customer ID</label>
+                <label translate="true">Customer</label>
+            </settings>
+        </column>
+        <column name="customer_email">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Email</label>
+            </settings>
+        </column>
+        <column name="product_name">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Product</label>
             </settings>
         </column>
         <column name="sku">
             <settings>
                 <filter>text</filter>
+                <visible>false</visible>
                 <label translate="true">SKU</label>
             </settings>
         </column>
@@ -75,6 +88,25 @@
             <settings>
                 <filter>textRange</filter>
                 <label translate="true">Orders Considered</label>
+            </settings>
+        </column>
+        <column name="reminders_sent">
+            <settings>
+                <filter>textRange</filter>
+                <label translate="true">Reminders Sent</label>
+            </settings>
+        </column>
+        <column name="last_reminder_sent_at" class="Magento\Ui\Component\Listing\Columns\Date">
+            <settings>
+                <filter>dateRange</filter>
+                <dataType>date</dataType>
+                <label translate="true">Last Reminder Sent</label>
+            </settings>
+        </column>
+        <column name="reordered">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Reordered?</label>
             </settings>
         </column>
         <column name="updated_at" class="Magento\Ui\Component\Listing\Columns\Date">
