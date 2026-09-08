@@ -269,4 +269,21 @@ define([
     });
 
     refreshGroupRows();
+
+    // Exposed purely so Test/js/segment-group-modal.test.js can exercise this module's actual
+    // logic directly (readTypeOptions/renderValueField/readRows are the parts with real branching
+    // - type-with-a-dedicated-field vs the 3 JSON-fallback types, non-empty vs blank values) rather
+    // than only indirectly through full DOM/jQuery event simulation. No other module requires()
+    // this one for its return value - require(['Ordo_Automation/js/segment-group-modal']) in
+    // require_group_modal_js.phtml only ever runs it for its side effects (the $(document).on(...)
+    // delegates and the initial refreshGroupRows() call above, both already wired by this point) -
+    // so adding a return object here changes nothing about how the module behaves in the browser.
+    return {
+        readTypeOptions: readTypeOptions,
+        renderValueField: renderValueField,
+        appendInlineRow: appendInlineRow,
+        readRows: readRows,
+        buildInlinePanel: buildInlinePanel,
+        refreshGroupRows: refreshGroupRows
+    };
 });

@@ -1,0 +1,15 @@
+{
+  "name": "ordo-automation-js-tests",
+  "private": true,
+  "description": "JS unit test harness for Ordo_Automation's admin RequireJS/AMD modules (view/adminhtml/web/js). This project is otherwise PHP-only (PHPUnit + Sonar's PHP coverage via clover.xml) - this package.json exists solely to run and measure coverage for the handful of hand-rolled AMD modules under view/**/web/js, which had no test tooling at all before Test/js/ was added. See Test/js/support/README.md for how a module gets loaded under Node without pulling in a full RequireJS runtime.",
+  "scripts": {
+    "test:js": "qunit Test/js/**/*.test.js",
+    "test:js:coverage": "c8 --reporter=lcov --reporter=text --report-dir=coverage-js --include=view/**/web/js/**/*.js npm run test:js"
+  },
+  "devDependencies": {
+    "c8": "^10.1.2",
+    "jquery": "^3.7.1",
+    "jsdom": "^25.0.1",
+    "qunit": "^2.22.0"
+  }
+}

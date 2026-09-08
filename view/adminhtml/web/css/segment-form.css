@@ -461,6 +461,17 @@ td:has(> [data-index="group_logic"]) {
 /* "Bulk actions on current members" (bulkactions.phtml) - same card treatment (radius, border,
    spacing scale) as the conditions card above instead of Magento's default two-column field grid,
    so it reads as part of the same page rather than a bolted-on afterthought below it. */
+
+/* Only the field matching the currently-selected Action should ever be visible (see
+   segment-bulk-actions.js). Default to hidden here rather than relying solely on the JS toggle, so
+   a field for a not-yet-selected action doesn't flash visible for a moment before the script runs
+   on page load. Reported directly: "Add Points" selected, the Tag field (used only by "Add Tag")
+   still shown right above it regardless - and would only get more confusing as more bulk actions
+   are added one hardcoded field at a time. */
+[data-bulk-action-field] {
+    display: none;
+}
+
 .ordo-bulk-actions-panel {
     max-width: 560px;
     margin-top: 24px;
