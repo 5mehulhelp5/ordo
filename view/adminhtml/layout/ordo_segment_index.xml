@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Saved, reusable customer conditions (RFM standing, tags, order history, and more). Reference a segment from any campaign via the "In Segment" condition instead of rebuilding the same logic for every campaign that needs it.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\SegmentEmptyStateHint"
+                   name="ordo_segment_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_segment_listing_intro" before="ordo_segment_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No segments yet — a segment is a saved set of customer conditions you can reuse across any number of campaigns.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first segment</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/segment/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_segment_listing"/>
         </referenceContainer>
     </body>

@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Point values assigned to specific customer attributes (e.g. company size, industry). A customer's total score across all matching rules can be used as a segment or campaign condition, to prioritize your highest-value leads.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\ScoreRuleEmptyStateHint"
+                   name="ordo_scorerule_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_scorerule_listing_intro" before="ordo_scorerule_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No scoring rules yet — a rule assigns points to a customer attribute, and a customer's total score can drive segments and campaigns.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first score rule</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/scorerule/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_scorerule_listing"/>
         </referenceContainer>
     </body>

@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Cascading-tier gift rules — e.g. spend $50 and get gift A, spend $100 and get gift A and B — applied automatically at checkout once a customer's cart total crosses a tier threshold.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\FreeGiftOfferEmptyStateHint"
+                   name="ordo_free_gift_offer_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_free_gift_offer_listing_intro" before="ordo_free_gift_offer_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No gift offer rules yet — a rule applies a gift automatically once a customer's cart crosses a spend threshold.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first gift offer</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/freegiftoffer/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_free_gift_offer_listing"/>
         </referenceContainer>
     </body>

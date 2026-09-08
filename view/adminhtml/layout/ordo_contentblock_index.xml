@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Reusable HTML, RSS, or product-list snippets referenced by campaign emails — editing a block here updates every campaign that uses it, instead of editing the same content in each campaign individually.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\ContentBlockEmptyStateHint"
+                   name="ordo_contentblock_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_contentblock_listing_intro" before="ordo_contentblock_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No content blocks yet — a block is a reusable HTML/RSS/product-list snippet you can drop into any campaign email.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first content block</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/contentblock/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_contentblock_listing"/>
         </referenceContainer>
     </body>

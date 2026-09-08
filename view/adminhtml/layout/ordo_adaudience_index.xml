@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Syncs a saved segment to Google Ads or Meta as a remarketing audience, kept up to date on a schedule — use this to retarget ads at customers you've already segmented in this module.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\AdAudienceEmptyStateHint"
+                   name="ordo_adaudience_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_adaudience_listing_intro" before="ordo_adaudience_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No ad audiences yet — sync a segment here to keep a Google Ads / Meta remarketing audience automatically up to date.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first ad audience</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/adaudience/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_adaudience_listing"/>
         </referenceContainer>
     </body>

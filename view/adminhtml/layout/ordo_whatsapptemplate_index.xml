@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">WhatsApp requires every outbound message template to be pre-approved by Meta before it can be sent. Create a template, submit it for review, and reference it from a Send WhatsApp campaign action once it's approved.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\WhatsAppTemplateEmptyStateHint"
+                   name="ordo_whatsapptemplate_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_whatsapptemplate_listing_intro" before="ordo_whatsapptemplate_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">No templates yet — WhatsApp requires an approved template before a Send WhatsApp campaign action can send anything.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first template</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/whatsapptemplate/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_whatsapptemplate_listing"/>
         </referenceContainer>
     </body>

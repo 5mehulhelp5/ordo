@@ -262,6 +262,29 @@
   margin: 0 0 16px;
 }
 
+/* First-run guidance shown only while a CRUD listing has zero rows (ROADMAP.md "Admin UX"
+   Phase 3: a first-time user should be guided to their first real action, not shown a bare
+   empty grid). The gradient border is this module's own rare-highlight accent (see
+   .github/assets/hero.svg / the admin menu icon) - used here, deliberately sparingly, because
+   this is the one moment a merchant most needs a nudge toward the next step. */
+.ordo-empty-hint {
+  background: #fff;
+  border: 1px solid transparent;
+  background-image: linear-gradient(#fff, #fff), linear-gradient(90deg, #E879F9, #0EA5E9);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  border-radius: var(--ordo-radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ordo-empty-hint-text { margin: 0; font-size: var(--ordo-font-md); color: #1b1f2a; }
+
 .ordo-empty-state { color: var(--ordo-text-muted); font-size: var(--ordo-font-md); }
 
 .ordo-campaigns-grid {

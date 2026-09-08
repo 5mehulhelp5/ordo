@@ -1,0 +1,15 @@
+<?php
+/**
+ * @var \Ordo\Automation\Block\Adminhtml\Listing\AbstractEmptyStateHint $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+if (!$block->isEmptyState()) {
+    return;
+}
+?>
+<div class="ordo-empty-hint">
+    <p class="ordo-empty-hint-text"><?= $escaper->escapeHtml($block->getHintText()) ?></p>
+    <a class="ordo-btn ordo-btn-primary" href="<?= $escaper->escapeUrl($block->getCtaUrl()) ?>">
+        <?= $escaper->escapeHtml($block->getCtaLabel()) ?>
+    </a>
+</div>

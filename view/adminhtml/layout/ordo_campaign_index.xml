@@ -11,6 +11,16 @@
                     <argument name="intro_text" xsi:type="string">Automated sequences that fire on a trigger (order placed, cart abandoned, etc.) and run a chain of timed actions — send an email/SMS/push, apply a tag, wait. Enable a campaign to start it running; disable to pause it without deleting it.</argument>
                 </arguments>
             </block>
+            <block class="Ordo\Automation\Block\Adminhtml\Listing\CampaignEmptyStateHint"
+                   name="ordo_campaign_listing_empty_state"
+                   template="Ordo_Automation::listing_empty_state.phtml"
+                   after="ordo_campaign_listing_intro" before="ordo_campaign_listing">
+                <arguments>
+                    <argument name="hint_text" xsi:type="string">You haven't created any campaigns yet — a campaign fires on a trigger and runs a chain of timed actions automatically.</argument>
+                    <argument name="cta_label" xsi:type="string">Create your first campaign</argument>
+                    <argument name="cta_path" xsi:type="string">ordo/campaign/new</argument>
+                </arguments>
+            </block>
             <uiComponent name="ordo_campaign_listing"/>
         </referenceContainer>
     </body>
