@@ -1,12 +1,13 @@
 <?php
 /**
- * Loads the Segment edit page's "Group (nested AND/OR)" inline condition editor (see
- * segment-group-modal.js's own docblock - the file name predates the switch from a modal to an
- * always-visible inline panel; kept as-is to avoid an unrelated rename). This page is otherwise
- * pure ui_component with no other phtml to inline a require([...]) call
- * from — same reasoning as Ordo_Automation::freegiftoffer/require_form_js.phtml.
+ * Loads the Segment edit page's own small JS modules - the "Group (nested AND/OR)" inline
+ * condition editor (see segment-group-modal.js's own docblock - the file name predates the switch
+ * from a modal to an always-visible inline panel; kept as-is to avoid an unrelated rename) and the
+ * "Purchased Product (SKU)" condition's SKU autocomplete (segment-sku-autocomplete.js). This page
+ * is otherwise pure ui_component with no other phtml to inline a require([...]) call from — same
+ * reasoning as Ordo_Automation::freegiftoffer/require_form_js.phtml.
  */
 ?>
 <script>
-require(['Ordo_Automation/js/segment-group-modal']);
+require(['Ordo_Automation/js/segment-group-modal', 'Ordo_Automation/js/segment-sku-autocomplete']);
 </script>

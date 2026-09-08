@@ -181,6 +181,8 @@
                 <item name="in_segment" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\InSegment</item>
                 <item name="loyalty_tier_at_least" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\LoyaltyTierAtLeast</item>
                 <item name="nps_score_at_least" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\NpsScoreAtLeast</item>
+                <item name="purchased_sku" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\PurchasedSku</item>
+                <item name="purchased_category" xsi:type="object">Ordo\Automation\Model\Campaign\Condition\PurchasedCategory</item>
             </argument>
         </arguments>
     </type>

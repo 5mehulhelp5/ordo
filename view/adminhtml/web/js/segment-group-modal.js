@@ -47,7 +47,9 @@ define([
         monetary_total_at_least: {key: 'amount', label: 'Minimum order total'},
         recency_percentile_at_least: {key: 'percentile', label: 'Percentile, at least (0-100)'},
         order_frequency_percentile_at_least: {key: 'percentile', label: 'Percentile, at least (0-100)'},
-        monetary_percentile_at_least: {key: 'percentile', label: 'Percentile, at least (0-100)'}
+        monetary_percentile_at_least: {key: 'percentile', label: 'Percentile, at least (0-100)'},
+        purchased_sku: {key: 'sku', label: 'SKU'},
+        purchased_category: {key: 'category_id', label: 'Category ID'}
     };
 
     /**

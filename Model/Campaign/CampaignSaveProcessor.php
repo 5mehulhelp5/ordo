@@ -39,6 +39,7 @@ class CampaignSaveProcessor
         'tag', 'amount', 'rule_id', 'prefix', 'template', 'message',
         'headline', 'body', 'cta_label', 'cta_url', 'points', 'threshold',
         'content_block_id', 'output_key', 'days', 'count', 'percentile', 'question',
+        'sku', 'category_id',
     ];
 
     public function __construct(

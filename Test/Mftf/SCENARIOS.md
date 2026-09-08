@@ -62,6 +62,8 @@ cases separately from the type-by-type ones.
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
 | `loyalty_tier_at_least`               | `{tier}` (bronze/silver/gold, no dedicated field yet — via Params JSON) | ✅ `AdminLoyaltyTierAtLeastConditionTest`                                                        |
 | `nps_score_at_least`                  | `{threshold}` (same dedicated "threshold" field as `score_at_least`)    | ✅ `AdminCampaignNpsSurveyActionTest` (customer_id only — no visitor_id path)                     |
+| `purchased_sku`                       | `{sku}` (dedicated field, autocompleted)                          | ⬜ unit-tested (`PurchasedSkuTest`, `PurchasedProductResolverTest`), no MFTF yet                       |
+| `purchased_category`                  | `{category_id}` (dedicated field, incl. subcategories)             | ⬜ unit-tested (`PurchasedCategoryTest`, `PurchasedProductResolverTest`), no MFTF yet                  |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 

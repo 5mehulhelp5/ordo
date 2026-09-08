@@ -25,6 +25,20 @@ function loadAmdModule(loadModule) {
             if (dep === 'domReady!') {
                 return null;
             }
+            if (dep === 'underscore') {
+                // A minimal stand-in for underscore's own debounce(): calls straight through with
+                // no actual delay. Tests exercise the named functions a module builds around its
+                // debounced wrapper directly (searchProducts/isSkuField/renderDropdown, see each
+                // module's own return statement) rather than the debounce timing itself, so a
+                // real timer isn't needed here and would only make tests slower/flakier.
+                return {
+                    debounce: function (fn) {
+                        return function () {
+                            return fn.apply(this, arguments);
+                        };
+                    }
+                };
+            }
             throw new Error('Test/js/support/amd-shim: unsupported dependency "' + dep + '"');
         });
 

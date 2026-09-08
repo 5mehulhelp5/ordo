@@ -197,6 +197,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <rule name="1">
@@ -244,6 +258,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <!-- Reuses the same "tag" field as the "tag" rule above — the
@@ -296,6 +324,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <rule name="3">
@@ -343,6 +385,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <!-- RFM-based conditions (§3/§4 in SCENARIOS.md) — recency in
@@ -400,6 +456,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <rule name="5">
@@ -447,6 +517,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <!-- Reuses "amount" (same param key and same "minimum total"
@@ -499,6 +583,20 @@
                                                 <param name="0" xsi:type="boolean">false</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <!-- The three percentile-relative RFM conditions share one
@@ -551,6 +649,20 @@
                                                 <param name="0" xsi:type="boolean">true</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <rule name="8">
@@ -598,6 +710,20 @@
                                                 <param name="0" xsi:type="boolean">true</param>
                                             </params>
                                         </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
                                     </actions>
                                 </rule>
                                 <rule name="9">
@@ -640,6 +766,142 @@
                                         </action>
                                         <action name="5">
                                             <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                    <action name="6">
+                                        <target>${ $.parentName }.sku</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    <action name="7">
+                                        <target>${ $.parentName }.category_id</target>
+                                        <callback>visible</callback>
+                                        <params>
+                                            <param name="0" xsi:type="boolean">false</param>
+                                        </params>
+                                    </action>
+                                    </actions>
+                                </rule>
+                                <rule name="10">
+                                    <value>purchased_sku</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.amount</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.threshold</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.days</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.count</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.sku</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">true</param>
+                                            </params>
+                                        </action>
+                                        <action name="7">
+                                            <target>${ $.parentName }.category_id</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                    </actions>
+                                </rule>
+                                <rule name="11">
+                                    <value>purchased_category</value>
+                                    <actions>
+                                        <action name="0">
+                                            <target>${ $.parentName }.tag</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="1">
+                                            <target>${ $.parentName }.amount</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="2">
+                                            <target>${ $.parentName }.threshold</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="3">
+                                            <target>${ $.parentName }.days</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="4">
+                                            <target>${ $.parentName }.count</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="5">
+                                            <target>${ $.parentName }.percentile</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="6">
+                                            <target>${ $.parentName }.sku</target>
+                                            <callback>visible</callback>
+                                            <params>
+                                                <param name="0" xsi:type="boolean">false</param>
+                                            </params>
+                                        </action>
+                                        <action name="7">
+                                            <target>${ $.parentName }.category_id</target>
                                             <callback>visible</callback>
                                             <params>
                                                 <param name="0" xsi:type="boolean">true</param>
@@ -728,6 +990,35 @@
                         <label translate="true">Params (JSON) — only needed for a condition type without a dedicated field above</label>
                         <notice translate="true">Leave blank if you filled in one of the dedicated fields above.</notice>
                     </settings>
+                </field>
+                <!-- "sku"/"category_id" - same dedicated fields as ordo_segment_form.xml's own
+                     conditions switcherConfig, mirrored here for the same two condition types
+                     (purchased_sku/purchased_category). See that form's own comments on these two
+                     fields for the full reasoning (SKU autocomplete via
+                     segment-sku-autocomplete.js against Controller\Adminhtml\Segment\
+                     ProductSearch.php, category via Model\Config\Source\Category). -->
+                <field name="sku" formElement="input" sortOrder="21">
+                    <settings>
+                        <dataType>text</dataType>
+                        <label translate="true">SKU</label>
+                        <notice translate="true">Start typing to search the catalog.</notice>
+                        <visible>false</visible>
+                    </settings>
+                </field>
+                <field name="category_id" formElement="select" sortOrder="22">
+                    <settings>
+                        <dataType>text</dataType>
+                        <label translate="true">Category</label>
+                        <notice translate="true">Matches a purchase from this category or any of its subcategories.</notice>
+                        <visible>false</visible>
+                    </settings>
+                    <formElements>
+                        <select>
+                            <settings>
+                                <options class="Ordo\Automation\Model\Config\Source\Category"/>
+                            </settings>
+                        </select>
+                    </formElements>
                 </field>
             </container>
         </dynamicRows>

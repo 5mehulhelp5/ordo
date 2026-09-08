@@ -28,6 +28,8 @@ class TypeLabels
         'in_segment' => 'In Segment',
         'loyalty_tier_at_least' => 'Loyalty Tier At Least',
         'nps_score_at_least' => 'NPS Score At Least',
+        'purchased_sku' => 'Purchased Product (SKU)',
+        'purchased_category' => 'Purchased From Category',
     ];
 
     private const array ACTION_LABELS = [

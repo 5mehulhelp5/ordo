@@ -536,3 +536,30 @@ td:has(> [data-index="group_logic"]) {
 .ordo-bulk-actions-panel .action-primary:hover {
     background: var(--ordo-accent-dark);
 }
+
+/* SKU autocomplete dropdown (segment-sku-autocomplete.js) - matches unified accent used
+   throughout this card, positioned directly under whichever "sku" input it was rendered against. */
+.ordo-sku-suggest {
+    position: absolute;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid var(--ordo-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .12);
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 240px;
+}
+
+.ordo-sku-suggest-row {
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ordo-sku-suggest-row:hover {
+    background: var(--ordo-accent-tint);
+}

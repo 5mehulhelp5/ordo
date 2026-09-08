@@ -5,6 +5,7 @@ namespace Ordo\Automation\Test\Unit\Model\Segment;
 
 use Ordo\Automation\Model\CustomerScoreManager;
 use Ordo\Automation\Model\CustomerTagManager;
+use Ordo\Automation\Model\Purchase\PurchasedProductResolver;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\Collection as SegmentConditionCollection;
 use Ordo\Automation\Model\ResourceModel\Segment\Condition\CollectionFactory as SegmentConditionCollectionFactory;
 use Ordo\Automation\Model\ResourceModel\Segment as SegmentResource;
@@ -26,6 +27,7 @@ class SegmentMemberResolverTest extends TestCase
     private SegmentFactory&\PHPUnit\Framework\MockObject\MockObject $segmentFactory;
     private SegmentResource&\PHPUnit\Framework\MockObject\MockObject $segmentResource;
     private LoggerInterface&\PHPUnit\Framework\MockObject\MockObject $logger;
+    private PurchasedProductResolver&\PHPUnit\Framework\MockObject\MockObject $purchasedProductResolver;
     private SegmentMemberResolver $resolver;
     private Segment $segmentStub;
 
@@ -41,6 +43,7 @@ class SegmentMemberResolverTest extends TestCase
         $this->segmentFactory = $this->createMock(SegmentFactory::class);
         $this->segmentResource = $this->createMock(SegmentResource::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->purchasedProductResolver = $this->createMock(PurchasedProductResolver::class);
 
         // willReturnCallback (not willReturn) so stubSegmentConditionLogic() can change what's
         // returned later in a test — PHPUnit stacks multiple ->method('create') stubs FIFO, so a
@@ -57,7 +60,8 @@ class SegmentMemberResolverTest extends TestCase
             $this->rfmCalculator,
             $this->segmentFactory,
             $this->segmentResource,
-            $this->logger
+            $this->logger,
+            $this->purchasedProductResolver
         );
     }
 
@@ -312,6 +316,52 @@ class SegmentMemberResolverTest extends TestCase
             ->willReturn($this->percentileFixture());
 
         self::assertSame([1], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testPurchasedSkuConditionReturnsMatchingCustomerIds(): void
+    {
+        $this->stubSegment(1, [['type' => 'purchased_sku', 'params' => ['sku' => '24-MB01']]]);
+        $this->primeFactory();
+
+        $this->purchasedProductResolver->method('getCustomerIdsWhoPurchasedSku')
+            ->willReturnMap([['24-MB01', [5, 6]]]);
+
+        self::assertSame([5, 6], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testPurchasedSkuFailsClosedOnEmptySku(): void
+    {
+        $this->stubSegment(1, [['type' => 'purchased_sku', 'params' => ['sku' => '']]]);
+        $this->primeFactory();
+
+        $this->purchasedProductResolver->expects(self::never())->method('getCustomerIdsWhoPurchasedSku');
+
+        self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testPurchasedCategoryConditionReturnsMatchingCustomerIds(): void
+    {
+        $this->stubSegment(1, [['type' => 'purchased_category', 'params' => ['category_id' => '15']]]);
+        $this->primeFactory();
+
+        $this->purchasedProductResolver->method('getCustomerIdsWhoPurchasedInCategory')
+            ->willReturnMap([[15, [7]]]);
+
+        self::assertSame([7], $this->resolver->getMatchingCustomerIds(1));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testPurchasedCategoryFailsClosedOnNonNumericCategoryId(): void
+    {
+        $this->stubSegment(1, [['type' => 'purchased_category', 'params' => ['category_id' => 'not-a-number']]]);
+        $this->primeFactory();
+
+        $this->purchasedProductResolver->expects(self::never())->method('getCustomerIdsWhoPurchasedInCategory');
+
+        self::assertSame([], $this->resolver->getMatchingCustomerIds(1));
     }
 
     #[AllowMockObjectsWithoutExpectations]
