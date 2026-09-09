@@ -51,7 +51,13 @@
         <!-- The regression guard this test exists to provide: the modal button this UI used to
              have is gone, and nothing on the page opens a popup to manage the group's own
              conditions - see this test's own description. -->
-        <dontSeeElement selector=".ordo-group-manage-button" stepKey="dontSeeManageGroupButton"/>
+        <!-- Written as an attribute selector rather than ".ordo-group-manage-button": a bare
+             class selector makes Codeception's WebDriver module route dontSeeElement through
+             Selenium's native "class name" locator strategy, which throws
+             MalformedLocatorException on some driver/selenium combinations even for a
+             syntactically valid class name. The attribute form forces the CSS selector engine
+             instead. -->
+        <dontSeeElement selector="[class~='ordo-group-manage-button']" stepKey="dontSeeManageGroupButton"/>
         <dontSee selector=".ordo-group-inline" userInput="Manage group conditions" stepKey="dontSeeManageGroupButtonText"/>
 
         <!-- "Group matches" - real Magento field, has its own name attribute unlike the inline
@@ -99,6 +105,6 @@
              load. -->
         <waitForElementVisible selector=".ordo-group-inline" stepKey="waitForReloadedInlinePanel"/>
         <seeNumberOfElements selector=".ordo-group-row" userInput="2" stepKey="seeTwoReloadedGroupRows"/>
-        <dontSeeElement selector=".ordo-group-manage-button" stepKey="dontSeeManageGroupButtonAfterReload"/>
+        <dontSeeElement selector="[class~='ordo-group-manage-button']" stepKey="dontSeeManageGroupButtonAfterReload"/>
     </test>
 </tests>
