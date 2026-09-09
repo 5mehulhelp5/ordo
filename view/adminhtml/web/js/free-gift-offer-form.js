@@ -525,11 +525,20 @@ define([
     injectSortTiersButton();
     injectTierRowControls();
 
-    setInterval(function () {
+    var pollHandle = setInterval(function () {
         injectBulkPickerButton();
         injectSortTiersButton();
         injectTierRowControls();
     }, 800);
+
+    // In a real browser this interval is meant to run for the page's whole lifetime, so there's
+    // nothing to unref there (and browser timer handles don't have .unref() anyway). But this
+    // module is require()'d as-is by Test/js/free-gift-offer-form.test.js under QUnit/Node, where
+    // an un-unref'd interval keeps the event loop alive forever after the tests finish - the
+    // process never exits, which just hangs (not fails) `npm run test:js:coverage` in CI.
+    if (typeof pollHandle.unref === 'function') {
+        pollHandle.unref();
+    }
 
     // Exposed for Test/js/free-gift-offer-form.test.js - see segment-group-modal.js's own return
     // statement for why this is safe (side-effect-only module, nothing else requires() its own
