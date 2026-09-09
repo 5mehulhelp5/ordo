@@ -52,35 +52,15 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Score Threshold Coupon Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="score_threshold_crossed" stepKey="selectTriggerEvent"/>
-
-        <!-- Unlike every other campaign test in this suite, this one has no Condition step
-             between selecting the trigger and clicking "Add Action" (deliberately — see this
-             test's own description on the empty conditions list). Every other test's Add
-             Condition step naturally absorbs the trigger select's own change-event re-render
-             before Add Action is ever clicked; here there's nothing in between, so the click can
-             land while the dynamicRows table is still reflowing from the trigger row having just
-             been added, missing the real "Add Action" button. Confirmed via a real CI screenshot
-             showing the Actions table still empty right after this click. A short settle wait
-             closes that race — waitForPageLoad wouldn't help here since document.readyState is
-             already "complete" (no navigation happens on a dynamicRows mutation), so this needs
-             a real timed settle, not a readyState check. -->
-        <wait time="1" stepKey="waitForTriggerRowSettle"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="generate_coupon" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][rule_id]']" stepKey="waitForRuleIdField"/>
-        <fillField selector="[name='actions[actions][0][rule_id]']" userInput="$createRule.rule_id$" stepKey="fillRuleId"/>
-        <fillField selector="[name='actions[actions][0][prefix]']" userInput="SCORETEST" stepKey="fillPrefix"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'score_threshold_crossed'},
+            {kind: 'action', type: 'generate_coupon', fields: {rule_id: '$createRule.rule_id$', prefix: 'SCORETEST', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

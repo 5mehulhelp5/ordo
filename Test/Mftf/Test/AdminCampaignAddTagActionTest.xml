@@ -30,20 +30,28 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Order Placed Add Tag Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagField"/>
-        <fillField selector="[name='actions[actions][0][tag]']" userInput="add-tag-action-test-tag" stepKey="fillConditionTag"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now
+             that the Drawflow "Flow" canvas is the only editor a merchant actually sees (see
+             ordo_campaign_form.xml's triggers_fieldset/conditions_fieldset/actions_fieldset,
+             all <visible>false</visible>) — "Add Trigger"/"Add Condition"/"Add Action" no longer
+             exist on the page. window.ordoFlowTestHook.buildChain() (campaign-flow-editor.js,
+             TEST-SUPPORT ONLY) builds the same trigger -> action node chain a merchant would by
+             dragging palette chips onto the canvas, without simulating real HTML5
+             drag-and-drop; the real, unmodified "Apply flow to form & Save" button then reads
+             those nodes and saves through the exact same provider.save() the native Save button
+             uses. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'add-tag-action-test-tag', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <!-- A plain <click> on the Apply button is intercepted by the page's fixed
+             page-actions toolbar overlapping it at this scroll position (element-click-
+             intercepted) - dispatching the click via JS hits the exact same button/handler
+             without depending on scroll position/viewport geometry. -->
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 
