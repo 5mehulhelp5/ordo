@@ -27,14 +27,18 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Test Multi-Trigger Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addFirstTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForFirstTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectFirstTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addSecondTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][1][trigger_event]']" stepKey="waitForSecondTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][1][trigger_event]']" userInput="customer_registered" stepKey="selectSecondTriggerEvent"/>
+        <!-- The triggers dynamicRows fieldset is permanently hidden now that the Drawflow
+             "Flow" canvas is the only editor a merchant actually sees (see
+             ordo_campaign_form.xml). window.ordoFlowTestHook.buildChain() (campaign-flow-
+             editor.js, TEST-SUPPORT ONLY) builds the two trigger nodes a merchant would by
+             dragging palette chips onto the canvas - no wiring between two triggers is needed
+             (buildChain only connects consecutive nodes when a previous one exists, and two
+             standalone triggers persist as two separate trigger rows either way). -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasToBuild"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'trigger', type: 'customer_registered'}
+        ]);" stepKey="buildFlowGraph"/>
 
         <!-- "enabled" renders as a Magento_Ui single-checkbox styled as a toggle switch
              (prefer: "toggle") — the real <input> is visually covered by its own field
@@ -50,7 +54,7 @@
              and confirm the round trip below without guessing the new id another way. No
              fixed id/data-index on this button (see Block/Adminhtml/Campaign/Edit/
              SaveAndContinueButton.php), so target it by its visible label. -->
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 
