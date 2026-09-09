@@ -54,48 +54,28 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
         <fillField selector="[name='name']" userInput="AND Test Coupon Campaign B" stepKey="fillNameB"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonB"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowB"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowB"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventB"/>
-
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB0"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRowB0"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionTypeB0"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][amount]']" stepKey="waitForAmountFieldB0"/>
-        <!-- SimpleProduct2 (Magento_Catalog fixture) is priced at 123.00 — 50 leaves headroom
-             for tax/shipping rounding while still safely below the order total, same reasoning as
-             AdminCampaignScenarioEndToEndTest.xml's identical amount. -->
-        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="50" stepKey="fillConditionAmountB0"/>
-
-        <!-- A real CI run showed row 0's amount field ending up as "500" in the database and
-             row 1 missing entirely — confirmed via a direct DB dump, not assumed. A plain settle
-             <wait> alone did NOT fix this (confirmed by a second CI run with byte-identical
-             corruption) — the amount input's knockout observable was never actually committed
-             before the DOM-mutating "Add Condition" click fired, since MFTF's fillField sets the
-             value without dispatching the blur/change event a real user's next click naturally
-             causes. Forcing that commit explicitly with Tab before clicking "Add Condition" is
-             the missing piece; the settle wait is kept alongside it as defense-in-depth for the
-             dynamicRows JS work the click itself triggers. -->
-        <pressKey selector="[name='conditions[conditions][0][amount]']" parameterArray="[\Facebook\WebDriver\WebDriverKeys::TAB]" stepKey="blurAmountFieldB0"/>
-        <wait time="1" stepKey="waitForRow0ToSettle"/>
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB1"/>
-        <waitForElementVisible selector="[name='conditions[conditions][1][type]']" stepKey="waitForConditionRowB1"/>
-        <selectOption selector="[name='conditions[conditions][1][type]']" userInput="tag" stepKey="selectConditionTypeB1"/>
-        <waitForElementVisible selector="[name='conditions[conditions][1][params_json]']" stepKey="waitForParamsJsonFieldB1"/>
-        <fillField selector="[name='conditions[conditions][1][params_json]']" userInput="{&quot;tag&quot;: &quot;vip&quot;}" stepKey="fillParamsJsonB1"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowB"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="generate_coupon" stepKey="selectActionTypeB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][rule_id]']" stepKey="waitForRuleIdFieldB"/>
-        <fillField selector="[name='actions[actions][0][rule_id]']" userInput="$createRule.rule_id$" stepKey="fillRuleIdB"/>
-        <fillField selector="[name='actions[actions][0][prefix]']" userInput="ANDTEST" stepKey="fillPrefixB"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesB"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale. Two conditions, AND'd, are
+             just two entries in nodeSpecs both wired trigger->condition->condition->action by
+             buildChain(); the dynamicRows-row-corruption bug documented below no longer applies
+             since there's no shared dynamicRows grid rerendering between the two condition nodes
+             here — each condition is its own canvas node with its own DOM, added via addNode(),
+             not a row inserted into a collection that re-indexes existing rows. order_total_gte
+             has its own dedicated "amount" field; tag has none and goes through the generic
+             params_json fallback (see AdminCampaignInSegmentConditionTest.xml's identical
+             comment on in_segment for why). -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasB"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'order_total_gte', fields: {amount: '50'}},
+            {kind: 'condition', type: 'tag', fields: {params_json: '{&quot;tag&quot;: &quot;vip&quot;}'}},
+            {kind: 'action', type: 'generate_coupon', fields: {rule_id: '$createRule.rule_id$', prefix: 'ANDTEST', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraphB"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignB"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueB"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveB"/>
         <waitForPageLoad stepKey="waitForSaveB"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
         <!-- Diagnostic: grab B's own entity_id so it can be compared against A's below — this
@@ -113,20 +93,15 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldA"/>
         <fillField selector="[name='name']" userInput="AND Test Tag Campaign A" stepKey="fillNameA"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonA"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowA"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowA"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventA"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowA"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionTypeA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagFieldA"/>
-        <fillField selector="[name='actions[actions][0][tag]']" userInput="vip" stepKey="fillTagA"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasA"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'vip'}}
+        ]);" stepKey="buildFlowGraphA"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignA"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueA"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveA"/>
         <waitForPageLoad stepKey="waitForSaveA"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageA"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignIdA"/>
