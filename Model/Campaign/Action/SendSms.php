@@ -6,6 +6,7 @@ namespace Ordo\Automation\Model\Campaign\Action;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Ordo\Automation\Api\Campaign\ActionInterface;
 use Ordo\Automation\Helper\Config;
+use Ordo\Automation\Model\Campaign\FrequencyCapManager;
 use Ordo\Automation\Model\ConsentChannel;
 use Ordo\Automation\Model\ConsentManager;
 use Ordo\Automation\Model\Sms\MessageLogWriter;
@@ -25,7 +26,8 @@ use Throwable;
  *
  * Checks ConsentManager::hasConsent() before sending — an explicit SMS opt-out is recorded the
  * same way Twilio's own STOP-reply opt-out already is (MessageLogWriter::recordOptedOut()), not
- * as a distinct third outcome.
+ * as a distinct third outcome. Also checks FrequencyCapManager::hasCapacity() right after (opt-in,
+ * cross-channel) — over the configured contact-volume cap is recorded as suppressed, not sent.
  */
 class SendSms implements ActionInterface
 {
@@ -45,6 +47,7 @@ class SendSms implements ActionInterface
         private readonly Config $config,
         private readonly MessageLogWriter $messageLogWriter,
         private readonly ConsentManager $consentManager,
+        private readonly FrequencyCapManager $frequencyCapManager,
         private readonly SendRetrier $sendRetrier,
         private readonly LoggerInterface $logger
     ) {
@@ -85,6 +88,15 @@ class SendSms implements ActionInterface
                 $customerId
             ));
             $this->messageLogWriter->recordOptedOut(self::CHANNEL, $customerId, $phone);
+            return;
+        }
+
+        if (!$this->frequencyCapManager->hasCapacity($customerId)) {
+            $this->logger->info(sprintf(
+                'Ordo_Automation: send_sms action skipped for customer #%d, frequency cap reached.',
+                $customerId
+            ));
+            $this->messageLogWriter->recordSuppressed(self::CHANNEL, $customerId, $phone);
             return;
         }
 
