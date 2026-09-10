@@ -49,13 +49,37 @@ QUnit.module('Ordo_Automation/js/free-gift-offer-form', function () {
         assert.strictEqual(api.formatMoney('not-a-number'), 'not-a-number');
     });
 
-    QUnit.test('sleep() resolves after the given delay', async function (assert) {
+    QUnit.test('sleep() resolves via setTimeout with the given delay, not before it fires', async function (assert) {
         const api = loadModule(MODULE_PATH);
-        const start = Date.now();
+        const originalSetTimeout = global.setTimeout;
+        let capturedDelay = null;
+        let fire = null;
 
-        await api.sleep(10);
+        // Stub setTimeout so the test doesn't depend on real elapsed time (flaky on
+        // loaded CI runners); instead assert the *contract*: sleep() schedules a
+        // callback with the given delay, and only resolves once that callback runs.
+        global.setTimeout = function (callback, delay) {
+            capturedDelay = delay;
+            fire = callback;
+            return 0;
+        };
 
-        assert.true(Date.now() - start >= 10);
+        try {
+            let resolved = false;
+            const promise = api.sleep(10).then(function () {
+                resolved = true;
+            });
+
+            assert.strictEqual(capturedDelay, 10);
+            assert.false(resolved, 'must not resolve before the timer fires');
+
+            fire();
+            await promise;
+
+            assert.true(resolved, 'resolves once the timer fires');
+        } finally {
+            global.setTimeout = originalSetTimeout;
+        }
     });
 
     QUnit.test('searchProducts() resolves the response\'s items on a 200', async function (assert) {
