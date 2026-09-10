@@ -58,6 +58,21 @@ function applyBuildChainNodeFields($node, fields) {
     });
 }
 
+/**
+ * Fans every pending trigger id into nodeId (output_1 -> input_1 on each) - pulled out of
+ * buildChain()'s per-node forEach() for the same nesting-depth reason as
+ * applyBuildChainNodeFields() above; no behavior change.
+ *
+ * @param {Object} editor Drawflow instance
+ * @param {Array<String>} pendingTriggerIds
+ * @param {String} nodeId
+ */
+function connectPendingTriggers(editor, pendingTriggerIds, nodeId) {
+    pendingTriggerIds.forEach(function (triggerId) {
+        editor.addConnection(triggerId, nodeId, 'output_1', 'input_1');
+    });
+}
+
 define([
     'jquery',
     'uiRegistry',
@@ -543,9 +558,7 @@ define([
                             pendingTriggerIds.push(nodeId);
                         } else {
                             if (pendingTriggerIds.length) {
-                                pendingTriggerIds.forEach(function (triggerId) {
-                                    editor.addConnection(triggerId, nodeId, 'output_1', 'input_1');
-                                });
+                                connectPendingTriggers(editor, pendingTriggerIds, nodeId);
                                 pendingTriggerIds = [];
                             } else if (previousNodeId !== null) {
                                 editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
