@@ -47,9 +47,6 @@ fully closed — see docs/CHANGELOG.md for the full history of each.
 - Flow canvas UX gaps that would frustrate daily use: no undo/redo, no node duplication/copy-paste,
   no inline "send test" before saving an action, no search/filter across the ~20+ condition/action
   types in the palette (`view/adminhtml/web/js/campaign-flow-editor.js`).
-- `resumeScheduledAction()` loads and materializes *all* of a campaign's actions just to find one
-  row's index, on every single scheduled resume — an indexed lookup would scale better as the
-  scheduled-action backlog grows (`Model/CampaignDispatcher.php`).
 - No dead-letter/retry policy for the dispatch queue — `CampaignDispatchConsumer` explicitly drops
   a malformed message rather than requeuing it, and no alerting surfaces a broken campaign (e.g. a
   deleted email template ID) beyond a log line.
