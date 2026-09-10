@@ -5,8 +5,69 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Nested AND/OR condition groups for Segment and Campaign conditions**, closing the
+  ROADMAP.md "Segment/Campaign condition builder follow-ups" item (the "Bulk actions" mis-grouping
+  sub-item is covered separately below). A reserved `'group'` pseudo-type holds its own nested
+  `{"logic": "all"|"any", "conditions": [...]}` blob (one level of nesting), matched by
+  `SegmentMemberResolver`/`CampaignDispatcher` recursing into `resolveGroup()`, and built in the
+  admin UI by `segment-group-modal.js` (inline, not an actual modal despite the filename — nested
+  `dynamicRows` didn't work, see its own docblock). Covered by
+  `Test/Mftf/Test/AdminCreateSegmentWithNestedGroupConditionTest`.
+- **Estimated audience size for segments**, closing the ROADMAP.md follow-up. Two parts:
+  - `ordo_segment.estimated_audience_size`/`audience_size_computed_at` (new columns) back a
+    grid column pair, refreshed every 15 minutes by
+    `Cron\RecalculateSegmentAudienceSizes`/`Model\Segment\SegmentAudienceSizeRecalculator` for
+    every segment at once — a cached snapshot rather than a live per-row resolve, since the grid
+    can list many segments at a time and `SegmentMemberResolver` runs real aggregate queries per
+    condition.
+  - The segment edit page gets its own live, on-demand counter
+    (`Block`/`Controller\Adminhtml\Segment\AudienceSize`, `segment-audience-size.js`) that
+    re-resolves the segment's saved conditions via the same `SegmentMemberResolver` on an
+    explicit refresh click — exact rather than a snapshot, cheap enough for one segment in view.
+
+### Changed
+
+- **"Bulk actions on current members" no longer reads as one continuous step with the segment's
+  condition builder**, closing the ROADMAP.md mis-grouping follow-up. `bulkactions.phtml`'s panel
+  is now a native `<details>`/`<summary>` (collapsed by default, no JS needed for the
+  expand/collapse itself), visually separated with a red top border and extra margin, and its
+  `+`/`-` toggle icon reinforces that it's a distinct, deliberate action rather than the next
+  field in the form above it.
+- **Mutation testing is now blocking**, closing the ROADMAP.md follow-up. 5 consecutive CI runs
+  across main and feature branches all landed at the identical 4943/7043 killed+errored+timed-out
+  mutants (~70.2% MSI, `coveredMsi` the same since `Not Covered` is 0) — a stable baseline, not
+  noise. `infection.json5`'s `minMsi`/`minCoveredMsi` set to 70 (a couple points under that
+  baseline, so ordinary mutant-selection variance across runs doesn't fail a PR with no real
+  regression); `coverage.yml`'s `mutation-testing` job no longer has `continue-on-error`, and
+  `main`'s required status checks now include it.
+- `.github/workflows/coverage.yml`: PHP and JS coverage used to run sequentially as two halves
+  of one `coverage` job, gating the PR check on their combined runtime. Split into parallel
+  `php-coverage` / `js-coverage` jobs, plus a `sonar` job that `needs` both and downloads their
+  `clover.xml`/`lcov.info` artifacts to run the scan. `mutation-testing` was already a separate,
+  parallel job.
+- `main` branch protection now requires `unit-tests`, `static-analysis`, `rector`,
+  `coding-standard`, `php-coverage`, `js-coverage`, and `sonar` to pass (`mutation-testing`
+  stays non-blocking, `continue-on-error: true`); `allow_auto_merge` and
+  `delete_branch_on_merge` are on. See AGENTS.md's "PRs auto-merge once CI is green" for the
+  workflow this enables.
+
 ### Fixed
 
+- `Test/js/free-gift-offer-form.test.js`'s `sleep()` test asserted `Date.now() - start >= 10`,
+  which depends on real wall-clock timing and was flaky on a loaded CI runner (failed at least
+  once in CI). Rewritten to stub `setTimeout` and assert the actual contract instead: `sleep()`
+  schedules a callback with the given delay, and its promise resolves only once that callback
+  fires — no dependency on real elapsed time.
+- `AdminCreateSegmentWithNestedGroupConditionTest`'s `dontSeeElement` used a bare CSS class
+  selector (`.ordo-group-manage-button`), which routes Codeception's WebDriver module through
+  Selenium's native "class name" locator strategy — that strategy threw `MalformedLocatorException`
+  on this CI's driver/Selenium combination even though the class name itself was syntactically
+  valid. Fixed by rewriting the selector as `[class~='ordo-group-manage-button']`, an attribute
+  selector that forces the CSS selector engine instead. Verified locally against a live
+  Magento/Selenium stack (`vendor/bin/mftf run:test AdminCreateSegmentWithNestedGroupConditionTest`
+  now passes).
 - `send_push` was missing from `Block\Adminhtml\Campaign\Edit\Flow::getFieldsConfig()` and
   `Model\Campaign\TypeLabels` — the action itself worked end to end (confirmed against a real
   browser subscription and a real push service delivery), but the Flow canvas editor had no
