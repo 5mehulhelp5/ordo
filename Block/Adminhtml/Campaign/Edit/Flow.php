@@ -8,6 +8,7 @@ use Magento\Backend\Block\Template\Context;
 use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Framework\Json\Helper\Data as JsonHelper;
 use Magento\Framework\Registry;
+use Ordo\Automation\Api\Data\CampaignTriggerInterface;
 use Ordo\Automation\Model\Campaign;
 use Ordo\Automation\Model\Campaign\ActionPool;
 use Ordo\Automation\Model\Campaign\ConditionPool;
@@ -198,6 +199,30 @@ class Flow extends Template
     public function getFieldsConfig(): array
     {
         return [
+            'trigger' => [
+                CampaignTriggerInterface::TRIGGER_SCHEDULED_AT => [
+                    [
+                        'name' => 'scheduled_at',
+                        'label' => (string) __('Date/time (store timezone)'),
+                        'notice' => (string) __(
+                            'Format: YYYY-MM-DD HH:MM:SS, e.g. 2026-11-28 09:00:00. Fires at most once, the'
+                            . ' next time Cron\DispatchScheduledCampaignTriggers scans (every 5 minutes) after'
+                            . ' this moment.'
+                        ),
+                    ],
+                ],
+                CampaignTriggerInterface::TRIGGER_RECURRING_SCHEDULE => [
+                    [
+                        'name' => 'cron_expression',
+                        'label' => (string) __('Cron expression'),
+                        'notice' => (string) __(
+                            'Standard 5-field cron, e.g. "0 8 * * 1" for every Monday at 08:00. Precision is'
+                            . ' bounded by the 5-minute scan interval — a minute field that isn\'t a multiple'
+                            . ' of 5 will never match.'
+                        ),
+                    ],
+                ],
+            ],
             'condition' => [
                 'tag' => [['name' => 'tag', 'label' => (string) __('Tag')]],
                 'order_total_gte' => [['name' => 'amount', 'label' => (string) __('Minimum order total')]],
@@ -309,20 +334,26 @@ class Flow extends Template
     }
 
     /**
-     * A trigger node has no dedicated fields/params — its type select value IS the whole
-     * payload (the trigger_event itself) — so it's a simpler shape than
-     * editableNodeHtml()/condition/action nodes below: just a label, a delete button, and the
-     * select.
+     * Most trigger types have no dedicated fields/params — their type select value IS the whole
+     * payload (the trigger_event itself). The two schedule-based types (`scheduled_at`/
+     * `recurring_schedule`) are the exception: they need a datetime/cron input the same way a
+     * condition/action does, so this now shares the label/params/fields-container shape with
+     * editableNodeHtml() below rather than being a stripped-down variant of it.
      */
-    private function triggerNodeHtml(string $optionsHtml): string
+    private function triggerNodeHtml(string $optionsHtml, string $paramsJson): string
     {
-        return '<div class="ordo-flow-node" data-kind="trigger">'
+        $decodedParams = json_decode($paramsJson, true);
+        $paramsAttr = json_encode(is_array($decodedParams) ? $decodedParams : []);
+
+        return '<div class="ordo-flow-node" data-kind="trigger" data-params="'
+            . $this->escapeHtmlAttr((string) $paramsAttr) . '">'
             . '<div class="ordo-flow-node-head">'
             . '<span>' . $this->escapeHtml((string) __('Trigger')) . '</span>'
             . '<button type="button" class="ordo-flow-delete" title="'
             . $this->escapeHtmlAttr((string) __('Remove')) . '">&times;</button>'
             . '</div>'
             . '<select class="ordo-flow-type-select">' . $optionsHtml . '</select>'
+            . '<div class="ordo-flow-fields"></div>'
             . '</div>';
     }
 
@@ -436,7 +467,8 @@ class Flow extends Template
                 $id,
                 'ordo-flow-trigger',
                 $this->triggerNodeHtml(
-                    $this->typeOptionsHtml($this->getTriggerEventTypes(), $triggerEvent, $this->getTriggerEventLabels())
+                    $this->typeOptionsHtml($this->getTriggerEventTypes(), $triggerEvent, $this->getTriggerEventLabels()),
+                    $trigger->getParamsJson()
                 ),
                 $x,
                 60 + count($triggerIds) * 160

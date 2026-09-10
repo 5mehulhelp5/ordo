@@ -44,11 +44,12 @@ at ordering it into "what do we tackle first."
 
 ### Priority order
 
-**Tier 0 — this week, security/trust risk, cheap fixes:** `FreeGiftOffer/Delete.php` GET→POST
-+ form-key; guest checkout bypassing order approval; the 3-site multi-store decision-link URL bug;
-`approveByToken()`/`rejectByToken()`'s inconsistent save path + missing order-state re-check; pull
-"Scheduled Date/Time" out of the trigger-type UI until an admin can actually configure a date/cron
-expression for it.
+**Tier 0 is fully closed** — see docs/CHANGELOG.md for each: `FreeGiftOffer/Delete.php` GET→POST
++ form-key; guest checkout bypassing order approval (fallback to email match); the 3-site
+multi-store decision-link URL bug (order's own store, not "current store"); `approveByToken()`/
+`rejectByToken()`'s save path unified with an atomic claim + order-state re-check; the Flow canvas
+now renders `scheduled_at`/`cron_expression` fields for the "Scheduled Date/Time"/"Recurring
+Schedule" trigger types.
 
 **Tier 1 and Tier 2 are both fully closed** (SendGrid webhook opt-out handling, channel-send
 retry/backoff, the `not_in_segment` exclusion operator, the audience-size unsaved-changes warning,
@@ -66,36 +67,6 @@ docs/CHANGELOG.md).
 **Tier 4 — scale hardening, not urgent below ~50-100k customers:** pagination/streaming in
 `RfmCalculator`'s aggregate queries; batching in `GoogleAdsSyncClient::addOperations()`; the
 unbounded full-table scans in `CalculateReorderCycle`/`GoogleMerchantFeedGenerator`.
-
-### Correctness issues found along the way (not "improvements" — real bugs)
-
-- **Guest checkout bypasses order-approval entirely.** `Observer/HoldOrderForApproval::execute()`
-  returns early when `!$order->getCustomerId()` — since the spend-limit/approval attributes only
-  exist on registered customers, anyone can dodge approval by checking out as a guest.
-- **`Controller/Adminhtml/FreeGiftOffer/Delete.php` is a GET action** — no form-key CSRF
-  protection on a destructive one-click-from-a-crafted-URL action.
-- **Approval decision paths save inconsistently** — `rejectByToken()` goes through
-  `OrderRepositoryInterface::save()`, `approveByToken()` through the raw resource model's
-  `save()`. A plugin wired to `OrderRepositoryInterface::save` fires on reject but silently not
-  on approve.
-- **`approveByToken()` doesn't re-check order state before applying the token.** If an admin
-  manually moved the order (e.g. to Complete/Canceled) between hold and decision, a stale approval
-  link can blindly revert its status.
-- **Multi-store base URL bug repeated at 3 call sites** — `HoldOrderForApproval`,
-  `EscalateStalePendingApprovals`, and `getDecisionLinksById` all resolve "current store" via
-  `StoreManagerInterface::getStore()` instead of the order's own store, so decision-link emails
-  can point at the wrong storefront in a multi-store setup.
-- **The "Scheduled Date/Time" trigger type is selectable in the admin UI but still can't
-  actually be configured.** The backend is real now — `CampaignDispatcher::dispatchScheduledTrigger()`,
-  `Model\Campaign\ScheduledTriggerScanner`, and `Cron\DispatchScheduledCampaignTriggers` (every 5
-  minutes) correctly fire a campaign once its `scheduled_at` datetime or `recurring_schedule` cron
-  expression is due. What's still missing is purely the admin UI: the Flow canvas gives every
-  trigger node zero fields of its own (`Block\Adminhtml\Campaign\Edit\Flow::getFieldsConfig()` has
-  no `'trigger'` entry, and `campaign-flow-editor.js` never renders one), so there is no way to
-  actually type in a date or cron expression — picking the type still silently saves a trigger
-  that can never become due. Needs `getFieldsConfig()`'s `'trigger'` key (a datetime input for
-  `scheduled_at`, a text input for `recurring_schedule`'s `cron_expression`) plus canvas support
-  for rendering trigger-node fields the same way condition/action nodes already do.
 
 ### Campaign engine (`Model/CampaignDispatcher.php`, `Model/Queue/*`, Flow canvas)
 
@@ -245,23 +216,13 @@ as bugs above, not repeated here)*
   anonymous order-approval endpoints (`.../approve`, `.../reject`) are token-guarded but not
   rate-limited against brute-forcing a token guess.
 
-## Scheduled (date-based) campaigns: admin UI + a real calendar view
+## Scheduled (date-based) campaigns: calendar view
 
-The backend is done: `scheduled_at` (fixed date/time, fires once) and `recurring_schedule`
-(cron-like, e.g. every Monday) are both real trigger types now —
-`Model\Campaign\ScheduledTriggerScanner` / `Cron\DispatchScheduledCampaignTriggers` scan for due
-triggers every 5 minutes and fire them through `CampaignDispatcher::dispatchScheduledTrigger()`,
-the rest of the pipeline (conditions, actions, delay_minutes chaining) unchanged. What's left:
-
-- **Admin UI to actually configure one.** The Flow canvas's trigger nodes have no fields of their
-  own yet — `Block\Adminhtml\Campaign\Edit\Flow::getFieldsConfig()` needs a `'trigger'` entry
-  (a datetime input for `scheduled_at`, a text input for `recurring_schedule`'s
-  `cron_expression`) and `campaign-flow-editor.js` needs to render it, the same way condition/
-  action nodes already get their own fields. Until this exists, picking either type in the admin
-  silently saves a trigger that can never become due (see the Tier 0 item above).
-- Only once that exists does an actual date-grid calendar view become meaningful — plotting when
-  each scheduled campaign will (or did) fire. Worth revisiting whether "Campaign Action Timeline"
-  should grow a calendar-view toggle at that point, or stay a separate screen.
+Both the backend (`ScheduledTriggerScanner`/`DispatchScheduledCampaignTriggers`) and the admin UI
+to configure `scheduled_at`/`recurring_schedule` triggers are done — see docs/CHANGELOG.md. What's
+left is optional polish: an actual date-grid calendar view plotting when each scheduled campaign
+will (or did) fire. Worth revisiting whether "Campaign Action Timeline" should grow a
+calendar-view toggle for this, or stay a separate screen.
 
 ## Localization
 

@@ -19,6 +19,17 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Flow canvas UI for the "Scheduled Date/Time"/"Recurring Schedule" trigger types**, closing the
+  ROADMAP.md Tier 0 item. `Block\Adminhtml\Campaign\Edit\Flow::getFieldsConfig()` now has a
+  `'trigger'` entry (a `scheduled_at` datetime input, a `cron_expression` text input for
+  `recurring_schedule`), and `campaign-flow-editor.js` renders/collects them the same way
+  condition/action nodes already do — `triggerNodeHtml()` gained the same `data-params` +
+  `.ordo-flow-fields` shape `editableNodeHtml()` uses, `bindNode()` no longer early-returns for
+  trigger nodes, and `collectRows('trigger')` now reads a row's dedicated fields instead of only
+  its `trigger_event`. The backend (`ScheduledTriggerScanner`/`DispatchScheduledCampaignTriggers`)
+  and `CampaignSaveProcessor::DEDICATED_PARAM_FIELDS` already supported both fields; picking either
+  trigger type in admin previously saved a trigger that could never become due, since there was no
+  way to type in the date/cron expression.
 - **Cross-channel frequency cap for campaign sends**, closing the ROADMAP.md Tier 3 "unified
   suppression/frequency capping across all channels" item. New `Model\Campaign\FrequencyCapManager::hasCapacity()`
   - opt-in (disabled by default), counts `ordo_message_log` rows across Email/SMS/WhatsApp/Push

@@ -339,6 +339,49 @@ class FlowTest extends TestCase
     }
 
     #[AllowMockObjectsWithoutExpectations]
+    public function testGetFieldsConfigListsScheduledTriggerFields(): void
+    {
+        $config = $this->makeBlock()->getFieldsConfig();
+
+        self::assertSame('scheduled_at', $config['trigger']['scheduled_at'][0]['name']);
+        self::assertSame('cron_expression', $config['trigger']['recurring_schedule'][0]['name']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testGetFlowDataJsonRendersTriggerFieldsContainerAndParams(): void
+    {
+        $campaign = $this->createStub(Campaign::class);
+        $campaign->method('getEntityId')->willReturn(6);
+        $this->registry->method('registry')->willReturnMap([['ordo_campaign', $campaign]]);
+
+        $trigger = $this->createStub(CampaignTrigger::class);
+        $trigger->method('getTriggerEvent')->willReturn('scheduled_at');
+        $trigger->method('getParamsJson')->willReturn('{"scheduled_at":"2026-11-28 09:00:00"}');
+        $collection = $this->createStub(TriggerCollection::class);
+        $collection->method('addCampaignFilter');
+        $collection->method('getIterator')->willReturn(new \ArrayIterator([$trigger]));
+        $this->triggerCollectionFactory->method('create')->willReturn($collection);
+
+        $emptyConditionCollection = $this->createStub(ConditionCollection::class);
+        $emptyConditionCollection->method('addCampaignFilter');
+        $emptyConditionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $this->conditionCollectionFactory->method('create')->willReturn($emptyConditionCollection);
+
+        $emptyActionCollection = $this->createStub(ActionCollection::class);
+        $emptyActionCollection->method('addCampaignFilter');
+        $emptyActionCollection->method('setOrder');
+        $emptyActionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $this->actionCollectionFactory->method('create')->willReturn($emptyActionCollection);
+
+        $json = $this->makeBlock()->getFlowDataJson();
+        $data = json_decode($json, true)['drawflow']['Home']['data'];
+        $html = $data[1]['html'];
+
+        self::assertStringContainsString('data-params="{"scheduled_at":"2026-11-28 09:00:00"}"', $html);
+        self::assertStringContainsString('ordo-flow-fields', $html);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
     public function testGetFieldsConfigJsonEncodesTheSameConfig(): void
     {
         $block = $this->makeBlock();

@@ -221,7 +221,11 @@ define([
                             html += '<span class="ordo-flow-field-notice">' + $('<div>').text(field.notice).html() + '</span>';
                         }
                     });
-                } else {
+                } else if (kind !== 'trigger') {
+                    // Every trigger type except scheduled_at/recurring_schedule has no params of
+                    // its own — the type select's value IS the whole payload — so unlike
+                    // condition/action, an unmapped trigger type gets nothing here rather than a
+                    // JSON fallback textarea nobody would ever need to fill in.
                     html += '<label class="ordo-flow-field-label">Params (JSON) — advanced, no dedicated fields for this type</label>' +
                         '<textarea class="ordo-flow-params-textarea" data-field="params_json">' +
                         $('<div>').text(Object.keys(params ?? {}).length ? JSON.stringify(params) : '').html() +
@@ -237,12 +241,6 @@ define([
              */
             function bindNode($node, kind) {
                 var initialParams = {};
-
-                // Triggers have no dedicated fields/params — the type select's value IS the
-                // whole payload (the trigger_event itself), nothing to render or pre-fill.
-                if (kind === 'trigger') {
-                    return;
-                }
 
                 try {
                     initialParams = JSON.parse($node.attr('data-params') || '{}');
@@ -308,14 +306,15 @@ define([
                 // already puts the 'ordo-flow-condition'/'ordo-flow-action'/'ordo-flow-trigger'
                 // class on the OUTER .drawflow-node wrapper it builds around this HTML (see
                 // addNode() below), so repeating that class on this inner div would make every
-                // node match twice. Triggers have no `.ordo-flow-fields` container — see
-                // bindNode() — since their select value is the entire payload.
+                // node match twice. Every kind (triggers included, for scheduled_at/
+                // recurring_schedule's own fields) gets a `.ordo-flow-fields` container —
+                // renderFields() just leaves it empty for a trigger type with no params.
                 return '<div class="ordo-flow-node" data-kind="' + kind + '" data-params="{}">' +
                     '<div class="ordo-flow-node-head"><span>' + label + '</span>' +
                     '<button type="button" class="ordo-flow-delete" title="Remove">&times;</button></div>' +
                     '<select class="ordo-flow-type-select">' + optionsHtml + '</select>' +
                     delayHtml +
-                    (kind === 'trigger' ? '' : '<div class="ordo-flow-fields"></div>') +
+                    '<div class="ordo-flow-fields"></div>' +
                     '</div>';
             }
 
@@ -670,10 +669,14 @@ define([
                         return;
                     }
 
-                    // A trigger row's only field IS its type (trigger_event) — no `type` key,
-                    // no dedicated fields/params, unlike condition/action rows.
+                    // A trigger row's own type key is `trigger_event`, not `type` (matching
+                    // Api\Data\CampaignTriggerInterface, unlike condition/action rows) — its
+                    // scheduled_at/cron_expression fields (when present) still collect the same
+                    // way via collectNodeFields() below.
                     if (kind === 'trigger') {
-                        rows.push({ trigger_event: type });
+                        row = { trigger_event: type };
+                        collectNodeFields($node, row);
+                        rows.push(row);
                         return;
                     }
 
