@@ -678,4 +678,143 @@ class CampaignDispatcherTest extends TestCase
 
         $this->makeDispatcher()->dispatch('order_placed', []);
     }
+
+    /**
+     * @param \Ordo\Automation\Model\Campaign $campaign
+     */
+    private function makeSingleCampaignCollection($campaign): CampaignCollection
+    {
+        $collection = $this->createStub(CampaignCollection::class);
+        $collection->method('addIdsFilter');
+        $collection->method('addEnabledFilter');
+        $collection->method('getFirstItem')->willReturn($campaign);
+
+        return $collection;
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchScheduledTriggerRunsActionsForExactlyThatCampaign(): void
+    {
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeSingleCampaignCollection($this->makeCampaign(5))
+        );
+
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addCampaignFilter');
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $actionRow = $this->createMock(CampaignAction::class);
+        $actionRow->method('getCampaignId')->willReturn(5);
+        $actionRow->method('getData')->willReturnMap([['type', 'tag_customer']]);
+        $actionRow->method('getParams')->willReturn(['tag' => 'black-friday']);
+
+        $actionCollection = $this->createStub(ActionCollection::class);
+        $actionCollection->method('addCampaignFilter');
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([$actionRow]));
+        $this->actionCollectionFactory->method('create')->willReturn($actionCollection);
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::once())->method('execute')->with(self::anything(), ['tag' => 'black-friday']);
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->triggerCollectionFactory->expects(self::never())->method('create');
+
+        $this->makeDispatcher()->dispatchScheduledTrigger(5, ['now' => '2026-11-28 09:00:00']);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchScheduledTriggerDoesNothingWhenCampaignDisabledOrMissing(): void
+    {
+        $missingCampaign = $this->createStub(\Ordo\Automation\Model\Campaign::class);
+        $missingCampaign->method('getId')->willReturn(null);
+
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeSingleCampaignCollection($missingCampaign)
+        );
+
+        $this->conditionCollectionFactory->expects(self::never())->method('create');
+        $this->actionCollectionFactory->expects(self::never())->method('create');
+
+        $this->makeDispatcher()->dispatchScheduledTrigger(999, []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchScheduledTriggerSkipsActionsWhenConditionNotSatisfied(): void
+    {
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeSingleCampaignCollection($this->makeCampaign(5))
+        );
+
+        $conditionRow = $this->createMock(CampaignCondition::class);
+        $conditionRow->method('getData')->willReturnMap([['type', 'unknown_condition_type']]);
+        $conditionRow->method('getParams')->willReturn([]);
+
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addCampaignFilter');
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([$conditionRow]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $this->actionCollectionFactory->expects(self::never())->method('create');
+
+        $this->makeDispatcher()->dispatchScheduledTrigger(5, []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchScheduledTriggerRunsActionsWhenAnyConditionLogicHasOneSatisfiedCondition(): void
+    {
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeSingleCampaignCollection($this->makeCampaign(5, 'any'))
+        );
+
+        $failingRow = $this->createStub(CampaignCondition::class);
+        $failingRow->method('getData')->willReturnMap([['type', 'fails']]);
+        $failingRow->method('getParams')->willReturn([]);
+
+        $passingRow = $this->createStub(CampaignCondition::class);
+        $passingRow->method('getData')->willReturnMap([['type', 'passes']]);
+        $passingRow->method('getParams')->willReturn([]);
+
+        $conditionCollection = $this->createStub(ConditionCollection::class);
+        $conditionCollection->method('addCampaignFilter');
+        $conditionCollection->method('getIterator')->willReturn(new \ArrayIterator([$failingRow, $passingRow]));
+        $this->conditionCollectionFactory->method('create')->willReturn($conditionCollection);
+
+        $failingCondition = $this->createStub(ConditionInterface::class);
+        $failingCondition->method('isSatisfied')->willReturn(false);
+        $passingCondition = $this->createStub(ConditionInterface::class);
+        $passingCondition->method('isSatisfied')->willReturn(true);
+        $this->conditionPool = new ConditionPool(['fails' => $failingCondition, 'passes' => $passingCondition]);
+
+        $actionRow = $this->createMock(CampaignAction::class);
+        $actionRow->method('getCampaignId')->willReturn(5);
+        $actionRow->method('getData')->willReturnMap([['type', 'tag_customer']]);
+        $actionRow->method('getParams')->willReturn([]);
+
+        $actionCollection = $this->createStub(ActionCollection::class);
+        $actionCollection->method('addCampaignFilter');
+        $actionCollection->method('getIterator')->willReturn(new \ArrayIterator([$actionRow]));
+        $this->actionCollectionFactory->method('create')->willReturn($actionCollection);
+
+        $action = $this->createMock(ActionInterface::class);
+        $action->expects(self::once())->method('execute');
+        $this->actionPool = new ActionPool(['tag_customer' => $action]);
+
+        $this->makeDispatcher()->dispatchScheduledTrigger(5, []);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testDispatchScheduledTriggerLogsAndSwallowsWhenLoadingConditionsThrows(): void
+    {
+        $this->campaignCollectionFactory->method('create')->willReturn(
+            $this->makeSingleCampaignCollection($this->makeCampaign(5))
+        );
+
+        $this->conditionCollectionFactory->method('create')->willThrowException(new \RuntimeException('db error'));
+        $this->actionCollectionFactory->expects(self::never())->method('create');
+
+        $this->logger->expects(self::once())->method('error');
+
+        $this->makeDispatcher()->dispatchScheduledTrigger(5, []);
+    }
 }
