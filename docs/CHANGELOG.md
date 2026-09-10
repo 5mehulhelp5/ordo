@@ -19,6 +19,32 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`event_occurred` admin form UI (behavioral segmentation, Phase 4)**, closing the ROADMAP.md
+  Tier 3 "behavioral/event-based segmentation" item in full — `ordo_segment_form.xml` gained
+  dedicated `event_type` (select, `Model\Config\Source\EventType`), `event_key` (optional SKU),
+  and `within_days` fields, plus a new switcherConfig rule showing/hiding them (mechanical:
+  every one of the existing 17 rules also gained 3 new hide-actions for these fields, same
+  "switcherConfig has no else semantics" pattern already documented on the form). A marketer can
+  now actually build "added product X to cart in the last 14 days" without touching the API/DB
+  directly. `Model\Segment\SegmentSaveProcessor::DEDICATED_PARAM_FIELDS` gained the 3 new plain
+  fields (no special JSON handling needed, unlike `split`'s `variants`). The nested-group inline
+  editor (`segment-group-modal.js`) needed no change — an unlisted type in its `VALUE_FIELD_BY_TYPE`
+  map already falls back to its "Advanced (JSON)" textarea, which is exactly right for a 3-field
+  condition like this one.
+- **`event_occurred` condition type (behavioral segmentation, Phase 2)**, closing the second phase
+  of ROADMAP.md's Tier 3 "behavioral/event-based segmentation" item — usable in campaign triggers
+  immediately; segment-form admin UI and `SegmentMemberResolver` bulk-membership wiring are later
+  phases (the bulk case is actually already wired below, ahead of the form fields). Params:
+  `{"event_type": "cart_add"|"wishlist_add", "event_key": "24-MB01" (optional), "within_days": 14}`.
+  New `Model\Event\EventOccurredResolver` (per-customer `hasEventOccurred()` + bulk
+  `getCustomerIdsWithEvent()`), mirroring `Model\Purchase\PurchasedProductResolver`'s own
+  single-customer/whole-base pairing, queried live against `ordo_visitor_event` (populated by
+  Phase 1's `TrackCartAdd`/`TrackWishlistAdd`). New `Model\Campaign\Condition\EventOccurred`
+  (per-customer, wired into `ConditionPool` via `etc/di.xml`) and a new
+  `SegmentMemberResolver::resolveEventOccurred()` case (set-level, for segment audience
+  size/bulk actions). Caveat documented in code: `within_days` beyond
+  `Cron\PruneVisitorEvents`'s retention window (default 7 days) silently stops matching pruned
+  rows — not validated/capped in this pass.
 - **Flow canvas UI for A/B/split testing**, closing Part A Phase 3 of the ROADMAP.md Tier 3 "A/B
   testing" item — the backend (Phase 2) already ran a `type = 'split'` action correctly, but a
   campaign could only get one via a direct API/DB row insertion; there was no way to actually
