@@ -236,6 +236,13 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **`Cron/CalculateReorderCycle::execute()` now estimates the reorder interval as a median of the
+  per-SKU order-to-order gaps instead of a plain arithmetic mean**, closing the ROADMAP.md gap
+  where a single anomalous gap (a customer pausing for months, or a one-off bulk restock that
+  skips several normal cycles) skewed the whole prediction disproportionately, since a mean has no
+  resistance to outliers. No new dependency — sorts the (already-in-memory) interval list and
+  takes the middle value, or the average of the two middle values for an even count. The `< 1`
+  same-day-purchase skip, `MIN_ORDERS_TO_DETECT_PATTERN`, and `upsertCycle()` call are unchanged.
 - **SendGrid webhook status updates are now rank-based instead of last-write-wins**, closing the
   "no ordering/idempotency guard against provider redelivery" gap: `Controller\Email\StatusCallback`
   has no per-event timestamp column to compare against, and SendGrid's account-wide Event Webhook
