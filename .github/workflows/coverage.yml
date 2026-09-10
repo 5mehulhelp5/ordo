@@ -24,13 +24,11 @@ on:
     branches: [main, master]
 
 jobs:
-  coverage:
+  php-coverage:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -92,11 +90,27 @@ jobs:
           slug: michalper/ordo
           fail_ci_if_error: true
 
+      - name: Upload clover report for Sonar
+        # Handed off to the sonar job below, which can't regenerate this itself without
+        # re-running the whole PHPUnit suite — passing the artifact is materially cheaper than
+        # running php-coverage and sonar sequentially in one job, which is exactly the split
+        # this workflow makes.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: php-coverage-report
+          path: clover.xml
+          retention-days: 1
+
+  js-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Setup Node
         # For the handful of hand-rolled AMD modules under view/**/web/js (Test/js/ + package.json
-        # at repo root) - this project is otherwise pure PHP/Composer, so Node only shows up here,
-        # right before the JS coverage run that feeds the Sonar step below. See package.json's own
-        # description for why this exists at all.
+        # at repo root) - this project is otherwise pure PHP/Composer, so Node only shows up here.
+        # See package.json's own description for why this exists at all.
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "22"
@@ -109,6 +123,37 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npm run test:js:coverage
+
+      - name: Upload lcov report for Sonar
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: js-coverage-report
+          path: coverage-js/lcov.info
+          retention-days: 1
+
+  sonar:
+    # Waits on both coverage jobs so php.coverage.reportPaths / javascript.lcov.reportPaths have
+    # something to import — this is the only reason php-coverage and js-coverage can't just run
+    # standalone; splitting them out is what lets those two run in parallel instead of back to
+    # back in a single job.
+    needs: [php-coverage, js-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Download PHP coverage report
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: php-coverage-report
+
+      - name: Download JS coverage report
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: js-coverage-report
+          path: coverage-js
 
       - name: SonarQube Cloud Scan
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
