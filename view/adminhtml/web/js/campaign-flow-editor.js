@@ -505,20 +505,32 @@ define([
              * duplicated, only the mouse-drag step is replaced with a direct function call.
              *
              * window.ordoFlowTestHook.buildChain(nodeSpecs) adds each node in nodeSpecs in
-             * order, left to right, wiring node[i] -> node[i+1] (output_1 -> input_1) same as
-             * applyTemplate() above, and returns the array of created Drawflow node ids.
+             * order, left to right, and returns the array of created Drawflow node ids.
              *   nodeSpecs: Array<{kind: 'trigger'|'condition'|'action', type: String,
              *              fields?: Object<String, String>}>
              *   `fields` (optional) is applied as data-field="<key>" -> value on the node's own
              *   inputs right after creation — the same inputs collectRows() reads from when
              *   Apply is clicked, so this is exactly what a merchant typing into those same
              *   boxes by hand would produce, not a separate/parallel data path.
+             *
+             * Wiring: node[i] -> node[i+1] (output_1 -> input_1), same as applyTemplate() above,
+             * EXCEPT a trigger node is never the connection's target - addNode() gives trigger
+             * nodes zero inputs (they're entry points, nothing feeds into one), so connecting
+             * into "trigger2's input_1" doesn't just no-op, it corrupts the graph and made
+             * validateFlow() throw a raw JS TypeError on a real CI run instead of the friendly
+             * "needs at least one Action" message a merchant would see for the same shape.
+             * Consecutive trigger specs (multiple triggers, no condition/action between them)
+             * are instead all queued and fanned in together to the next non-trigger node, once
+             * one is added - matching validateFlow()'s own checkTriggersShareOneChain() rule
+             * that every trigger is a valid, independent entry point into the SAME shared chain,
+             * not a series feeding into each other.
              */
             window.ordoFlowTestHook = {
                 buildChain: function (nodeSpecs) {
                     var startX = getNextTemplateStartX(),
                         startY = 80,
                         previousNodeId = null,
+                        pendingTriggerIds = [],
                         nodeIds = [];
 
                     (nodeSpecs || []).forEach(function (nodeSpec, index) {
@@ -527,11 +539,21 @@ define([
 
                         applyBuildChainNodeFields($node, nodeSpec.fields);
 
-                        if (previousNodeId !== null) {
-                            editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
+                        if (nodeSpec.kind === 'trigger') {
+                            pendingTriggerIds.push(nodeId);
+                        } else {
+                            if (pendingTriggerIds.length) {
+                                pendingTriggerIds.forEach(function (triggerId) {
+                                    editor.addConnection(triggerId, nodeId, 'output_1', 'input_1');
+                                });
+                                pendingTriggerIds = [];
+                            } else if (previousNodeId !== null) {
+                                editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
+                            }
+
+                            previousNodeId = nodeId;
                         }
 
-                        previousNodeId = nodeId;
                         nodeIds.push(nodeId);
                     });
 

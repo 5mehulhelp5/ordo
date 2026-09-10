@@ -31,13 +31,22 @@
              "Flow" canvas is the only editor a merchant actually sees (see
              ordo_campaign_form.xml). window.ordoFlowTestHook.buildChain() (campaign-flow-
              editor.js, TEST-SUPPORT ONLY) builds the two trigger nodes a merchant would by
-             dragging palette chips onto the canvas - no wiring between two triggers is needed
-             (buildChain only connects consecutive nodes when a previous one exists, and two
-             standalone triggers persist as two separate trigger rows either way). -->
+             dragging palette chips onto the canvas - both triggers fan into the same downstream
+             action (buildChain's own handling of consecutive trigger specs), matching
+             validateFlow()'s checkTriggersShareOneChain() rule that every trigger must be a
+             valid, independent entry point into the SAME shared chain.
+
+             A trailing, otherwise-irrelevant add_tag action is included too: this test's own
+             subject is trigger persistence, not action behavior, but the canvas's own
+             validateFlow() requires at least one Action to exist before "Apply" will accept
+             the flow at all - a real merchant hitting "Apply" on a trigger-only graph gets
+             blocked the same way, so this test was never trying to prove an action-less flow
+             is valid, and one isn't, by design. -->
         <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasToBuild"/>
         <executeJS function="window.ordoFlowTestHook.buildChain([
             {kind: 'trigger', type: 'order_placed'},
-            {kind: 'trigger', type: 'customer_registered'}
+            {kind: 'trigger', type: 'customer_registered'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'multi-trigger-test-tag', delay_minutes: '0'}}
         ]);" stepKey="buildFlowGraph"/>
 
         <!-- "enabled" renders as a Magento_Ui single-checkbox styled as a toggle switch
