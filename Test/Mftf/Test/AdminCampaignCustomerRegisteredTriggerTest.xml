@@ -30,20 +30,22 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Customer Registered Tag Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="customer_registered" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagField"/>
-        <fillField selector="[name='actions[actions][0][tag]']" userInput="new-registrant" stepKey="fillActionTag"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now
+             that the Drawflow "Flow" canvas is the only editor a merchant actually sees (see
+             ordo_campaign_form.xml's triggers_fieldset/conditions_fieldset/actions_fieldset,
+             all <visible>false</visible>) — "Add Trigger"/"Add Action" no longer exist on the
+             page. window.ordoFlowTestHook.buildChain() (campaign-flow-editor.js, TEST-SUPPORT
+             ONLY) builds the same trigger -> action node chain a merchant would by dragging
+             palette chips onto the canvas. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'customer_registered'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'new-registrant', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

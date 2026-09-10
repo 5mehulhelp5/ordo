@@ -31,28 +31,18 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="E2E Unknown Action Type Campaign" stepKey="fillCampaignName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addFirstActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForFirstActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectFirstActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagField"/>
-        <fillField selector="[name='actions[actions][0][tag]']" userInput="will_be_corrupted" stepKey="fillTag"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillFirstActionDelay"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addSecondActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForSecondActionRow"/>
-        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectSecondActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
-        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
-        <fillField selector="[name='actions[actions][1][message]']" userInput="You should still get this." stepKey="fillMessage"/>
-        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillSecondActionDelay"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'will_be_corrupted', delay_minutes: '0'}},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'You should still get this.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForCampaignSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>

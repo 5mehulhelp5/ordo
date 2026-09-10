@@ -38,27 +38,23 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="E2E Delayed Coupon Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="generate_coupon" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][rule_id]']" stepKey="waitForRuleIdField"/>
-        <fillField selector="[name='actions[actions][0][rule_id]']" userInput="$createRule.rule_id$" stepKey="fillRuleId"/>
-        <fillField selector="[name='actions[actions][0][prefix]']" userInput="DELAYTEST" stepKey="fillPrefix"/>
-        <!-- The one field this whole test exists to exercise: CampaignDispatcher::runActionsFrom()
-             treats any delay_minutes > 0 as "pause the chain here, write a scheduled-action row,
-             let Cron\RunScheduledCampaignActions resume it later" instead of running the action
-             inline. 1 minute is the smallest delay this test can honestly verify without faking
-             elapsed time - see the <wait> below. -->
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="1" stepKey="fillDelayMinutes"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now
+             that the Drawflow "Flow" canvas is the only editor a merchant actually sees (see
+             ordo_campaign_form.xml). window.ordoFlowTestHook.buildChain() (campaign-flow-
+             editor.js, TEST-SUPPORT ONLY) builds the same trigger -> action node chain. The one
+             field this whole test exists to exercise: CampaignDispatcher::runActionsFrom() treats
+             any delay_minutes > 0 as "pause the chain here, write a scheduled-action row, let
+             Cron\RunScheduledCampaignActions resume it later" instead of running the action
+             inline - see the <wait> further below. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'generate_coupon', fields: {rule_id: '$createRule.rule_id$', prefix: 'DELAYTEST', delay_minutes: '1'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

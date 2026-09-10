@@ -37,25 +37,15 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Add Product Recommendations Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow0"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow0"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_product_recommendations" stepKey="selectActionType0"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow1"/>
-        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForActionRow1"/>
-        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectActionType1"/>
-        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
-        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
-        <fillField selector="[name='actions[actions][1][message]']" userInput="Product recommendations action fired." stepKey="fillMessage"/>
-        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_product_recommendations'},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'Product recommendations action fired.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

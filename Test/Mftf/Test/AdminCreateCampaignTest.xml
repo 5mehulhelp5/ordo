@@ -29,12 +29,21 @@
              instance where this had never been an issue in the already-warmed-up local sandbox. -->
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Test Win-Back Coupon" stepKey="fillName"/>
-        <!-- Trigger moved from a single select to its own dynamicRows section
-             (CampaignTriggerInterface — a campaign can fire on more than one trigger event
-             now), same double-nested posting shape as conditions/actions below. -->
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now
+             that the Drawflow "Flow" canvas is the only editor a merchant actually sees (see
+             ordo_campaign_form.xml's triggers_fieldset/conditions_fieldset/actions_fieldset,
+             all <visible>false</visible>) — "Add Trigger"/"Add Condition"/"Add Action" no longer
+             exist on the page. window.ordoFlowTestHook.buildChain() (campaign-flow-editor.js,
+             TEST-SUPPORT ONLY) builds the same trigger -> condition -> action node chain a
+             merchant would by dragging palette chips onto the canvas; order_total_gte and
+             add_tag both have dedicated fields per Flow::getFieldsConfig() (amount, tag), so
+             those are used directly instead of the old raw params_json fallback. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'order_total_gte', fields: {amount: '500'}},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'big_spender'}}
+        ]);" stepKey="buildFlowGraph"/>
         <!-- "enabled" renders as a Magento_Ui single-checkbox styled as a toggle switch
              (prefer: "toggle") — the real <input> is visually covered by its own field
              wrapper, so a direct click/checkOption on the input gets intercepted by that
@@ -44,24 +53,11 @@
              it into view first with room above for that toolbar. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
 
-        <!-- dynamicRows posts fields double-nested under the section's own name
-             (conditions[conditions][0][...], actions[actions][0][...]) — see
-             Controller/Adminhtml/Campaign/Save.php's DEDICATED_PARAM_FIELDS handling and
-             VERIFICATION.md #14, where this exact double-nesting was the real bug found by
-             running a real save. A flat conditions[0][...] selector (what an earlier,
-             never-executed version of this test assumed) silently matches nothing. -->
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
-        <fillField selector="[name='conditions[conditions][0][params_json]']" userInput="{&quot;amount&quot;: &quot;500&quot;}" stepKey="fillConditionParams"/>
-
-        <waitForElementVisible selector="//*[contains(text(), 'Add Action')]" stepKey="waitForAddActionButton"/>
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionType"/>
-        <fillField selector="[name='actions[actions][0][params_json]']" userInput="{&quot;tag&quot;: &quot;big_spender&quot;}" stepKey="fillActionParams"/>
-
-        <click selector="#save" stepKey="clickSave"/>
+        <!-- A plain <click> on the Apply button is intercepted by the page's fixed
+             page-actions toolbar overlapping it at this scroll position (element-click-
+             intercepted) - dispatching the click via JS hits the exact same button/handler
+             without depending on scroll position/viewport geometry. -->
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

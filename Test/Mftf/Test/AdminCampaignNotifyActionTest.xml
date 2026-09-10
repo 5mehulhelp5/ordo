@@ -31,29 +31,21 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="E2E Notify Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][amount]']" stepKey="waitForAmountField"/>
-        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="50" stepKey="fillConditionAmount"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="notify" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][headline]']" stepKey="waitForHeadlineField"/>
-        <fillField selector="[name='actions[actions][0][headline]']" userInput="E2E Notify Headline" stepKey="fillHeadline"/>
-        <fillField selector="[name='actions[actions][0][body]']" userInput="E2E notify body text" stepKey="fillBody"/>
-        <fillField selector="[name='actions[actions][0][cta_label]']" userInput="See details" stepKey="fillCtaLabel"/>
-        <fillField selector="[name='actions[actions][0][cta_url]']" userInput="https://example.test/e2e-notify" stepKey="fillCtaUrl"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale. "notify" has no dedicated
+             field descriptor in Block/Adminhtml/Campaign/Edit/Flow::getFieldsConfig() (only
+             "popup" among the on-site actions does) — its headline/body/cta_label/cta_url all go
+             through the generic params_json fallback field. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'order_total_gte', fields: {amount: '50'}},
+            {kind: 'action', type: 'notify', fields: {params_json: '{&quot;headline&quot;: &quot;E2E Notify Headline&quot;, &quot;body&quot;: &quot;E2E notify body text&quot;, &quot;cta_label&quot;: &quot;See details&quot;, &quot;cta_url&quot;: &quot;https://example.test/e2e-notify&quot;}', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
         <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>

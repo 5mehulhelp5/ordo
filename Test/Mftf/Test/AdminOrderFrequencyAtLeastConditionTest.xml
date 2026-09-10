@@ -29,27 +29,15 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="Order Frequency At Least Send Email Campaign" stepKey="fillName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_frequency_at_least" stepKey="selectConditionType"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][count]']" stepKey="waitForCountField"/>
-        <fillField selector="[name='conditions[conditions][0][count]']" userInput="2" stepKey="fillConditionCount"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="send_email" stepKey="selectActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][0][template]']" stepKey="waitForTemplateField"/>
-        <fillField selector="[name='actions[actions][0][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
-        <fillField selector="[name='actions[actions][0][message]']" userInput="Order frequency condition fired." stepKey="fillMessage"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutes"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'order_frequency_at_least', fields: {count: '2'}},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'Order frequency condition fired.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 

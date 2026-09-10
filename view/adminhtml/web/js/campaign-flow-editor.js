@@ -475,6 +475,57 @@ define([
                 $(this).closest('details.ordo-flow-templates').removeAttr('open');
             });
 
+            /**
+             * TEST-SUPPORT ONLY — not used by any real merchant-facing feature.
+             *
+             * MFTF's plain click/dragAndDrop actions can't reliably drive Drawflow's palette,
+             * since dragging a chip onto the canvas depends on native HTML5 dragstart/drop
+             * DataTransfer events (see the "Palette drag-and-drop" handlers above) that a
+             * synthesized Selenium drag does not reproduce faithfully in every browser. Rather
+             * than fight that, this exposes the same node-building/wiring/apply primitives the
+             * palette itself calls (addNode(), editor.addConnection(), the Apply button's own
+             * click handler) directly to the page's global scope, so a test can build a flow
+             * graph with one <executeJS> call and then drive the exact same, unmodified Apply
+             * button a real merchant would click — nothing about the save path is bypassed or
+             * duplicated, only the mouse-drag step is replaced with a direct function call.
+             *
+             * window.ordoFlowTestHook.buildChain(nodeSpecs) adds each node in nodeSpecs in
+             * order, left to right, wiring node[i] -> node[i+1] (output_1 -> input_1) same as
+             * applyTemplate() above, and returns the array of created Drawflow node ids.
+             *   nodeSpecs: Array<{kind: 'trigger'|'condition'|'action', type: String,
+             *              fields?: Object<String, String>}>
+             *   `fields` (optional) is applied as data-field="<key>" -> value on the node's own
+             *   inputs right after creation — the same inputs collectRows() reads from when
+             *   Apply is clicked, so this is exactly what a merchant typing into those same
+             *   boxes by hand would produce, not a separate/parallel data path.
+             */
+            window.ordoFlowTestHook = {
+                buildChain: function (nodeSpecs) {
+                    var startX = getNextTemplateStartX(),
+                        startY = 80,
+                        previousNodeId = null,
+                        nodeIds = [];
+
+                    (nodeSpecs || []).forEach(function (nodeSpec, index) {
+                        var nodeId = addNode(nodeSpec.kind, nodeSpec.type, startX + index * 260, startY),
+                            $node = $(container).find('#node-' + nodeId);
+
+                        Object.keys(nodeSpec.fields || {}).forEach(function (fieldName) {
+                            $node.find('[data-field="' + fieldName + '"]').val(nodeSpec.fields[fieldName]).trigger('change');
+                        });
+
+                        if (previousNodeId !== null) {
+                            editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
+                        }
+
+                        previousNodeId = nodeId;
+                        nodeIds.push(nodeId);
+                    });
+
+                    return nodeIds;
+                }
+            };
+
             // Drawflow renders node HTML as-is; delete buttons are wired via event delegation
             // since nodes are added/removed dynamically after the container's own listeners are
             // bound once at init.

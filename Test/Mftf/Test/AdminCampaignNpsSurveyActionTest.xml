@@ -28,20 +28,19 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldA"/>
         <fillField selector="[name='name']" userInput="E2E NPS Survey Campaign" stepKey="fillNameA"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonA"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowA"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowA"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventA"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowA"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="nps_survey" stepKey="selectActionTypeA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][question]']" stepKey="waitForQuestionField"/>
-        <fillField selector="[name='actions[actions][0][question]']" userInput="How likely are you to recommend us to a friend?" stepKey="fillQuestion"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesA"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale. "nps_survey" has no
+             dedicated field descriptor in getFieldsConfig() — "question" goes through the
+             generic params_json fallback field. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasA"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'nps_survey', fields: {params_json: '{&quot;question&quot;: &quot;How likely are you to recommend us to a friend?&quot;}', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraphA"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignA"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueA"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveA"/>
         <waitForPageLoad stepKey="waitForSaveA"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageA"/>
 
@@ -55,26 +54,17 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
         <fillField selector="[name='name']" userInput="NPS Score At Least After Survey Campaign" stepKey="fillNameB"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonB"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowB"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowB"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="tag_added" stepKey="selectTriggerEventB"/>
-
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRowB"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="nps_score_at_least" stepKey="selectConditionTypeB"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][params_json]']" stepKey="waitForParamsJsonFieldB"/>
-        <fillField selector="[name='conditions[conditions][0][params_json]']" userInput='{"threshold":9}' stepKey="fillConditionParamsB"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowB"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_tag" stepKey="selectActionTypeB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][tag]']" stepKey="waitForTagFieldB"/>
-        <fillField selector="[name='actions[actions][0][tag]']" userInput="nps_promoter" stepKey="fillTagB"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesB"/>
+        <!-- nps_score_at_least also has no dedicated field descriptor — same params_json
+             fallback precedent as AdminLoyaltyTierAtLeastConditionTest.xml's loyalty_tier_at_least. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasB"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'tag_added'},
+            {kind: 'condition', type: 'nps_score_at_least', fields: {params_json: '{&quot;threshold&quot;:9}'}},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'nps_promoter', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraphB"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignB"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueB"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveB"/>
         <waitForPageLoad stepKey="waitForSaveB"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
 

@@ -58,26 +58,22 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
         <fillField selector="[name='name']" userInput="E2E Dynamic Content Campaign" stepKey="fillCampaignName"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButton"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRow"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRow"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEvent"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addFirstActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForFirstActionRow"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_dynamic_content" stepKey="selectFirstActionType"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillFirstActionDelay"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addSecondActionRow"/>
-        <waitForElementVisible selector="[name='actions[actions][1][type]']" stepKey="waitForSecondActionRow"/>
-        <selectOption selector="[name='actions[actions][1][type]']" userInput="send_email" stepKey="selectSecondActionType"/>
-        <waitForElementVisible selector="[name='actions[actions][1][template]']" stepKey="waitForTemplateField"/>
-        <fillField selector="[name='actions[actions][1][template]']" userInput="ordo_campaign_generic" stepKey="fillTemplate"/>
-        <fillField selector="[name='actions[actions][1][message]']" userInput="See the content below:" stepKey="fillMessage"/>
-        <fillField selector="[name='actions[actions][1][delay_minutes]']" userInput="0" stepKey="fillSecondActionDelay"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale.
+             window.ordoFlowTestHook.buildChain() builds the trigger and both actions in one go on
+             this new (unsaved) campaign page; content_block_id has no dedicated field in
+             getFieldsConfig() for add_dynamic_content, so it's set separately below through the
+             real canvas dropdown, exactly as a merchant would. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasBeforeSave"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_dynamic_content', fields: {delay_minutes: '0'}},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'See the content below:', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinue"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveFirst"/>
         <waitForPageLoad stepKey="waitForCampaignSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
 
@@ -91,7 +87,7 @@
         <waitForElementVisible selector=".ordo-flow-node[data-kind='action'] select[data-field='content_block_id']" stepKey="waitForContentBlockDropdown"/>
         <selectOption selector=".ordo-flow-node[data-kind='action'] select[data-field='content_block_id']" userInput="E2E Snippet Block (snippet)" stepKey="selectContentBlockOnCanvas"/>
 
-        <click selector="[data-flow-action='apply']" stepKey="clickApplyFlowAndSave"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
         <waitForPageLoad stepKey="waitForFlowApplySave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeFlowApplySuccessMessage"/>
 

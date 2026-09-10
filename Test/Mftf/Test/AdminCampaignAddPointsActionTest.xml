@@ -38,25 +38,24 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldA"/>
         <fillField selector="[name='name']" userInput="Add Points On Order Campaign" stepKey="fillNameA"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonA"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowA"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowA"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventA"/>
-
-        <!-- Dedicated "points" field — verified against ordo_campaign_form.xml's switcherConfig
-             rule for add_points, which toggles ${ $.parentName }.points visible and every other
-             action field (tag/rule_id/prefix/template/message/headline/body/cta_label/cta_url)
-             hidden. Not params_json. -->
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowA"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="add_points" stepKey="selectActionTypeA"/>
-        <waitForElementVisible selector="[name='actions[actions][0][points]']" stepKey="waitForPointsField"/>
-        <fillField selector="[name='actions[actions][0][points]']" userInput="150" stepKey="fillPoints"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesA"/>
+        <!-- The triggers/conditions/actions dynamicRows fieldsets are permanently hidden now that
+             the Drawflow "Flow" canvas is the only editor a merchant actually sees — see
+             AdminCampaignAddTagActionTest.xml for the full rationale. "points" is a dedicated
+             field for add_points in Block/Adminhtml/Campaign/Edit/Flow::getFieldsConfig(), not
+             the generic params_json fallback. -->
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasA"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_points', fields: {points: '150', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraphA"/>
 
         <!-- Same sticky-toolbar overlap workaround as AdminCreateCampaignWithConditionsAndActionsTest. -->
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignA"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueA"/>
+        <!-- A plain <click> on the Apply button is intercepted by the page's fixed page-actions
+             toolbar overlapping it at this scroll position (element-click-intercepted) -
+             dispatching the click via JS hits the exact same button/handler without depending on
+             scroll position/viewport geometry. -->
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveA"/>
         <waitForPageLoad stepKey="waitForSaveA"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageA"/>
 
@@ -74,27 +73,15 @@
         <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldB"/>
         <fillField selector="[name='name']" userInput="Score At Least After Add Points Campaign" stepKey="fillNameB"/>
 
-        <waitForElementVisible selector="//*[contains(text(), 'Add Trigger')]" stepKey="waitForAddTriggerButtonB"/>
-        <click selector="//*[contains(text(), 'Add Trigger')]" stepKey="addTriggerRowB"/>
-        <waitForElementVisible selector="[name='triggers[triggers][0][trigger_event]']" stepKey="waitForTriggerRowB"/>
-        <selectOption selector="[name='triggers[triggers][0][trigger_event]']" userInput="order_placed" stepKey="selectTriggerEventB"/>
-
-        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRowB"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRowB"/>
-        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="score_at_least" stepKey="selectConditionTypeB"/>
-        <waitForElementVisible selector="[name='conditions[conditions][0][threshold]']" stepKey="waitForThresholdFieldB"/>
-        <fillField selector="[name='conditions[conditions][0][threshold]']" userInput="100" stepKey="fillConditionThresholdB"/>
-
-        <click selector="//*[contains(text(), 'Add Action')]" stepKey="addActionRowB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][type]']" stepKey="waitForActionRowB"/>
-        <selectOption selector="[name='actions[actions][0][type]']" userInput="generate_coupon" stepKey="selectActionTypeB"/>
-        <waitForElementVisible selector="[name='actions[actions][0][rule_id]']" stepKey="waitForRuleIdFieldB"/>
-        <fillField selector="[name='actions[actions][0][rule_id]']" userInput="$createRule.rule_id$" stepKey="fillRuleIdB"/>
-        <fillField selector="[name='actions[actions][0][prefix]']" userInput="ADDPOINTS" stepKey="fillPrefixB"/>
-        <fillField selector="[name='actions[actions][0][delay_minutes]']" userInput="0" stepKey="fillDelayMinutesB"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvasB"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'score_at_least', fields: {threshold: '100'}},
+            {kind: 'action', type: 'generate_coupon', fields: {rule_id: '$createRule.rule_id$', prefix: 'ADDPOINTS', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraphB"/>
 
         <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaignB"/>
-        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueB"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSaveB"/>
         <waitForPageLoad stepKey="waitForSaveB"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessageB"/>
 
