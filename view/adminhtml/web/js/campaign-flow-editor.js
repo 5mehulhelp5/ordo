@@ -43,6 +43,21 @@ function findDisconnectedNodeIds(exported, groups, primaryRoot) {
     });
 }
 
+/**
+ * Applies one buildChain() node's `fields` onto its own data-field inputs - pulled out of
+ * buildChain()'s per-node forEach() (itself inside window.ordoFlowTestHook's own function, inside
+ * the build() IIFE) purely to keep that callback's nesting depth within the linter's limit, same
+ * reasoning as unionNodeOutputConnections()/findDisconnectedNodeIds() above; no behavior change.
+ *
+ * @param {jQuery} $node
+ * @param {Object<String, String>} fields
+ */
+function applyBuildChainNodeFields($node, fields) {
+    Object.keys(fields || {}).forEach(function (fieldName) {
+        $node.find('[data-field="' + fieldName + '"]').val(fields[fieldName]).trigger('change');
+    });
+}
+
 define([
     'jquery',
     'uiRegistry',
@@ -510,9 +525,7 @@ define([
                         var nodeId = addNode(nodeSpec.kind, nodeSpec.type, startX + index * 260, startY),
                             $node = $(container).find('#node-' + nodeId);
 
-                        Object.keys(nodeSpec.fields || {}).forEach(function (fieldName) {
-                            $node.find('[data-field="' + fieldName + '"]').val(nodeSpec.fields[fieldName]).trigger('change');
-                        });
+                        applyBuildChainNodeFields($node, nodeSpec.fields);
 
                         if (previousNodeId !== null) {
                             editor.addConnection(previousNodeId, nodeId, 'output_1', 'input_1');
