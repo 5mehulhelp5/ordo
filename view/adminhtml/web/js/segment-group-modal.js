@@ -101,6 +101,37 @@ define([
     }
 
     /**
+     * Toggles a visible error state on a "Advanced (JSON)" textarea - the group-condition editor
+     * used to silently fall back to an empty {} on malformed JSON with no feedback at all, so a
+     * non-technical marketer had no way to know their condition now quietly matches nothing.
+     * Marks the field invalid (red border + inline message) rather than blocking save entirely -
+     * the fallback-to-{} behavior itself is unchanged (still the safe failure direction), this
+     * only makes it visible instead of silent.
+     *
+     * @param {jQuery} $textarea
+     * @param {Boolean} isValid
+     * @param {String} [reason] the underlying JSON.parse() error message, appended to the
+     *     visible notice so an admin who does know JSON gets an actual clue, not just "invalid".
+     */
+    function markJsonValidity($textarea, isValid, reason) {
+        var $wrap = $textarea.closest('.ordo-group-value'),
+            $message = $wrap.find('.ordo-group-json-error-message');
+
+        $textarea.toggleClass('ordo-group-json-invalid', !isValid);
+
+        if (isValid) {
+            $message.remove();
+            return;
+        }
+
+        if (!$message.length) {
+            $message = $('<div class="ordo-group-json-error-message"></div>').insertAfter($textarea);
+        }
+        $message.text('Invalid JSON - this condition will match nothing until fixed.'
+            + (reason ? ' (' + reason + ')' : ''));
+    }
+
+    /**
      * @param {jQuery} $rows
      * @param {Array} typeOptions
      * @param {Object} condition {type, params}
@@ -156,14 +187,23 @@ define([
                     params[valueKey] = value;
                 }
             } else {
-                var raw = $.trim($valueWrap.find('textarea').val());
+                var $textarea = $valueWrap.find('textarea'),
+                    raw = $.trim($textarea.val());
 
                 if (raw !== '') {
                     try {
                         params = JSON.parse(raw);
+                        markJsonValidity($textarea, true);
                     } catch (e) {
+                        // Still falls back to {} (a malformed group condition matching nothing is
+                        // the safe failure direction, same as an empty group) - but now visibly,
+                        // surfacing e.message in the notice instead of the admin silently getting
+                        // a condition that quietly matches nothing with no indication why.
                         params = {};
+                        markJsonValidity($textarea, false, e.message);
                     }
+                } else {
+                    markJsonValidity($textarea, true);
                 }
             }
 
@@ -192,7 +232,13 @@ define([
         try {
             existing = JSON.parse($jsonField.val() || '[]');
         } catch (e) {
+            // Any parse failure is treated the same way (start from an empty condition list,
+            // shown visibly below rather than silently) - e.message surfaced for debugging.
             existing = [];
+            $('<div class="ordo-group-json-error-message"></div>')
+                .text('This group\'s saved conditions were corrupted and could not be loaded - starting empty. ('
+                    + e.message + ')')
+                .appendTo($panel);
         }
         if (!Array.isArray(existing)) {
             existing = [];
