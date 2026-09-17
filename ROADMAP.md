@@ -76,9 +76,6 @@ as bugs above, not repeated here)*
 Not gaps in something existing — genuinely new capabilities, proposed after checking they don't already
 exist in some form. Not prioritized against each other; listed for later scoping.
 
-- **Price-drop & back-in-stock alerts** *(in progress)* — customer/visitor opt-in on PDP, a cron watching catalog
-  price/stock changes, two new trigger types through the existing `CampaignDispatcher` pipeline.
-  Medium-large scope, primarily B2C.
 - **Predictive send-time optimization** *(in progress)* — pick each customer's historically best send hour from
   existing `ordo_message_log`/`ordo_message_log_event` open/click data and hold the action via the existing
   `CampaignDispatcher::deferActionUntil()`/`Cron\RunScheduledCampaignActions` resume mechanism instead of a fixed
