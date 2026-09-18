@@ -5,6 +5,26 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Local LLM (Ollama) content generation (ROADMAP.md "Candidate new features")** — a new
+  `generate_ai_content` campaign action calls a self-hosted Ollama instance
+  (`Model\Ai\OllamaClient`, mirroring `Model\Http\JsonApiClient`'s shape) to personalize content
+  per customer from context already in the dispatch, e.g. `{{customer_first_name}}` placeholders
+  in the configured prompt — no data leaves the store, consistent with this module's "no
+  external MA subscription" positioning. Same always-write-something-into-context convention as
+  `AddDynamicContent`/`AddProductRecommendations` (`output_key`, defaults to
+  `ai_content_html`), and the same fail-soft posture as every other send action: disabled, no
+  prompt configured, or a timeout/unreachable Ollama instance all fall back to the action's own
+  configured static text rather than blocking or failing the dispatch. Outbound calls go through
+  the existing `OutboundRateLimiter` so a queue burst can't flood a local instance. New "AI
+  Content (self-hosted Ollama)" admin config group (Stores > Configuration > Ordo Automation),
+  with dedicated `prompt`/`output_key`/`fallback` fields on the Flow canvas (not the generic
+  "Params (JSON)" fallback textarea) and a "Test Connection" button on the config page itself
+  (`Controller\Adminhtml\Ai\TestConnection`) that calls the real `OllamaClient::generate()` path
+  with a trivial prompt, so a misconfiguration is caught immediately instead of only being
+  discovered via the action's own silent fail-soft fallback during a real campaign dispatch.
+
 ## [1.0.0]
 
 First git-tagged release — every version before this one was a documentation-only checkpoint in
