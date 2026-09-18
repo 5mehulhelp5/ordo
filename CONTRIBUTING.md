@@ -75,8 +75,8 @@ trigger manually (`workflow_dispatch`) once your PR is up.
 ## Reporting issues
 
 Open a GitHub issue with what you expected, what happened instead, and enough to reproduce it (Magento version,
-PHP version, relevant config). For a security issue, please don't open a public issue — see the repo's contact
-info instead.
+PHP version, relevant config). For a security issue, please don't open a public issue — see
+[SECURITY.md](SECURITY.md) instead.
 
 ## License
 
