@@ -104,7 +104,11 @@
              in-memory state carried over from the save, since this is a genuinely fresh page
              load. -->
         <waitForElementVisible selector=".ordo-group-inline" stepKey="waitForReloadedInlinePanel"/>
-        <seeNumberOfElements selector=".ordo-group-row" userInput="2" stepKey="seeTwoReloadedGroupRows"/>
+        <!-- Same MalformedLocatorException pitfall as dontSeeManageGroupButton above: a bare
+             class selector routes seeNumberOfElements through Selenium's native "class name"
+             locator strategy, which some driver/selenium combinations reject outright. The
+             attribute form forces the CSS selector engine instead. -->
+        <seeNumberOfElements selector="[class~='ordo-group-row']" userInput="2" stepKey="seeTwoReloadedGroupRows"/>
         <dontSeeElement selector="[class~='ordo-group-manage-button']" stepKey="dontSeeManageGroupButtonAfterReload"/>
     </test>
 </tests>
