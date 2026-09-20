@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminPruneCronRunLogTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="In-admin dashboard"/>
+            <title value="Cron\PruneCronRunLog deletes a real ordo_cron_run_log row past its 30-day retention window"/>
+            <description value="Closes SCENARIOS.md §11's PruneCronRunLog gap - same shape as PruneNotifications/PrunePendingPopups/PruneSurveyPrompts. No MFTF-reachable path produces a distinctively-identifiable, already-old ordo_cron_run_log row on its own (every real cron's own CronRunLogger::logSummary() text varies by real counts/timestamps), so CronRunLogTestHelper inserts one directly, already past the 30-day retention window (Cron\PruneCronRunLog::RETENTION_DAYS), with a distinctive message - then CronScheduleHelper forces the cron to run now instead of waiting out its real daily schedule. Asserts the row is genuinely gone, not just that the cron didn't throw."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\CronRunLogTestHelper" method="insertBackdatedRow" stepKey="insertBackdatedRow">
+                <argument name="message">MFTF prune cron run log test fixture row</argument>
+            </helper>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Force PruneCronRunLog to run now - its real schedule is once daily (see
+             etc/crontab.xml), which a CI run can't wait out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="schedulePruneCronRunLogJob">
+            <argument name="jobCode">ordo_automation_prune_cron_run_log</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runPruneCronRunLogCron"/>
+
+        <!-- The real, database-observable negative only a genuine deletion could have produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronRunLogTestHelper" method="assertNoRowWithMessage" stepKey="assertRowPrunedAfterCron">
+            <argument name="message">MFTF prune cron run log test fixture row</argument>
+        </helper>
+    </test>
+</tests>
