@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminPushSubscriptionLoggedInOriginCheckTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Web push subscription lifecycle"/>
+            <title value="A logged-in customer's push subscription registration is rejected when the request carries no Origin/Referer header, even with a genuinely valid session cookie"/>
+            <description value="Closes SCENARIOS.md #27's remaining row. Model\Track\VisitorIdentityResolver::validateForCsrf() only skips the Origin/Referer check for an anonymous request - a logged-in customer's registration must additionally prove it originated from this site, since it binds an attacker-supplied endpoint/keys to a real customer_id (see that class's and the controller's own docblocks). A real browser's fetch() can never omit Origin (a browser-controlled 'forbidden header name'), so this is the one case in this module's whole test suite that has to bypass the browser entirely: RawHttpTestHelper::postWithCookieNoOrigin() fires a raw curl POST carrying the real logged-in customer's own PHPSESSID (grabbed from the same real browser session straight after a genuine storefront login), deliberately without Origin or Referer. Magento\Framework\App\Request\CsrfValidator falls back to a 302 (Controller\Track\RegisterPushSubscription::createCsrfValidationException() always returns null, so the validator's own default exception applies, which sets a 302 redirect response rather than a 400) - confirmed against that class's own source, not assumed."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <magentoCLI command="config:set ordo_automation/push/enabled 1" stepKey="enablePush"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <magentoCLI command="config:set ordo_automation/push/enabled 0" stepKey="disablePush"/>
+        </after>
+
+        <!-- A real storefront login, in a real browser session, so the PHPSESSID grabbed below is
+             a genuinely valid, currently-logged-in customer session - not a fabricated value. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <grabCookie userInput="PHPSESSID" stepKey="grabSessionId"/>
+
+        <!-- The raw POST itself: real session cookie, no Origin, no Referer - the one thing no
+             real browser fetch() call could ever produce (Origin is a forbidden header name a
+             page's own JS can't override or suppress), which is exactly the gap
+             validateForCsrf()'s Origin/Referer check exists to close for a logged-in request. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\RawHttpTestHelper" method="postWithCookieNoOrigin" stepKey="attemptRegisterWithNoOrigin">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}ordo/track/registerpushsubscription</argument>
+            <argument name="formBody">endpoint=https%3A%2F%2Fexample.com%2Fordo-origin-check-test&amp;p256dh=fake-p256dh-key-value&amp;auth=fake-auth-key-value</argument>
+            <argument name="cookieHeader">PHPSESSID={$grabSessionId}</argument>
+        </helper>
+        <assertEquals stepKey="assertRejectedWithRedirect">
+            <expectedResult type="int">302</expectedResult>
+            <actualResult type="variable">attemptRegisterWithNoOrigin</actualResult>
+        </assertEquals>
+
+        <!-- The real proof: no row was created for this attempt, regardless of what HTTP status
+             came back - the CSRF rejection has to have actually happened before execute() ran,
+             not merely returned a plausible-looking status by coincidence. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterRejectedAttempt">
+            <argument name="endpoint">https://example.com/ordo-origin-check-test</argument>
+        </helper>
+        <assertEquals stepKey="assertNoRowCreatedForRejectedAttempt">
+            <expectedResult type="int">0</expectedResult>
+            <actualResult type="variable">countAfterRejectedAttempt</actualResult>
+        </assertEquals>
+    </test>
+</tests>

@@ -46,15 +46,18 @@ class RawHttpTestHelper extends Helper
     }
 
     /**
-     * @param array<string, string> $formFields
+     * $formBody is a pre-built application/x-www-form-urlencoded string (e.g.
+     * "endpoint=...&p256dh=...&auth=...") rather than an array - MFTF's own <argument> values are
+     * always plain strings, with no array type to pass a PHP array through as.
+     *
      * @return int the real HTTP response status code
      */
-    public function postWithCookieNoOrigin(string $url, array $formFields, string $cookieHeader): int
+    public function postWithCookieNoOrigin(string $url, string $formBody, string $cookieHeader): int
     {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => http_build_query($formFields),
+            CURLOPT_POSTFIELDS => $formBody,
             CURLOPT_HTTPHEADER => ['Cookie: ' . $cookieHeader],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => false,
