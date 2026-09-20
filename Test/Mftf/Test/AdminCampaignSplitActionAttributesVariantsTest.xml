@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignSplitActionAttributesVariantsTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign split action / A-B testing"/>
+            <title value="A real dispatch selects a split action's variant deterministically per customer, runs that variant's own action chain, and attributes each real sent message to its own variant key in ordo_message_log"/>
+            <description value="Closes SCENARIOS.md #28's two MFTF rows together, since they're two facets of one real dispatch: Model\Campaign\SplitVariantSelector::pickByWeight() buckets crc32(campaignId:splitActionId:customer:customerId) % 100 against each variant's weight - deterministic, but only computable once the campaign (and its split action's own ordo_campaign_action.entity_id) is actually saved, and MFTF has no conditional/branching action to pick 'whichever pre-created customer lands in variant X' at authoring time. SplitVariantTestHelper closes that gap: given the real campaign id and several already-created candidate customers, it replicates the exact same algorithm and returns whichever candidate's email lands in the requested variant, so this test never has to branch - it just logs in as whichever email comes back. Two real orders (one per variant's chosen customer) each run CampaignDispatcher::runSplit()'s own synthetic-action-row path for real, sending a genuinely different send_email variant to each - proven via the real MailHog-delivered content differing per recipient AND via ordo_message_log.variant differing per recipient, not merely that two emails went out."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer1"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer2"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer3"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer4"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer5"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer6"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer1" stepKey="deleteCustomer1"/>
+            <deleteData createDataKey="createCustomer2" stepKey="deleteCustomer2"/>
+            <deleteData createDataKey="createCustomer3" stepKey="deleteCustomer3"/>
+            <deleteData createDataKey="createCustomer4" stepKey="deleteCustomer4"/>
+            <deleteData createDataKey="createCustomer5" stepKey="deleteCustomer5"/>
+            <deleteData createDataKey="createCustomer6" stepKey="deleteCustomer6"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, action=split with two 50/50 variants,
+             each running its own distinctly-worded send_email so a real difference is provable
+             regardless of which real customer ends up in which variant. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Split Variant Test Campaign" stepKey="fillName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'split', fields: {variants: JSON.stringify([
+                {key: 'a', weight: 50, actions: [{type: 'send_email', params: {template: 'ordo_campaign_generic', message: 'Variant A distinctive message.'}}]},
+                {key: 'b', weight: 50, actions: [{type: 'send_email', params: {template: 'ordo_campaign_generic', message: 'Variant B distinctive message.'}}]}
+            ]), delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: pick, of the six real pre-created customers, one that the real algorithm
+             above will place in variant 'a' and one it will place in variant 'b' - computed
+             against the campaign's own real, now-known id and its split action's own real
+             ordo_campaign_action.entity_id, not guessed or hardcoded. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\SplitVariantTestHelper" method="pickEmailForVariant" stepKey="pickEmailForVariantA">
+            <argument name="variantKey">a</argument>
+            <argument name="campaignIdAndCandidates">{$grabCampaignId};$$createCustomer1.id$$=$$createCustomer1.email$$;$$createCustomer2.id$$=$$createCustomer2.email$$;$$createCustomer3.id$$=$$createCustomer3.email$$;$$createCustomer4.id$$=$$createCustomer4.email$$;$$createCustomer5.id$$=$$createCustomer5.email$$;$$createCustomer6.id$$=$$createCustomer6.email$$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\SplitVariantTestHelper" method="pickEmailForVariant" stepKey="pickEmailForVariantB">
+            <argument name="variantKey">b</argument>
+            <argument name="campaignIdAndCandidates">{$grabCampaignId};$$createCustomer1.id$$=$$createCustomer1.email$$;$$createCustomer2.id$$=$$createCustomer2.email$$;$$createCustomer3.id$$=$$createCustomer3.email$$;$$createCustomer4.id$$=$$createCustomer4.email$$;$$createCustomer5.id$$=$$createCustomer5.email$$;$$createCustomer6.id$$=$$createCustomer6.email$$</argument>
+        </helper>
+
+        <!-- Step 3: a real order from the variant-'a' customer. -->
+        <actionGroup ref="LoginToStorefrontWithEmailAndPassword" stepKey="loginAsVariantACustomer">
+            <argument name="email" value="{$pickEmailForVariantA}"/>
+            <argument name="password" value="pwdTest123!"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageVariantA"/>
+        <waitForPageLoad stepKey="waitForProductPageVariantA"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartVariantA">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartVariantA"/>
+        <waitForPageLoad stepKey="waitForCartPageVariantA"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeOrderVariantA"/>
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutVariantACustomer"/>
+
+        <!-- Step 4: a real order from the variant-'b' customer, in the same browser session. -->
+        <actionGroup ref="LoginToStorefrontWithEmailAndPassword" stepKey="loginAsVariantBCustomer">
+            <argument name="email" value="{$pickEmailForVariantB}"/>
+            <argument name="password" value="pwdTest123!"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageVariantB"/>
+        <waitForPageLoad stepKey="waitForProductPageVariantB"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartVariantB">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartVariantB"/>
+        <waitForPageLoad stepKey="waitForCartPageVariantB"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeOrderVariantB"/>
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutVariantBCustomer"/>
+
+        <!-- Step 5: dispatch both real order_placed events - each runs runSplit(), re-resolving
+             the same deterministic variant computed above for real, and sends that variant's own
+             synthetic send_email action. -->
+        <wait time="2" stepKey="waitForDispatchMessagesVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 6: the real proof - each recipient's real, MailHog-delivered email contains ONLY
+             its own variant's distinctive wording, and ordo_message_log.variant records the
+             matching real key - not merely that two emails went out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeVariantAMessage">
+            <argument name="expectedText">Variant A distinctive message.</argument>
+            <argument name="toAddress">{$pickEmailForVariantA}</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeVariantBMessage">
+            <argument name="expectedText">Variant B distinctive message.</argument>
+            <argument name="toAddress">{$pickEmailForVariantB}</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MessageLogTestHelper" method="getVariantForRecipient" stepKey="grabVariantForRecipientA">
+            <argument name="toAddress">{$pickEmailForVariantA}</argument>
+        </helper>
+        <assertEquals stepKey="assertVariantAIsRecordedAsA">
+            <expectedResult type="string">a</expectedResult>
+            <actualResult type="variable">grabVariantForRecipientA</actualResult>
+        </assertEquals>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MessageLogTestHelper" method="getVariantForRecipient" stepKey="grabVariantForRecipientB">
+            <argument name="toAddress">{$pickEmailForVariantB}</argument>
+        </helper>
+        <assertEquals stepKey="assertVariantBIsRecordedAsB">
+            <expectedResult type="string">b</expectedResult>
+            <actualResult type="variable">grabVariantForRecipientB</actualResult>
+        </assertEquals>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

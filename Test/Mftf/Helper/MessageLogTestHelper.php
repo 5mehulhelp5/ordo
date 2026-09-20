@@ -43,4 +43,33 @@ class MessageLogTestHelper extends Helper
             'status' => $status,
         ]);
     }
+
+    /**
+     * The real ordo_message_log.variant column a split-tested send_email action's own real
+     * dispatch stamps (Model\Campaign\Action\SendEmail reading $context['ordo_split_variant']) -
+     * there is no grid column or other MFTF-reachable UI surface for it (see that column's own
+     * db_schema.xml comment), so this reads it directly.
+     */
+    public function getVariantForRecipient(
+        string $toAddress,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): string {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'SELECT variant FROM ordo_message_log WHERE to_address = :to_address ORDER BY entity_id DESC LIMIT 1'
+        );
+        $statement->execute(['to_address' => $toAddress]);
+        $variant = $statement->fetchColumn();
+
+        return $variant === false || $variant === null ? '' : (string) $variant;
+    }
 }

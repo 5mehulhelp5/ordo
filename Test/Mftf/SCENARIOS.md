@@ -448,8 +448,8 @@ by variant).
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| A real dispatch selects a variant deterministically (the same customer/visitor always resolves to the same variant for a given split node, re-used rather than re-rolled if hit again in the same dispatch/resume chain) and runs that variant's own action chain (e.g. two different `send_email` variants) | ⬜ unit-tested (`SplitVariantSelectorTest`), no MFTF yet |
-| Each variant's real sent message is attributed to its own variant key in `ordo_message_log`, distinguishing variant A's real email from variant B's | ⬜ not covered — no MFTF yet |
+| A real dispatch selects a variant deterministically (the same customer/visitor always resolves to the same variant for a given split node, re-used rather than re-rolled if hit again in the same dispatch/resume chain) and runs that variant's own action chain (e.g. two different `send_email` variants) | ✅ `AdminCampaignSplitActionAttributesVariantsTest` (plus unit-tested, `SplitVariantSelectorTest`) |
+| Each variant's real sent message is attributed to its own variant key in `ordo_message_log`, distinguishing variant A's real email from variant B's | ✅ `AdminCampaignSplitActionAttributesVariantsTest` |
 | A split action with no usable variants fails closed (logs, doesn't crash the dispatch) | ⬜ unit-tested (`CampaignDispatcherTest`'s own `runSplit()` coverage), no MFTF yet |
 | Known phase-1 limitation: a variant action's own `delay_minutes` is ignored (forced to 0) since a synthetic action row has no real `ordo_campaign_action.entity_id` for `scheduleResume()`'s FK to point at | 🔶 unit-tested (`CampaignDispatcherTest`), documented limitation, no MFTF needed - nothing to prove beyond the unit test until this limitation is actually lifted |
 
