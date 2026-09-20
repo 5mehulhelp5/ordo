@@ -101,10 +101,18 @@
         <magentoCLI command="cron:run --group=default" stepKey="runRetryFailedCampaignActionsCron"/>
 
         <!-- Step 7: the real, merchant-visible email only a genuinely successful retry - one
-             that actually re-ran add_tag and continued the chain - could have produced. -->
+             that actually re-ran add_tag and continued the chain - could have produced.
+             timeoutSeconds widened past MailHogHelper's own 20s default - a real CI run
+             (35524359186) caught this exact assertion timing out under CI's own slower/shared
+             mail-relay latency, same "message-visibility race under CI load" class of flake
+             AdminCampaignMultipleConditionsAndTest's own settle-wait comment already documents,
+             just needing a longer poll window here instead of an extra wait before it (this
+             step's own real work - two full cron runs plus a real chained send - has already
+             happened by the time this assertion starts polling). -->
         <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRetriedActionCopyInEmail">
             <argument name="expectedText">Retried delayed action fired.</argument>
             <argument name="toAddress">$createCustomer.email$</argument>
+            <argument name="timeoutSeconds">45</argument>
         </helper>
 
         <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
