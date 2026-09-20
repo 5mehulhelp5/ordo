@@ -11,6 +11,8 @@
     ],
     "require": {
         "php": ">=8.4 <8.6",
+        "ext-openssl": "*",
+        "ext-simplexml": "*",
         "magento/framework": "^103.0.8",
         "magento/module-customer": "^103.0.8",
         "magento/module-eav": "^102.1.8",
