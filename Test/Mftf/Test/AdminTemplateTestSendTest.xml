@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminTemplateTestSendTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Template Test Send"/>
+            <title value="Template Test Send actually sends a real test email, and rejects invalid input on every channel without attempting to send"/>
+            <description value="Closes SCENARIOS.md §16's two Template Test Send gaps. Controller\Adminhtml\TemplateTestSend\Send.php validates each channel's input BEFORE ever calling SendRetrier::attempt() (see that class's own per-channel private methods), so the three rejection paths are genuinely provider-independent - no live Twilio/Meta account is needed to prove an invalid destination or an unapproved WhatsApp template is rejected without a send attempt, only the email channel's own success path needs a real send, and MailHog makes that one real too (same as every other real-email assertion in this suite). Each case's own real, merchant-visible {success, message} JSON response - rendered into [data-test-send-result] by the page's own real fetch() call, not mocked - is what only a genuine Send.php validation/send path could have produced. Found and fixed a real bug while writing this: template-test-send.js's fetch() POST never included Magento's own form_key CSRF token, so Send.php (a real HttpPostActionInterface controller) was unreachable from a real admin session at all - every real submission silently 302-redirected to the dashboard instead, which the page's own response.ok/response.json() handling couldn't tell apart from an actual failure, rendering a generic 'The test send failed.' regardless of what was typed. The whole feature was non-functional before this fix."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <amOnPage url="admin/ordo/templatetestsend/index" stepKey="goToTemplateTestSendPage"/>
+        <waitForPageLoad stepKey="waitForTemplateTestSendPage"/>
+        <waitForElementVisible selector="[data-test-send-channel]" stepKey="waitForChannelSelect"/>
+        <!-- The channel <select> itself renders from static HTML, but template-test-send.js's
+             own click handler only wires up once its require(['Ordo_Automation/js/template-test-send'])
+             call resolves - a real, if brief, race on a freshly-loaded page (same "cold instance"
+             lag noted throughout this suite for other JS-dependent interactions). -->
+        <wait time="2" stepKey="waitForTestSendJsToWireUp"/>
+
+        <!-- Step 1: a real, valid test email - the only channel this environment can actually
+             complete a real send for (MailHog, no live provider account needed). -->
+        <selectOption selector="[data-test-send-channel]" userInput="email" stepKey="selectEmailChannel"/>
+        <fillField selector="[data-test-send-to]" userInput="template.test.send@example.com" stepKey="fillValidEmailTo"/>
+        <fillField selector="[data-test-send-message]" userInput="Template test send message." stepKey="fillEmailMessage"/>
+        <click selector="[data-test-send-submit]" stepKey="clickSendValidEmail"/>
+        <waitForElementVisible selector="[class~='ordo-template-test-send-result-success']" stepKey="waitForEmailSuccessResult"/>
+        <see selector="[data-test-send-result]" userInput="Test email sent to template.test.send@example.com" stepKey="seeEmailSuccessMessage"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeRealEmailDelivered">
+            <argument name="expectedText">Template test send message.</argument>
+            <argument name="toAddress">template.test.send@example.com</argument>
+        </helper>
+
+        <!-- Step 2: an invalid email address - rejected before any send is attempted. -->
+        <fillField selector="[data-test-send-to]" userInput="not-an-email" stepKey="fillInvalidEmailTo"/>
+        <click selector="[data-test-send-submit]" stepKey="clickSendInvalidEmail"/>
+        <waitForElementVisible selector="[class~='ordo-template-test-send-result-error']" stepKey="waitForInvalidEmailErrorResult"/>
+        <see selector="[data-test-send-result]" userInput="Enter a valid email address" stepKey="seeInvalidEmailMessage"/>
+
+        <!-- Step 3: SMS with an invalid (non-E.164) phone number - rejected before any real
+             Twilio call is attempted. -->
+        <selectOption selector="[data-test-send-channel]" userInput="sms" stepKey="selectSmsChannel"/>
+        <fillField selector="[data-test-send-to]" userInput="555-1234" stepKey="fillInvalidPhone"/>
+        <fillField selector="[data-test-send-message]" userInput="Test SMS message." stepKey="fillSmsMessage"/>
+        <click selector="[data-test-send-submit]" stepKey="clickSendInvalidSms"/>
+        <waitForElementVisible selector="[class~='ordo-template-test-send-result-error']" stepKey="waitForInvalidSmsErrorResult"/>
+        <see selector="[data-test-send-result]" userInput="Enter a valid E.164 phone number" stepKey="seeInvalidPhoneMessage"/>
+
+        <!-- Step 4: WhatsApp with no template picked - rejected before any real Meta Graph API
+             call is attempted. -->
+        <selectOption selector="[data-test-send-channel]" userInput="whatsapp" stepKey="selectWhatsAppChannel"/>
+        <fillField selector="[data-test-send-to]" userInput="+15551234567" stepKey="fillWhatsAppPhone"/>
+        <click selector="[data-test-send-submit]" stepKey="clickSendWithoutTemplate"/>
+        <waitForElementVisible selector="[class~='ordo-template-test-send-result-error']" stepKey="waitForNoTemplateErrorResult"/>
+        <see selector="[data-test-send-result]" userInput="Pick a WhatsApp template to test with" stepKey="seeNoTemplateMessage"/>
+    </test>
+</tests>

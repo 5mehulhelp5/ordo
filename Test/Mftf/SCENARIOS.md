@@ -11,9 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except nineteen ⬜ (the Campaign export row,
+**Status: every row below is ✅ except seventeen ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Segment export row in §2,
-the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
+the two Cron Run Log rows in §17,
 the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
@@ -309,8 +309,8 @@ module's.
 
 | Scenario                                                                                                           | Status                                                                    |
 |----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| Send a test email/SMS/WhatsApp message via `Send.php`, valid-input success path per channel                     | ⬜ unit-tested (`SendTest`), no MFTF/integration yet — real provider account needed for the actual send, same reasoning as `send_sms`'s own equivalent gap |
-| Invalid destination address/phone, or an unapproved WhatsApp template, rejected without sending                  | ⬜ unit-tested (`SendTest`)                                                |
+| Send a test email/SMS/WhatsApp message via `Send.php`, valid-input success path per channel                     | ✅ `AdminTemplateTestSendTest` (email only, real send via MailHog; SMS/WhatsApp's own success path still needs a real provider account, same reasoning as `send_sms`'s own equivalent gap) — found and fixed a real bug while writing this: `template-test-send.js`'s `fetch()` POST never included Magento's own `form_key` CSRF token, so `Send.php` was unreachable from a real admin session at all - every real submission silently 302-redirected to the dashboard, rendering a generic "The test send failed." regardless of what was typed. The whole feature was non-functional before this fix. |
+| Invalid destination address/phone, or an unapproved WhatsApp template, rejected without sending                  | ✅ `AdminTemplateTestSendTest` (all three channels - each validates before any provider call, so no live account is needed for these rejection paths) |
 
 ## 17. Cron Run Log (`Model/Cron/CronRunLog.php`, `Controller/Adminhtml/CronRunLog/`)
 

@@ -29,7 +29,13 @@ function submit($panel) {
             to: $panel.find('[data-test-send-to]').val() || '',
             message: $panel.find('[data-test-send-message]').val() || '',
             template_id: $panel.find('[data-test-send-template]').val() || '',
-            params: $panel.find('[data-test-send-params]').val() || ''
+            params: $panel.find('[data-test-send-params]').val() || '',
+            // Send.php is a real HttpPostActionInterface controller, so Magento's own admin CSRF
+            // check (form_key) rejects this POST without it - not with an error this fetch() can
+            // see either: it silently 302s to the dashboard instead, which response.ok/.json()
+            // can't tell apart from a real failure. window.FORM_KEY is the same global every
+            // real admin form page already renders it into.
+            form_key: window.FORM_KEY || ''
         });
 
     $button.prop('disabled', true);
