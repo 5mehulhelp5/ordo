@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCronRunLogGridTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Cron Run Log"/>
+            <title value="The Cron Run Log admin grid lists a real ordo_cron_run_log row"/>
+            <description value="Closes SCENARIOS.md §17's CronRunLoggerTest/logging-visibility gap - Controller\Adminhtml\CronRunLog\Index.php ('did today's escalation cron even run' is no longer invisible without log-tailing, see that controller's own docblock) had no MFTF coverage, and CronRunLogger::logSummary()/logFailure() write real text this suite's own tests can't otherwise reliably match (every real cron's own summary text varies by real counts/timestamps) - CronRunLogTestHelper inserts one directly with a distinctive message, same reasoning as AdminMessageLogGridReflectsRealDataTest for its own table. The grid itself IS a real admin UI component page, driven for real here."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\CronRunLogTestHelper" method="insertRow" stepKey="insertCronRunLogRow">
+                <argument name="message">MFTF cron run log grid test fixture row</argument>
+            </helper>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <amOnPage url="admin/ordo/cronrunlog/index" stepKey="goToCronRunLogGrid"/>
+        <waitForPageLoad stepKey="waitForCronRunLogGrid"/>
+        <waitForText selector="table.data-grid" userInput="MFTF cron run log grid test fixture row" stepKey="seeMessageInGrid"/>
+        <see selector="table.data-grid" userInput="summary" stepKey="seeLevelInGrid"/>
+    </test>
+</tests>

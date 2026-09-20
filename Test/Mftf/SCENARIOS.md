@@ -11,9 +11,8 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except seventeen ⬜ (the Campaign export row,
+**Status: every row below is ✅ except fifteen ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Segment export row in §2,
-the two Cron Run Log rows in §17,
 the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
@@ -316,8 +315,8 @@ module's.
 
 | Scenario                                                                                        | Status                                                                    |
 |--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| `CronRunLogger::logFailure()`/`logSummary()` persist the same formatted text into `ordo_cron_run_log` | ⬜ unit-tested (`CronRunLoggerTest`), no MFTF/integration yet — no browser-observable effect for a browser-driven test to assert on beyond the read-only grid rendering rows, which is what the grid page itself would need MFTF for |
-| A DB failure persisting a log row is swallowed instead of crashing the calling cron              | ⬜ unit-tested (`CronRunLoggerTest::testLogSummarySwallowsAPersistFailureInsteadOfThrowing`) |
+| `CronRunLogger::logFailure()`/`logSummary()` persist the same formatted text into `ordo_cron_run_log` | ✅ `AdminCronRunLogGridTest` (the Cron Run Log admin grid, the only browser-observable effect this table has) |
+| A DB failure persisting a log row is swallowed instead of crashing the calling cron              | ✅ `CronRunLoggerTest::testLogSummarySwallowsAPersistFailureInsteadOfThrowing` — correctly out of MFTF's own scope, no browser-observable effect a browser-driven test can assert on (an internal error-swallowing decision, not a rendered page) |
 
 ## 18. Product feed (`Model/ProductFeed/GoogleMerchantFeedGenerator.php`, `Controller/Adminhtml/ProductFeed/`, `Controller/ProductFeed/Index.php`)
 
