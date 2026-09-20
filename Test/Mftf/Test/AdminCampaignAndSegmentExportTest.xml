@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignAndSegmentExportTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A real campaign's and a real segment's own 'Export' download each produce a real JSON graph of their triggers/conditions/actions"/>
+            <description value="Closes SCENARIOS.md's Campaign export row (§1d) and Segment export row (§2). Controller\Adminhtml\Campaign\Export / Controller\Adminhtml\Segment\Export both set 'Content-Disposition: attachment', which Selenium hands off to the OS/browser's own download handling rather than rendering in the DOM - AdminExportDownloadTestHelper fetches the exact same URL directly via an authenticated HTTP GET, reusing the real admin session cookie MFTF's own browser already holds (grabCookie), so this is the real controller's real response body, not a re-implementation. A real campaign (order_placed trigger, add_tag action with a distinctive tag) and a real segment (order_total_gte condition with a distinctive amount) are each built via the admin UI first, then exported and confirmed to contain their own real trigger_event/type/params values in the downloaded JSON."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real campaign - trigger=order_placed, action=add_tag with a distinctive
+             tag - then its own real Export download. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Export Test Campaign" stepKey="fillCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'export_test_distinctive_tag', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookie"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchCampaignExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/export/entity_id/{$grabCampaignId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookie}</argument>
+        </helper>
+
+        <assertStringContainsString stepKey="assertCampaignExportHasExportType">
+            <expectedResult type="string">"export_type": "ordo_campaign"</expectedResult>
+            <actualResult type="variable">fetchCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertCampaignExportHasName">
+            <expectedResult type="string">"name": "Export Test Campaign"</expectedResult>
+            <actualResult type="variable">fetchCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertCampaignExportHasTrigger">
+            <expectedResult type="string">"trigger_event": "order_placed"</expectedResult>
+            <actualResult type="variable">fetchCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertCampaignExportHasActionType">
+            <expectedResult type="string">"type": "add_tag"</expectedResult>
+            <actualResult type="variable">fetchCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertCampaignExportHasActionParams">
+            <expectedResult type="string">export_test_distinctive_tag</expectedResult>
+            <actualResult type="variable">fetchCampaignExportBody</actualResult>
+        </assertStringContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+
+        <!-- Step 2: a real segment - order_total_gte condition with a distinctive amount - then
+             its own real Export download. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Export Test Segment" stepKey="fillSegmentName"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="777" stepKey="fillConditionParams"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentSaveClickable"/>
+        <click selector="#save" stepKey="clickSegmentSave"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+
+        <!-- Segment's Save redirects to the grid on a plain Save click, not the edit page - same
+             reasoning as AdminSetupGuideReflectsRealDataTest's own identical comment. -->
+        <waitForPageLoad stepKey="waitForSegmentGridAfterSave"/>
+        <grabAttributeFrom selector="//tr[contains(., 'Export Test Segment')]//a[contains(@href, 'segment/edit')]" userInput="href" stepKey="grabSegmentEditHref"/>
+        <executeJS function="return '{$grabSegmentEditHref}'.match(/entity_id\/(\d+)/)[1];" stepKey="grabSegmentId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForSegment"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchSegmentExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/segment/export/entity_id/{$grabSegmentId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForSegment}</argument>
+        </helper>
+
+        <assertStringContainsString stepKey="assertSegmentExportHasExportType">
+            <expectedResult type="string">"export_type": "ordo_segment"</expectedResult>
+            <actualResult type="variable">fetchSegmentExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertSegmentExportHasName">
+            <expectedResult type="string">"name": "Export Test Segment"</expectedResult>
+            <actualResult type="variable">fetchSegmentExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertSegmentExportHasConditionType">
+            <expectedResult type="string">"type": "order_total_gte"</expectedResult>
+            <actualResult type="variable">fetchSegmentExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertSegmentExportHasConditionParams">
+            <expectedResult type="string">777</expectedResult>
+            <actualResult type="variable">fetchSegmentExportBody</actualResult>
+        </assertStringContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
