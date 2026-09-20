@@ -11,7 +11,13 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅.** Re-audit this against `etc/di.xml`/
+**Status: a 2026-09-20 re-audit against `etc/di.xml`/`Controller/Adminhtml/*`/`etc/crontab.xml`/`etc/events.xml`
+found real drift (features that shipped after this document's own enumeration was last run end to end, not just
+un-closed gaps) — four new sections (§26 Campaign/Segment JSON import, §27 Web push subscription lifecycle,
+§28 Campaign split action/A-B testing, §29 Campaign performance analytics: funnel/outcome/attribution) plus new
+rows in §1b (`not_in_segment`), §1c (`generate_ai_content`), §2/§11 (`AudienceSize`/`RecalculateSegmentAudienceSizes`),
+§8 (three Reorder Cycle manual admin actions), §11 (`DispatchScheduledCampaignTriggers` real-fire, `RetryFailedPushSends`),
+and §18 (the Meta/Facebook Catalog feed). Everything else below is ✅.** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -67,6 +73,7 @@ cases separately from the type-by-type ones.
 | `purchased_sku`                       | `{sku}` (dedicated autocomplete field in the segment form; the campaign Flow editor has no dedicated field for it, see AdminPurchasedSkuConditionTest) | ✅ `AdminPurchasedSkuConditionTest`                       |
 | `purchased_category`                  | `{category_id}` (dedicated field in the segment form, incl. subcategories; no dedicated Flow-editor field, same as purchased_sku) | ✅ `AdminPurchasedCategoryConditionTest`                  |
 | `event_occurred`                      | `{event_type, event_key?, within_days}` (dedicated fields in both the segment form and the campaign Flow editor, cart_add/wishlist_add) | ✅ `AdminEventOccurredConditionTest` (also covers `Observer\TrackCartAdd`'s real storefront add-to-cart flow; `TrackWishlistAdd` not separately covered - same `EventOccurredResolver` path, different producer) |
+| `not_in_segment`                      | `{segment_id}` (dedicated field, same options source as `in_segment`) — the exclusion counterpart to `in_segment`; fails closed (not "over-included") on a segment-reference cycle, same as `in_segment` itself | ⬜ unit-tested (`NotInSegmentTest`), no MFTF yet |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 
@@ -85,6 +92,8 @@ cases separately from the type-by-type ones.
 | `send_email` SendGrid delivery tracking (`Controller/Email/StatusCallback.php`) | ✅ `Test/Unit/Controller/Email/StatusCallbackTest.php` / `SendGridSignatureValidatorTest` / `EmailMessageMessageIdPluginTest` / `MessageIdGeneratorTest` — writes to the same `ordo_message_log` `send_sms` already writes to (a per-send `Message-ID` header, set via a plugin since `TransportBuilder` exposes no public seam of its own to reach the message it builds, is what a later SendGrid Event Webhook call correlates against); correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above (a real SendGrid account is needed for the actual webhook call, see ROADMAP.md) |
 | `send_whatsapp`               | `{template_id, params}`                | ✅ `Test/Unit/Model/Campaign/Action/SendWhatsAppTest.php` — approved-template gate, phone/consent/E.164 checks, sender success/failure paths (real Meta account still needed for the actual API call, see ROADMAP.md); correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above |
 | `send_push`                   | `{title, body, url}`                   | ✅ `Test/Unit/Model/Campaign/Action/SendPushTest.php` — consent gate, multi-subscription fan-out, dead-subscription cleanup on 404/410; `Test/Unit/Model/Push/*` covers the RFC 8291/8292 crypto itself in depth (real browser/push service still needed for an actual delivered notification, see ROADMAP.md); correctly out of MFTF's own scope, same reasoning as `send_sms`'s own row above |
+| `generate_ai_content`         | `{prompt, output_key, fallback}`       | ⬜ unit-tested (`GenerateAiContentTest`), no MFTF yet — fail-soft to `fallback` when disabled/no prompt/Ollama unreachable is realistically MFTF-testable (no real local Ollama instance in this sandbox/CI, see ROADMAP.md); the real-Ollama-call path stays unit-only, same "no live provider" reasoning as `send_sms`'s own row above |
+| `split` (A/B testing)         | `{variants: [{key, weight, actions: [...]}]}` — see §28 | ⬜ unit-tested (`SplitVariantSelectorTest`), no MFTF yet |
 
 ### 1d. Structural cases (not type-specific)
 
@@ -105,6 +114,8 @@ cases separately from the type-by-type ones.
 | Cross-channel frequency cap (`Model\Campaign\FrequencyCapManager`, opt-in, disabled by default) — a customer over the configured per-window contact-volume cap is skipped by `send_email`/`send_sms`/`send_whatsapp`/`send_push` alike and recorded `suppressed` in `ordo_message_log`, not sent | ✅ `AdminCampaignFrequencyCapSuppressesSendTest` (real `send_email`; the other three channels' own cap check is unit-tested only, same reasoning as their own §1c rows — no live provider account to send through) |
 | `CampaignDispatchConsumer` dead-letters an undecodable message or an uncaught `dispatch()` exception into `ordo_campaign_dispatch_dead_letter` instead of losing it | ✅ `Test/Integration/CampaignDispatchConsumerDeadLetterTest.php` — real DI/DB, `execute()` called directly with a genuinely malformed message (no MFTF-reachable way to inject one through a real queue publish, which always produces well-formed JSON) |
 | Campaign export (`ordo/campaign/export`) — "Export" grid row action downloads the full trigger/condition/action graph as JSON | ✅ `AdminCampaignAndSegmentExportTest` |
+| Campaign import (`ordo/campaign/import`) — see §26 | ⬜ see §26 |
+| Campaign performance analytics (funnel, sent/converted outcome tracking, multi-touch revenue attribution) — see §29 | ⬜ see §29 |
 | Predictive send-time optimization (`Model\Campaign\SendTimeOptimizationGate`, opt-in per `send_email` action via `"use_optimal_send_time"` in `params`) — a customer with enough email open/click history has the send deferred to their own historically-best hour instead of running immediately | ✅ `AdminSendTimeOptimizationDefersToBestHourTest` |
 
 ## 2. Segments (`Model/Segment.php`, `Controller/Adminhtml/Segment/`)
@@ -121,6 +132,8 @@ cases separately from the type-by-type ones.
 | Segment deleted                                                                                                                     | ✅ `AdminDeleteSegmentTest`                         |
 | Segment Overlap page (`ordo/segment/overlap`) — pick two segments, see size/intersection/unique counts                             | ✅ `AdminSegmentOverlapPageTest` |
 | Segment export (`ordo/segment/export`) — "Export" grid row action downloads the condition graph (including nested groups) as JSON  | ✅ `AdminCampaignAndSegmentExportTest` |
+| Segment import (`ordo/segment/import`) — see §26 | ⬜ see §26 |
+| Live "Estimated audience size" AJAX preview while editing a segment's conditions (`Controller/Adminhtml/Segment/AudienceSize.php`), and `Cron\RecalculateSegmentAudienceSizes` refreshing the grid's own cached column | ⬜ not covered — no MFTF yet |
 
 ## 3. RFM (`Model/Rfm/`, `Cron/RecomputeRfmScores.php`, `ordo/rfm/index`)
 
@@ -210,6 +223,9 @@ through. `Controller/Offer/*` (self-extend,
 | `Cron\CalculateReorderCycle` detects a recurring purchase pattern from real order history | ✅ `AdminReorderCycleAndReminderTest` |
 | `Cron\SendReorderReminders` emails a customer whose predicted next-order date has arrived | ✅ `AdminReorderCycleAndReminderTest` |
 | Mass-delete selected reorder cycle rows                                                  | ✅ `AdminReorderCycleMassDeleteTest` — found and fixed a real bug while writing this: the action fataled unconditionally in the real admin UI with a MySQL 1052 "entity_id ambiguous" error (this grid's own customer_entity join has its own entity_id column; fixed via a `$_map` field alias, same fix applied to Campaign's and MessageLog's own grid collections, which had the identical latent bug - see `etc/di.xml`/each `Grid\Collection.php`'s own docblock) |
+| On-demand "Recalculate Now" (`Controller/Adminhtml/ReorderCycle/RecalculateNow.php`) — synchronous re-run of `Cron\CalculateReorderCycle`'s own logic, no waiting for the nightly schedule | ⬜ not covered — no MFTF yet |
+| On-demand "Send Reminder" for one reorder cycle row (`Controller/Adminhtml/ReorderCycle/SendReminder.php`) — a real email sent outside the cron's own schedule | ⬜ not covered — no MFTF yet |
+| On-demand "Build Cart" for one reorder cycle row (`Controller/Adminhtml/ReorderCycle/BuildCart.php`, `Model/ReorderCycle/ReorderCartBuilder.php`) — populates a real cart and redirects into Magento's own "Create New Order" screen | ⬜ not covered — no MFTF yet |
 
 ## 9. Dashboard (`Controller/Adminhtml/Dashboard/`)
 
@@ -252,6 +268,9 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | `RetryFailedMessageSends`    | Re-attempts an `ordo_message_send_retry` row (exhausted send_email/send_sms/send_whatsapp) with backoff, deletes it on success, dead-letters it after 5 attempts | ✅ `AdminRetryFailedMessageSendsTest` |
 | `RecomputeClvScores`         | Refreshes `ordo_customer_clv_score` (CLV projections), feeds only the Dashboard's "Average projected CLV" stat — `clv_at_least` reads live, never this table | ✅ `AdminRecomputeClvScoresReflectsInDashboardTest`                                                                 |
 | `PruneCronRunLog`            | Deletes `ordo_cron_run_log` rows past the 30-day retention window | ✅ `AdminPruneCronRunLogTest` |
+| `DispatchScheduledCampaignTriggers` | Fires a due `scheduled_at`/`recurring_schedule` campaign trigger for real (`ScheduledTriggerScanner::scan()`) — only the read-only calendar *preview* is covered (`AdminScheduledCampaignCalendarTest`), nothing confirms a scheduled trigger genuinely dispatches its campaign once due | ⬜ not covered — no MFTF yet |
+| `RecalculateSegmentAudienceSizes` | Refreshes `ordo_segment.estimated_audience_size` — see §2's own `AudienceSize` row, same underlying gap | ⬜ see §2 |
+| `RetryFailedPushSends`       | Re-attempts a single `ordo_push_send_retry` row directly via `Model\Push\PushSubscriptionSender` (not `ActionPool`, unlike every other retry cron here — a push retry is one subscription's send, not a whole campaign action), deletes on success, drops if the subscription itself is gone, dead-letters after 5 attempts | ⬜ unit-tested indirectly via `PushSendRetryQueueTest`/`PushSubscriptionSenderTest`, no dedicated cron test yet — likely `Test/Integration`, same "no real Web Push service" reasoning as `send_push`'s own §1c row |
 
 All four crons above only fire once a day (or, for `SendSalesRepDigest`, once a week) at a fixed
 wall-clock time (`etc/crontab.xml`) — no MFTF test can wait that out. `Test/Mftf/Helper/CronScheduleHelper.php`
@@ -322,6 +341,7 @@ module's.
 | `Cron\RefreshProductFeed`/admin "Refresh Now" loop every store, one cached row + run-log entry per store         | ✅ `AdminShoppingFeedRefreshAndServeTest` (admin-triggered, same `FeedGeneratorPool` path the cron uses) / `AdminProductFeedHealthGridTest` (the run-log entry) |
 | Public feed controller serves the current request's own store's cached XML, 404s when disabled/uncached         | ✅ `AdminShoppingFeedRefreshAndServeTest` (serves real cached XML; the 404-when-disabled half stays unit-only - Selenium/MFTF has no way to read a raw HTTP status code, only rendered page content) |
 | Product Feed Health admin grid (`ordo/productfeed/index`) renders run-log rows                                  | ✅ `AdminProductFeedHealthGridTest` |
+| Meta/Facebook Catalog CSV feed (`Model/ProductFeed/MetaCatalogFeedGenerator.php`, `Controller/ProductFeed/MetaCatalog.php`) — a second, complete feed format alongside Google Merchant, sharing the same `AbstractFeedAction`/refresh/health-grid plumbing this section's other rows already cover for the Google generator | ⬜ not covered — no MFTF yet |
 
 ## 19. Admin action audit log (`Model/AdminActionLog/Recorder.php`, `Plugin/Campaign/CampaignSaveProcessorAuditPlugin.php`, `Plugin/Segment/SegmentSaveProcessorAuditPlugin.php`)
 
@@ -384,17 +404,109 @@ module's.
 | `SendTimeOptimizationGate` defers `send_email` via `CampaignDispatcher::deferActionUntil()` to the computed optimal hour when the feature is opted in via the action's `params` JSON and the hour differs meaningfully from now, otherwise proceeds immediately | 🔶 unit-tested (`SendTimeOptimizationGateTest`) + manually live-verified 2026-09-17 (real dispatch against a live instance: deferred to the correct future UTC timestamp when the predicted hour hadn't arrived yet, and sent an actual, real email — confirmed in MailHog — once the predicted hour matched the current one), no automated MFTF yet |
 | A deferred send still passes back through `QuietHoursGate` on resume, so an optimal-hour prediction landing inside the customer's quiet hours self-corrects rather than sending anyway | 🔶 unit-tested (via `SendEmailTest`'s gate-ordering coverage) + manually live-verified 2026-09-17 (resuming a deferred action before its target hour correctly re-deferred rather than sending early, confirming the resume-time re-check), no automated MFTF yet |
 
+## 26. Campaign/Segment JSON import (`Model/Campaign/CampaignImporter.php`, `Model/Segment/SegmentImporter.php`, `Controller/Adminhtml/{Campaign,Segment}/{Import,ImportForm}.php`)
+
+Discovered via a 2026-09-20 re-audit (`etc/di.xml`/`Controller/Adminhtml/*` cross-check) — the counterpart to §1d's/§2's
+own Export rows, added when this section itself didn't exist yet. Always creates a brand-new campaign/segment (never
+overwrites an existing one, matching Export's own "no entity ids in the payload" promise) — round-trips the exact
+shape `AdminCampaignAndSegmentExportTest`'s own downloaded JSON already produces.
+
+| Scenario                                                                                                       | Status                                                                    |
+|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| A real exported campaign JSON file, re-uploaded via the admin "Import" form, creates a genuinely new campaign with the same trigger/condition/action graph | ⬜ not covered — no MFTF yet |
+| A real exported segment JSON file, re-uploaded, creates a genuinely new segment with the same (including nested-group) condition graph | ⬜ not covered — no MFTF yet |
+| An `export_type` mismatch (a segment file posted to Campaign Import, or vice versa) or a malformed/unparsable JSON file is rejected with an admin error message, no entity created | ⬜ not covered — no MFTF yet |
+| An unknown/unregistered condition or action type inside the imported JSON is rejected (fails closed, same "never silently over-include" posture as the rest of this module), not partially imported | ⬜ not covered — no MFTF yet |
+
+## 27. Web push subscription lifecycle (`Controller/Track/{RegisterPushSubscription,UnregisterPushSubscription,PushServiceWorker}.php`, `Model/Push/PushSubscriptionManager.php`, `Model/Push/PushEndpointValidator.php`)
+
+Discovered via the same re-audit — only the server-side `send_push` action itself is documented (§1c); the entire
+client-facing opt-in/opt-out lifecycle that has to happen before any `send_push` campaign can ever reach a real
+subscriber had no section at all. A real browser Push API subscription (an actual endpoint from a real push service)
+isn't realistically producible in this sandbox/CI, but `PushEndpointValidator` only requires a resolvable, public
+HTTPS host — not that it's an actual push service — so a synthetic-but-valid endpoint (any real public HTTPS URL)
+exercises the real registration/validation/persistence path end to end without needing one, the same "no live
+provider account" carve-out `send_push` itself already has, just at the registration layer instead of the send
+layer.
+
+| Scenario                                                                                                       | Status                                                                    |
+|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `/ordo/track/registerpushsubscription` registers a real anonymous visitor subscription (`endpoint`/`p256dh`/`auth`), rejects a missing field, rejects when push is disabled, rejects a non-public/non-HTTPS `endpoint` (the SSRF guard — `PushEndpointValidator`) | ⬜ not covered — no MFTF yet |
+| A logged-in registration requires a same-origin Origin/Referer (no page-rendered `form_key` on this bare `fetch()` call — see the controller's own docblock for why this differs from the anonymous case) | ⬜ not covered — no MFTF yet |
+| `/ordo/track/unregisterpushsubscription` removes a subscription by `endpoint`                                    | ⬜ not covered — no MFTF yet |
+| `/ordo/track/pushserviceworker` serves `push-sw.js` with a real `Service-Worker-Allowed: /` response header (widens the service worker's own default same-directory scope to the whole origin) | ⬜ not covered — no MFTF yet |
+
+## 28. Campaign split action / A-B testing (`Model/CampaignDispatcher.php::runSplit()`, `Model/Campaign/SplitVariantSelector.php`)
+
+Discovered via the same re-audit — `split` is deliberately not an `ActionPool` entry (no send/tag/whatever effect of
+its own, only a branching one — see `runSplit()`'s own docblock), so it's easy to miss enumerating it the way §1c's
+table enumerates real `ActionPool` entries. A real, non-trivial feature: deterministic per-customer/visitor variant
+selection, synthetic (never-persisted) per-variant action rows built fresh from the split's own `params.variants`
+JSON on every dispatch, and `ordo_split_variant` context stamped through so every `Send*` action inside a variant's
+own chain attributes its `ordo_message_log` row to that variant (feeding §29's own funnel/outcome rows, split out
+by variant).
+
+| Scenario                                                                                                       | Status                                                                    |
+|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| A real dispatch selects a variant deterministically (the same customer/visitor always resolves to the same variant for a given split node, re-used rather than re-rolled if hit again in the same dispatch/resume chain) and runs that variant's own action chain (e.g. two different `send_email` variants) | ⬜ unit-tested (`SplitVariantSelectorTest`), no MFTF yet |
+| Each variant's real sent message is attributed to its own variant key in `ordo_message_log`, distinguishing variant A's real email from variant B's | ⬜ not covered — no MFTF yet |
+| A split action with no usable variants fails closed (logs, doesn't crash the dispatch) | ⬜ unit-tested (`CampaignDispatcherTest`'s own `runSplit()` coverage), no MFTF yet |
+| Known phase-1 limitation: a variant action's own `delay_minutes` is ignored (forced to 0) since a synthetic action row has no real `ordo_campaign_action.entity_id` for `scheduleResume()`'s FK to point at | 🔶 unit-tested (`CampaignDispatcherTest`), documented limitation, no MFTF needed - nothing to prove beyond the unit test until this limitation is actually lifted |
+
+## 29. Campaign performance analytics — funnel, outcome tracking, multi-touch attribution (`Model/{CampaignOutcomeLogger,TriggerOutcomeLogger,CampaignFunnelStats}.php`, `Model/Campaign/AttributionCalculator.php`, `Observer/{RecordCampaignOutcome,RecordTriggerOutcome}.php`, `Cron/ComputeCampaignAttribution.php`, `Ui/Component/Listing/Column/CampaignAttributedRevenue.php`, `Block/Adminhtml/Campaign/FunnelViewModel.php`, `Block/Adminhtml/Dashboard/DashboardViewModel.php`)
+
+The single biggest gap the 2026-09-20 re-audit found — a complete, real analytics subsystem with zero SCENARIOS.md
+footprint before this section existed. Three distinct, deliberately-separate mechanisms, each answering a different
+question and each reconciled to disagree with the others on purpose (see `CampaignAttributedRevenue`'s own
+docblock):
+
+1. **`ordo_trigger_outcome_log`** (`TriggerOutcomeLogger`) — sent/responded/response-rate/recovered-revenue for the
+   5 cron-driven reminder-type triggers (reorder reminder, offer expiry, credit limit alert, order approval,
+   win-back), rendered as Dashboard cards. `Observer\RecordTriggerOutcome` (on `sales_order_place_after`) closes the
+   loop: a placed order counts as a first-plausible-match "response" to the most recent un-acted send.
+2. **`ordo_campaign_outcome_log`** (`CampaignOutcomeLogger`) — sent/converted/conversion-rate/revenue per campaign
+   (and split variant), rendered as the campaign edit page's own "Funnel" widget (`FunnelViewModel`/`funnel.phtml` —
+   sent/delivered/opened/clicked/converted/conversion-rate/revenue, one row per variant if the campaign has a
+   `split` action). `Observer\RecordCampaignOutcome` closes the loop the same way, campaign-scoped instead of
+   trigger-scoped.
+3. **`ordo_campaign_attribution`** (`AttributionCalculator`, populated by `Cron\ComputeCampaignAttribution`) — a
+   genuinely different, multi-touch model: equal-weight linear revenue split across every distinct campaign a
+   customer clicked through before an order, not the single-touch "did this convert" heuristic the other two use.
+   Rendered as the Campaign grid's own "Attributed revenue" column.
+
+| Scenario                                                                                                       | Status                                                                    |
+|------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| A real cron-driven trigger send (e.g. a real win-back email) is logged, and a real subsequent order from that same customer marks it "responded" — the Dashboard's own trigger response-rate card reflects both | ⬜ not covered — no MFTF yet |
+| A real campaign `send_email` is logged, and a real subsequent order from that same customer marks it "converted" — the campaign edit page's own Funnel widget reflects sent/converted/conversion-rate/revenue for real | ⬜ not covered — no MFTF yet |
+| A split-tested campaign's Funnel widget renders one row per variant (not one aggregate row) once real sends exist for each | ⬜ not covered — no MFTF yet — depends on §28's own split coverage existing first |
+| `Cron\ComputeCampaignAttribution` computes a real equal-weight revenue split across every campaign a customer clicked through (real `ordo_message_log_event` TYPE_CLICKED rows) before a real order, and the Campaign grid's "Attributed revenue" column reflects it — re-running is idempotent (existing rows for the same order are deleted and reinserted, not doubled) | ⬜ not covered — no MFTF yet |
+| The outcome-log "converted"/"responded" number and the attribution-table "attributed revenue" number are expected to disagree for the same campaign/order (single-touch vs. multi-touch) — not itself a scenario needing its own test, but worth asserting the two aren't accidentally reconciled to match if either implementation ever changes | 🔶 documented in code (`CampaignAttributedRevenue`'s own docblock), no dedicated regression test - low priority |
+
 ## Suggested next batch (highest signal per test written)
 
-Empty — every scenario this list ever tracked is now ✅ (see the sections above), except section 22 (Webhook
-action/trigger), section 23 (Two-way SMS/WhatsApp conversations), section 24 (Price-drop & back-in-stock
-alerts), and section 25 (Predictive send-time optimization), added alongside their own features and not yet
-backed by MFTF. Most rows in these four sections (🔶) were manually live-verified on 2026-09-17 against a
-real Magento instance (`ordo_test_php`/`ordo_test_db`) — real HTTP calls, real cron runs, real database rows,
-a real email actually delivered to MailHog for the price-drop/back-in-stock and predictive-send-time cases —
-after MFTF itself was found to have been silently broken (no run since 2026-09-10, ~week-long gap) and one
-real bug was found and fixed this way (unescaped table-comment apostrophes breaking `setup:upgrade` on a
-fresh install). 🔶 is real evidence but not automated regression coverage — a future code change could
-reintroduce the same bug with nothing to catch it. Still needs an actual MFTF test per row to close that gap
-for good. Re-populate further when a new gap is found (a newly added trigger/condition/action/controller/
-cron, or a re-audit catching something missed).
+Working order for the drift found by the 2026-09-20 re-audit, roughly by blast radius / how much of a single new
+test closes at once:
+
+1. **§29 Campaign performance analytics** — the single biggest undocumented feature area (funnel, outcome
+   tracking, multi-touch attribution); the trigger-response and campaign-funnel rows are each a plain
+   `sales_order_place_after`-driven observer test, same shape as dozens of already-closed rows elsewhere in this
+   document.
+2. **§27 Web push subscription lifecycle** — four rows, all real HTTP POSTs a synthetic-but-`PushEndpointValidator`-
+   valid endpoint makes testable without a real push service (see that section's own intro).
+3. **§28 Campaign split action** — surprisingly undocumented given its complexity; the determinism + per-variant
+   attribution rows are the highest-value pair (they double as regression coverage for §29's own "split-tested
+   funnel" row, which depends on this existing first).
+4. **§26 Campaign/Segment JSON import** — mirrors `AdminCampaignAndSegmentExportTest` almost exactly (export a real
+   entity, re-import the same file, assert the graph round-trips) — likely the fastest to write of this whole
+   batch.
+5. Smaller, independent rows: `not_in_segment` (§1b), `generate_ai_content`'s fail-soft path (§1c), the three
+   Reorder Cycle manual admin actions (§8), `AudienceSize`/`RecalculateSegmentAudienceSizes` (§2/§11), the
+   Meta/Facebook Catalog feed (§18), `DispatchScheduledCampaignTriggers` real-fire (§11), `RetryFailedPushSends`
+   (§11, likely `Test/Integration` not MFTF - same "no live push service" reasoning as `send_push` itself).
+
+Separately, section 22 (Webhook action/trigger), 23 (Two-way SMS/WhatsApp conversations), 24 (Price-drop &
+back-in-stock alerts), and 25 (Predictive send-time optimization) are already ✅ as of this session — their
+own 🔶 rows (manually live-verified 2026-09-17 against a real Magento instance, before this session backed
+them with real MFTF/Integration tests) are historical record, not open gaps. Re-populate this section further
+whenever a new gap is found (a newly added trigger/condition/action/controller/cron, or a future re-audit
+catching something missed).
