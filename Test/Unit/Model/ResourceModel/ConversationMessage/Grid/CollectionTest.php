@@ -69,4 +69,130 @@ class CollectionTest extends TestCase
             $resourceConnection
         );
     }
+
+    /**
+     * Same ObjectManager stubbing as the test above, extracted since addFieldToFilter() coverage
+     * below needs a real, fully-constructed Collection (not just to observe _initSelect()'s own
+     * joinLeft() call) to invoke the method under test against.
+     */
+    private function buildCollection(AdapterInterface $connection): Collection
+    {
+        $resourceConnection = $this->createStub(ResourceConnection::class);
+        $resourceConnection->method('getConnection')->willReturn($connection);
+        $resourceConnection->method('getTableName')->willReturnCallback(
+            static fn ($table) => is_string($table) ? $table : 'ordo_conversation_message'
+        );
+
+        $resourceModel = $this->createStub(AbstractDb::class);
+        $resourceModel->method('getConnection')->willReturn($connection);
+        $resourceModel->method('getIdFieldName')->willReturn('entity_id');
+
+        $objectManager = $this->createStub(ObjectManagerInterface::class);
+        $objectManager->method('get')->willReturn($resourceConnection);
+        $objectManager->method('create')->willReturn($resourceModel);
+        ObjectManager::setInstance($objectManager);
+
+        $collection = new Collection(
+            $this->createStub(EntityFactoryInterface::class),
+            $this->createStub(LoggerInterface::class),
+            $this->createStub(FetchStrategyInterface::class),
+            $this->createStub(ManagerInterface::class),
+            $resourceConnection
+        );
+        // _initSelect() runs lazily on first getSelect().
+        $collection->getSelect();
+
+        return $collection;
+    }
+
+    public function testAddFieldToFilterCustomerNameUsesPrepareSqlConditionOnRawExpression(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->method('joinLeft')->willReturnSelf();
+
+        $whereArgs = null;
+        $select->expects(self::once())->method('where')->willReturnCallback(
+            function (...$args) use (&$whereArgs, $select) {
+                $whereArgs = $args;
+                return $select;
+            }
+        );
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->expects(self::once())->method('prepareSqlCondition')
+            ->with("CONCAT(customer.firstname, ' ', customer.lastname)", ['like' => '%John%'])
+            ->willReturn("CONCAT(customer.firstname, ' ', customer.lastname) LIKE '%John%'");
+
+        $collection = $this->buildCollection($connection);
+
+        $result = $collection->addFieldToFilter('customer_name', ['like' => '%John%']);
+
+        self::assertSame($collection, $result);
+        // The mocked where() reports its full 3-parameter signature (value/type filled with
+        // their real defaults) even though the override itself calls where() with one argument.
+        self::assertSame(
+            ["CONCAT(customer.firstname, ' ', customer.lastname) LIKE '%John%'", null, null],
+            $whereArgs
+        );
+    }
+
+    public function testAddFieldToFilterCustomerNameWithNullConditionDelegatesToParent(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->method('joinLeft')->willReturnSelf();
+
+        $whereArgs = null;
+        $select->expects(self::once())->method('where')->willReturnCallback(
+            function (...$args) use (&$whereArgs, $select) {
+                $whereArgs = $args;
+                return $select;
+            }
+        );
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('quoteIdentifier')->willReturnArgument(0);
+        $connection->expects(self::once())->method('prepareSqlCondition')
+            ->with('customer_name', null)
+            ->willReturn('customer_name IS NOT NULL');
+
+        $collection = $this->buildCollection($connection);
+
+        $result = $collection->addFieldToFilter('customer_name', null);
+
+        self::assertSame($collection, $result);
+        self::assertSame(['customer_name IS NOT NULL', null, Select::TYPE_CONDITION], $whereArgs);
+    }
+
+    public function testAddFieldToFilterOtherFieldDelegatesToParent(): void
+    {
+        $select = $this->createMock(Select::class);
+        $select->method('from')->willReturnSelf();
+        $select->method('joinLeft')->willReturnSelf();
+
+        $whereArgs = null;
+        $select->expects(self::once())->method('where')->willReturnCallback(
+            function (...$args) use (&$whereArgs, $select) {
+                $whereArgs = $args;
+                return $select;
+            }
+        );
+
+        $connection = $this->createMock(AdapterInterface::class);
+        $connection->method('select')->willReturn($select);
+        $connection->method('quoteIdentifier')->willReturnArgument(0);
+        $connection->expects(self::once())->method('prepareSqlCondition')
+            ->with('customer_email', ['eq' => 'a@example.com'])
+            ->willReturn("customer_email = 'a@example.com'");
+
+        $collection = $this->buildCollection($connection);
+
+        $result = $collection->addFieldToFilter('customer_email', ['eq' => 'a@example.com']);
+
+        self::assertSame($collection, $result);
+        self::assertSame(["customer_email = 'a@example.com'", null, Select::TYPE_CONDITION], $whereArgs);
+    }
 }
