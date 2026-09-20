@@ -11,7 +11,7 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and thirteen ⬜ (the Campaign export row,
+**Status: every row below is ✅ except one 🔴 (see §10) and twelve ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Approval rate-limit row and the Order Approvals grid
 in §6, the Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
@@ -215,7 +215,7 @@ through. `Controller/Offer/*` (self-extend,
 | Admin diagnostic grid renders                                                             | ✅ `AdminViewReorderCyclesGridTest`   |
 | `Cron\CalculateReorderCycle` detects a recurring purchase pattern from real order history | ✅ `AdminReorderCycleAndReminderTest` |
 | `Cron\SendReorderReminders` emails a customer whose predicted next-order date has arrived | ✅ `AdminReorderCycleAndReminderTest` |
-| Mass-delete selected reorder cycle rows                                                  | ⬜ unit-tested (`Controller\Adminhtml\ReorderCycle\MassDeleteTest`), no MFTF yet |
+| Mass-delete selected reorder cycle rows                                                  | ✅ `AdminReorderCycleMassDeleteTest` — found and fixed a real bug while writing this: the action fataled unconditionally in the real admin UI with a MySQL 1052 "entity_id ambiguous" error (this grid's own customer_entity join has its own entity_id column; fixed via a `$_map` field alias, same fix applied to Campaign's and MessageLog's own grid collections, which had the identical latent bug - see `etc/di.xml`/each `Grid\Collection.php`'s own docblock) |
 
 ## 9. Dashboard (`Controller/Adminhtml/Dashboard/`)
 

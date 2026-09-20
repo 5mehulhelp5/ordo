@@ -25,6 +25,19 @@ use Zend_Db_Expr;
  */
 class Collection extends SearchResult
 {
+    /**
+     * Disambiguates "entity_id" for addFieldToFilter()/addFieldToSelect() callers - both
+     * main_table (ordo_reorder_cycle) and the customer_entity join below have their own
+     * entity_id column, so an unqualified WHERE entity_id = ... is rejected by MySQL as
+     * ambiguous (error 1052). Found via a real fatal error: the "Delete" mass action
+     * (Controller\Adminhtml\ReorderCycle\MassDelete) applies exactly such an unqualified filter
+     * through Magento\Ui\Component\MassAction\Filter::getCollection(), which has no way to know
+     * this collection joins another entity_id-bearing table.
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected $_map = ['fields' => ['entity_id' => 'main_table.entity_id']];
+
     public function __construct(
         EntityFactoryInterface $entityFactory,
         LoggerInterface $logger,

@@ -16,6 +16,19 @@ use Magento\Framework\View\Element\UiComponent\DataProvider\SearchResult;
 class Collection extends SearchResult
 {
     /**
+     * Disambiguates "entity_id" for addFieldToFilter()/addFieldToSelect() callers - both
+     * main_table (ordo_campaign) and the ordo_campaign_trigger join below have their own
+     * entity_id column, so an unqualified WHERE entity_id = ... is rejected by MySQL as
+     * ambiguous (error 1052). Same real fatal error, same fix, as
+     * Model\ResourceModel\ReorderCycle\Grid\Collection's own $_map - see that class's docblock;
+     * the "Delete" mass action (Controller\Adminhtml\Campaign\MassDelete) hits this the same
+     * way via Magento\Ui\Component\MassAction\Filter::getCollection().
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected $_map = ['fields' => ['entity_id' => 'main_table.entity_id']];
+
+    /**
      * A campaign's trigger(s) live in ordo_campaign_trigger now (CampaignTriggerInterface —
      * a campaign can fire on more than one), not a column on ordo_campaign — the grid's
      * "Triggers" column needs every row's trigger events aggregated into one comma-separated
