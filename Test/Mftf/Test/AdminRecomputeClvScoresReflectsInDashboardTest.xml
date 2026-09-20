@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminRecomputeClvScoresReflectsInDashboardTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="In-admin dashboard"/>
+            <title value="Cron\RecomputeClvScores replaces stale ordo_customer_clv_score rows, reflected in the Dashboard's Average projected CLV stat"/>
+            <description value="Closes SCENARIOS.md §11's RecomputeClvScores gap. Unlike clv_at_least (AdminClvAtLeastConditionTest), which reads ClvCalculator::getProjectedClv() live and never touches this cron at all, the Dashboard's own 'Average projected CLV' stat (DashboardViewModel::getAverageClvScore()) reads exclusively from the precomputed ordo_customer_clv_score table this cron maintains. ClvTestHelper seeds one obviously-out-of-range 'poison' row for a REAL, order-less customer first (readStoredClvScores() joins to customer_entity, so - unlike RfmTestHelper's nonexistent-id poison row - a fake customer_id would just be filtered out and prove nothing). recomputeAndStoreScores() does a full delete-and-reinsert from computeClvForAllCustomers(), which only includes customers with at least one non-canceled order - since this customer has none, forcing the cron to run must drop their poisoned row entirely rather than merely updating it, so the average must measurably fall. An exact before/after value isn't asserted (this stat is a store-wide average across every customer in a shared CI database, not an isolated per-customer read - the same reasoning AdminDashboardReflectsRealDataTest.xml's own description gives for asserting a delta instead of an absolute count) - only the direction only a genuine replace-not-merge recompute could produce."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <!-- An obviously-impossible outlier (99999999.0) for a customer with no order
+                 history at all - see this test's own description for why a real customer_id is
+                 required here, unlike RfmTestHelper's poison row. -->
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\ClvTestHelper" method="insertPoisonClvScoreRow" stepKey="insertPoisonRow">
+                <argument name="customerId">$createCustomer.id$</argument>
+            </helper>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: read the "before" stat - already contaminated by the poison row, since
+             readStoredClvScores() returns real (if stale) data as soon as the table is
+             non-empty, the same convention RfmCalculator's own precomputed read uses. -->
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardBefore"/>
+        <waitForPageLoad stepKey="waitForDashboardBefore"/>
+        <waitForElementVisible selector="{{OrdoDashboardSection.statCardByLabel('Average projected CLV')}}" stepKey="waitForAverageClvStatBefore"/>
+        <grabTextFrom selector="{{OrdoDashboardSection.statCardByLabel('Average projected CLV')}}" stepKey="grabAverageClvBefore"/>
+        <executeJS function="return parseFloat('{$grabAverageClvBefore}'.replace(/[^0-9.]/g, ''));" stepKey="parseAverageClvBefore"/>
+
+        <!-- Step 2: force RecomputeClvScores to run now - its real schedule is once daily (see
+             etc/crontab.xml), which a CI run can't wait out. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleRecomputeClvScoresJob">
+            <argument name="jobCode">ordo_automation_recompute_clv_scores</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runRecomputeClvScoresCron"/>
+
+        <!-- Step 3: the poisoned, order-less customer's row is now gone entirely (not just
+             updated) - the average over the real remaining rows must be lower than the
+             poison-contaminated "before" reading. -->
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfter"/>
+        <waitForPageLoad stepKey="waitForDashboardAfter"/>
+        <waitForElementVisible selector="{{OrdoDashboardSection.statCardByLabel('Average projected CLV')}}" stepKey="waitForAverageClvStatAfter"/>
+        <grabTextFrom selector="{{OrdoDashboardSection.statCardByLabel('Average projected CLV')}}" stepKey="grabAverageClvAfter"/>
+        <executeJS function="return parseFloat('{$grabAverageClvAfter}'.replace(/[^0-9.]/g, ''));" stepKey="parseAverageClvAfter"/>
+
+        <!-- type="variable" (the stepKey name itself, no {$...} wrapper) is required here, not
+             type="float"/"int" - confirmed via the generated Cest PHP that the latter silently
+             compiles both operands to a literal 0 instead of the real runtime value (found while
+             writing this test: AdminDashboardReflectsRealDataTest.xml's own assertEquals has the
+             same latent bug, invisible there only because 0 == 0 trivially passes - see the fix
+             alongside this one). -->
+        <assertLessThan stepKey="assertAverageClvDroppedAfterRecompute">
+            <expectedResult type="variable">parseAverageClvBefore</expectedResult>
+            <actualResult type="variable">parseAverageClvAfter</actualResult>
+        </assertLessThan>
+    </test>
+</tests>

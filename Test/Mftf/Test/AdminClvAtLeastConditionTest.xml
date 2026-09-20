@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminClvAtLeastConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="RFM"/>
+            <title value="A campaign's clv_at_least condition gates dispatch on a customer's live-projected lifetime value"/>
+            <description value="Closes SCENARIOS.md §1b's clv_at_least gap. Unlike the percentile-based RFM conditions, Model/Campaign/Condition/ClvAtLeast.php calls ClvCalculator::getProjectedClv() directly - a cheap, single-customer live query (average order value x annualized purchase frequency x the configured projection window), not the precomputed ordo_customer_clv_score table Cron\RecomputeClvScores maintains (that table only feeds the Dashboard's own 'Average projected CLV' stat, see AdminRecomputeClvScoresReflectsInDashboardTest for that separate gap) - so no cron needs to run here at all. clv_at_least has no dedicated Flow-editor field (Block/Adminhtml/Campaign/Edit/Flow.php's getFieldsConfig() only wires a handful of condition types to a named input - amount/threshold/tag/etc - same as the percentile RFM conditions, see AdminRecencyPercentileConditionTest), so its 'amount' param is set via the universal params_json fallback every condition node has, not a fields entry. A threshold is chosen ABOVE SimpleProduct2's own fixture price (123.00) but BELOW the projected CLV a single fresh order produces, to prove this reads the amplified forward-looking projection rather than just echoing the current order's total (order_total_gte) or the customer's raw lifetime spend (monetary_total_at_least): with the default config (clv/projection_years=3, clv/min_tenure_months=1), a brand-new customer's tenure floors at 1/12 year, so projected CLV = 123.00 AOV x (1 order / (1/12 year)) x 3 years = 4428.00 - comfortably above the chosen 1000 threshold, while both the raw order total and lifetime spend (123.00 each) would not be."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, condition=clv_at_least. No dedicated
+             Flow-editor field for this type (see this test's own description), so "amount" is
+             set via the universal params_json fallback instead of a fields entry - same
+             mechanism/pattern as AdminRecencyPercentileConditionTest's percentile field. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="CLV At Least Send Email Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'clv_at_least', fields: {params_json: '{&quot;amount&quot;:1000}'}},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'CLV condition fired.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: a REAL order (SimpleProduct2, 123.00) - projects to 4428.00 CLV under
+             default config, comfortably above the 1000.00 threshold via the amplified formula,
+             while the raw order total/lifetime spend (123.00 each) would not clear it. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- A brief settle wait before draining — defensive against a message-visibility race
+             under CI load, same reasoning/fix as AdminCampaignMultipleConditionsAndTest.xml's
+             identical step. -->
+        <wait time="2" stepKey="waitForDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 3: the real, merchant-visible output only a genuine, amplified CLV projection
+             could have produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seeClvConditionCopyInEmail">
+            <argument name="expectedText">CLV condition fired.</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+
+        <!-- Cleanup: this campaign's order_placed trigger + clv_at_least(1000) condition is
+             unconditionally satisfied by essentially any real single order placed later in this
+             same "segment" group's CI job (a fresh customer's first order always floors at the
+             same minimum tenure), same root-caused leftover-campaign pollution
+             AdminMonetaryTotalAtLeastConditionTest.xml's own cleanup comment describes. -->
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

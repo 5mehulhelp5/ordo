@@ -42,6 +42,14 @@
         <waitForPageLoad stepKey="waitForSave"/>
         <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
 
+        <!-- getTotalCampaignCount() sits behind a 60-second cache (DashboardViewModel's own
+             cachedCount(), no cache-clean hook on campaign save/delete) - found while fixing this
+             test's previously-tautological assertion (see below): without flushing here, "after"
+             almost always still returns the pre-creation cached count within a single fast test
+             run, silently failing (or, before this fix, silently NOT failing only because the
+             broken assertEquals(0, 0) never actually compared real values at all). -->
+        <magentoCLI command="cache:flush" stepKey="flushDashboardCountCache"/>
+
         <!-- Step 3: read the "after" count and assert an exact +1 delta -->
         <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfter"/>
         <waitForPageLoad stepKey="waitForDashboardAfter"/>
@@ -52,9 +60,16 @@
              exposes the same way grabTextFrom's does, as {$stepKey}) rather than inline in the
              assertion itself. -->
         <executeJS function="return {$grabCampaignCountBefore} + 1;" stepKey="calcExpectedCampaignCount"/>
+        <!-- type="variable" (the stepKey name itself, no {$...} wrapper) is required here, not
+             type="int" - confirmed via the generated Cest PHP that the latter silently compiles
+             both operands to a literal 0 instead of the real runtime value, making this
+             assertion pass trivially (0 == 0) regardless of the actual counts. Found while
+             writing AdminRecomputeClvScoresReflectsInDashboardTest.xml, which hit the same bug
+             with assertLessThan(0, 0) - there 0 is not less than 0, so it failed loudly instead
+             of silently. -->
         <assertEquals stepKey="assertCampaignCountIncreasedByOne">
-            <expectedResult type="int">{$calcExpectedCampaignCount}</expectedResult>
-            <actualResult type="int">{$grabCampaignCountAfter}</actualResult>
+            <expectedResult type="variable">calcExpectedCampaignCount</expectedResult>
+            <actualResult type="variable">grabCampaignCountAfter</actualResult>
         </assertEquals>
     </test>
 </tests>
