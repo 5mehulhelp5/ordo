@@ -73,7 +73,7 @@ cases separately from the type-by-type ones.
 | `purchased_sku`                       | `{sku}` (dedicated autocomplete field in the segment form; the campaign Flow editor has no dedicated field for it, see AdminPurchasedSkuConditionTest) | ✅ `AdminPurchasedSkuConditionTest`                       |
 | `purchased_category`                  | `{category_id}` (dedicated field in the segment form, incl. subcategories; no dedicated Flow-editor field, same as purchased_sku) | ✅ `AdminPurchasedCategoryConditionTest`                  |
 | `event_occurred`                      | `{event_type, event_key?, within_days}` (dedicated fields in both the segment form and the campaign Flow editor, cart_add/wishlist_add) | ✅ `AdminEventOccurredConditionTest` (also covers `Observer\TrackCartAdd`'s real storefront add-to-cart flow; `TrackWishlistAdd` not separately covered - same `EventOccurredResolver` path, different producer) |
-| `not_in_segment`                      | `{segment_id}` (dedicated field, same options source as `in_segment`) — the exclusion counterpart to `in_segment`; fails closed (not "over-included") on a segment-reference cycle, same as `in_segment` itself | ⬜ unit-tested (`NotInSegmentTest`), no MFTF yet |
+| `not_in_segment`                      | `{segment_id}` (dedicated field, same options source as `in_segment`) — the exclusion counterpart to `in_segment`; fails closed (not "over-included") on a segment-reference cycle, same as `in_segment` itself | ✅ `AdminCampaignNotInSegmentConditionTest` (plus unit-tested, `NotInSegmentTest`) |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignNotInSegmentConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A campaign's not_in_segment condition is the live exclusion counterpart to in_segment - it gates dispatch on NOT being a segment member, and stops firing once the customer becomes one"/>
+            <description value="Closes SCENARIOS.md #1b's not_in_segment row - the exclusion mirror of AdminCampaignInSegmentConditionTest's own real proof, tagging the customer a different way: CampaignDispatcher::dispatch() evaluates every campaign matching a trigger in one sequential pass, so a same-trigger add_tag campaign's write would already be visible to a second campaign's own condition check within that SAME dispatch (confirmed the hard way - an earlier version of this test used a same-trigger add_tag campaign and got zero coupons on both orders, not one, since the tag was already applied before the second campaign's condition ran even on the first order). This version tags the customer directly via this module's own REST API (Api/CustomerTagManagementInterface, PUT /V1/ordo/customers/:id/tags/:tag) BETWEEN the two orders instead, so the timing is unambiguous: order 1 (customer not yet tagged, NOT a segment member) satisfies not_in_segment and the campaign's generate_coupon fires; the tag is then added directly via the API; order 2 (customer now tagged, a real segment member) evaluates not_in_segment false, so the campaign must NOT fire again. Only a real segment lookup against real customer_tag rows, re-evaluated fresh on each dispatch (Model/Segment/SegmentMatcher.php has no caching), explains exactly one coupon existing afterwards rather than zero or two."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="campaign"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <createData entity="ApiSalesRule" stepKey="createRule"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createRule" stepKey="deleteRule"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the Segment — one condition, type=tag, params={"tag": "vip"}. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Test Tagged VIP Segment For Exclusion" stepKey="fillSegmentName"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSegment"/>
+
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addSegmentConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForSegmentConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="tag" stepKey="selectSegmentConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][tag]']" userInput="vip" stepKey="fillSegmentConditionParams"/>
+
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueSegment"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
+
+        <!-- Step 2: the campaign — order_placed, condition=not_in_segment {"segment_id": "<real id>"},
+             action=generate_coupon. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Not-In-Segment Coupon Campaign" stepKey="fillName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'not_in_segment', fields: {segment_id: '{$grabSegmentId}'}},
+            {kind: 'action', type: 'generate_coupon', fields: {rule_id: '$createRule.rule_id$', prefix: 'NOTINSEGTEST', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 3: the real customer, logged in once, places TWO real orders. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+
+        <!-- Order 1: customer isn't tagged 'vip' yet, so is NOT a segment member - not_in_segment
+             is satisfied, generate_coupon fires. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageOrder1"/>
+        <waitForPageLoad stepKey="waitForProductPageOrder1"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartOrder1">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartOrder1"/>
+        <waitForPageLoad stepKey="waitForCartPageOrder1"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumerAfterOrder1"/>
+
+        <!-- Step 4: tag the customer directly via this module's own REST API, entirely outside
+             the campaign engine - deterministic, no dispatch-ordering ambiguity. Authenticates
+             with a real admin OAuth token (MAGENTO_ADMIN_USERNAME/PASSWORD, the same real admin
+             account MFTF's own AdminLoginActionGroup logs into), not the admin session cookie -
+             confirmed the hard way that the cookie doesn't carry the same ACL context a real
+             admin session has for this custom resource. This is a side-channel REST call, not a
+             page navigation, so it doesn't touch the browser's own current storefront session. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CustomerTagTestHelper" method="addTagViaApi" stepKey="tagCustomerAsVip">
+            <argument name="restBaseUrl">{{_ENV.MAGENTO_BASE_URL}}rest</argument>
+            <argument name="customerId">$createCustomer.id$</argument>
+            <argument name="tag">vip</argument>
+            <argument name="adminUsername">{{_ENV.MAGENTO_ADMIN_USERNAME}}</argument>
+            <argument name="adminPassword">{{_ENV.MAGENTO_ADMIN_PASSWORD}}</argument>
+        </helper>
+
+        <!-- Order 2: the tag now exists, so SegmentMatcher's live query puts the customer IN the
+             segment - not_in_segment now evaluates false, so the campaign must NOT fire a second
+             coupon this time. Still the same logged-in customer session from order 1. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageOrder2"/>
+        <waitForPageLoad stepKey="waitForProductPageOrder2"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartOrder2">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartOrder2"/>
+        <waitForPageLoad stepKey="waitForCartPageOrder2"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSecondOrder"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumerAfterOrder2"/>
+
+        <!-- Step 5: the real proof - exactly ONE coupon exists (from order 1), not zero (proving
+             not_in_segment isn't just always failing closed) and not two (proving it correctly
+             stopped firing once the customer became a real segment member). -->
+        <amOnPage url="admin/sales_rule/promo_quote/edit/id/$createRule.rule_id$/" stepKey="goToRuleEditPage"/>
+        <waitForPageLoad stepKey="waitForRuleEditPage"/>
+        <conditionalClick selector="{{AdminCartPriceRulesFormSection.manageCouponCodesHeader}}"
+                           dependentSelector="#couponCodesGrid_table" visible="false" stepKey="openCouponCodesTab"/>
+        <waitForElementVisible selector="#couponCodesGrid_table" stepKey="waitForCouponCodesGrid"/>
+        <waitForText selector="#couponCodesGrid_table" userInput="NOTINSEGTEST-" stepKey="seeGeneratedCouponInGrid"/>
+        <executeJS function="return document.querySelectorAll('#couponCodesGrid_table tbody tr').length;" stepKey="grabCouponRowCount"/>
+        <assertEquals stepKey="assertExactlyOneCouponGenerated">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">grabCouponRowCount</actualResult>
+        </assertEquals>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
