@@ -1583,7 +1583,18 @@ define([
             $(container).closest('.ordo-flow-wrapper').on('click', '[data-flow-action="apply"]', function () {
                 var $button = $(this),
                     $wrapper = $button.closest('.ordo-flow-wrapper'),
-                    validation = validateFlow();
+                    validation;
+
+                // A field like the campaign's own Name input only pushes its typed value into
+                // the form provider's data on blur/change - a merchant who types a name and
+                // clicks straight into this canvas's Apply button (never blurring that field)
+                // would otherwise have provider.save() below persist whatever stale/empty value
+                // the provider already held, silently dropping what was just typed.
+                if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
+                }
+
+                validation = validateFlow();
 
                 $(container).find('.drawflow-node').removeClass('ordo-flow-node-error');
 

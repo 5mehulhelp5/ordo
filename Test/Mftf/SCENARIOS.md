@@ -11,9 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except eleven ⬜ (the Campaign export row,
+**Status: every row below is ✅ except eight ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Segment export row in §2,
-the three Admin Action Log rows in §19, the two Setup
+the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
@@ -331,9 +331,9 @@ module's.
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| Saving a new Campaign/Segment records a `create` row with no changes diff                                        | ⬜ unit-tested (`CampaignSaveProcessorAuditPluginTest`, `SegmentSaveProcessorAuditPluginTest`), no MFTF yet |
-| Saving an existing Campaign/Segment records an `update` row with the changed top-level fields diffed             | ⬜ unit-tested (same as above), no MFTF yet                                |
-| Admin Action Log grid (`ordo/adminactionlog/index`) renders logged rows                                         | ⬜ unit-tested (`Controller\Adminhtml\AdminActionLog\IndexTest`), no MFTF yet |
+| Saving a new Campaign/Segment records a `create` row with no changes diff                                        | ✅ `AdminActionLogRecordsCampaignSavesTest` |
+| Saving an existing Campaign/Segment records an `update` row with the changed top-level fields diffed             | ✅ `AdminActionLogRecordsCampaignSavesTest` |
+| Admin Action Log grid (`ordo/adminactionlog/index`) renders logged rows                                         | ✅ `AdminActionLogRecordsCampaignSavesTest` |
 
 ## 20. Setup Guide (`Block/Adminhtml/Setup/SetupWizardViewModel.php`, `Controller/Adminhtml/Setup/`)
 

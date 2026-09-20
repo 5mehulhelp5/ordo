@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminActionLogRecordsCampaignSavesTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Admin action audit log"/>
+            <title value="Saving a campaign records a real create row (no diff) then a real update row (with the changed field diffed) in the Admin Action Log"/>
+            <description value="Closes SCENARIOS.md §19's two audit-recording gaps (create and update) in one real save-then-resave flow, plus the Admin Action Log grid gap - CampaignSaveProcessorAuditPlugin::aroundProcess() determines create-vs-update from whether entity_id was posted at all, so a genuinely fresh campaign's first save is the real create proof, and renaming that same campaign on its very next save is the real update-with-diff proof (Recorder::diffFields() only has an 'old' value to diff against for a real second save of a real existing row, not a synthetic one). Both real rows are then confirmed in the Admin Action Log grid itself - entity_type=campaign, the real action (create/update), and for the update row, both the old and new name inside its own real changes_json."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real, fresh campaign save - CampaignSaveProcessorAuditPlugin sees no
+             entity_id in the posted data, so this is the real "create" case (no diff, since
+             there's no "old" state). -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="AdminActionLog Test Campaign A" stepKey="fillOriginalName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'admin_action_log_test', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCreateSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: a real resave of this SAME, now-existing campaign - entity_id IS posted this
+             time, so this is the real "update" case, with a real old-vs-new name diff. -->
+        <amOnPage url="admin/ordo/campaign/edit/entity_id/{$grabCampaignId}" stepKey="goToEditCampaignPage"/>
+        <waitForPageLoad stepKey="waitForEditCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameFieldOnEdit"/>
+        <fillField selector="[name='name']" userInput="AdminActionLog Test Campaign B" stepKey="fillRenamedName"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSaveClickable"/>
+        <click selector="#save" stepKey="clickSave"/>
+        <waitForPageLoad stepKey="waitForResave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeUpdateSuccessMessage"/>
+
+        <!-- Step 3: the Admin Action Log grid - the real, merchant-visible proof only these two
+             genuine saves could have produced. -->
+        <amOnPage url="admin/ordo/adminactionlog/index" stepKey="goToAdminActionLogGrid"/>
+        <waitForPageLoad stepKey="waitForAdminActionLogGrid"/>
+        <waitForText selector="table.data-grid" userInput="Create" stepKey="seeCreateActionInGrid"/>
+        <waitForText selector="table.data-grid" userInput="Update" stepKey="seeUpdateActionInGrid"/>
+        <see selector="table.data-grid" userInput="Campaign" stepKey="seeCampaignEntityTypeInGrid"/>
+        <see selector="table.data-grid" userInput="AdminActionLog Test Campaign A" stepKey="seeOldNameInDiff"/>
+        <see selector="table.data-grid" userInput="AdminActionLog Test Campaign B" stepKey="seeNewNameInDiff"/>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
