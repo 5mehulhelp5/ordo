@@ -140,4 +140,35 @@ class CronScheduleHelper extends Helper
         );
         $statement->execute(['action_type' => $actionType]);
     }
+
+    /**
+     * The UTC hour (00-23) of the most recently written ordo_campaign_scheduled_action row for
+     * $campaignId - SendTimeOptimizationGate::allows() writes run_at as a real predicted-hour
+     * UTC timestamp (not "now + delay_minutes" like every other deferral this suite tests), so
+     * this is how AdminSendTimeOptimizationDefersToBestHourTest confirms the row it produced
+     * really did land on the predicted hour, not just that a row exists at all. Same campaign_id
+     * filtering as backdateMostRecentScheduledAction() above, for the identical reason.
+     */
+    public function getMostRecentScheduledActionRunAtHour(
+        string $campaignId,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): string {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            "SELECT DATE_FORMAT(run_at, '%H') FROM ordo_campaign_scheduled_action "
+            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id DESC LIMIT 1'
+        );
+        $statement->execute(['campaign_id' => $campaignId]);
+
+        return (string) $statement->fetchColumn();
+    }
 }

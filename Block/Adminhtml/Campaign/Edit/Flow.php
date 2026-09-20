@@ -335,6 +335,17 @@ class Flow extends Template
                 'send_email' => [
                     ['name' => 'template', 'label' => (string) __('Email template identifier')],
                     ['name' => 'message', 'label' => (string) __('Message')],
+                    [
+                        'name' => 'use_optimal_send_time',
+                        'label' => (string) __('Send at customer\'s optimal time'),
+                        'options' => [
+                            '' => (string) __('No - send immediately'),
+                            'true' => (string) __(
+                                'Yes - defer to this customer\'s own historically-best open/click hour'
+                                . ' (Model\Campaign\SendTimeOptimizer), when enough history exists'
+                            ),
+                        ],
+                    ],
                 ],
                 'popup' => [
                     ['name' => 'headline', 'label' => (string) __('Popup headline')],

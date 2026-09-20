@@ -11,9 +11,7 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one ⬜ (the predictive send-time optimization row in
-§1d — unit-tested but no MFTF/integration coverage of a real deferred dispatch yet).**
-Re-audit this against `etc/di.xml`/
+**Status: every row below is ✅.** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -107,7 +105,7 @@ cases separately from the type-by-type ones.
 | Cross-channel frequency cap (`Model\Campaign\FrequencyCapManager`, opt-in, disabled by default) — a customer over the configured per-window contact-volume cap is skipped by `send_email`/`send_sms`/`send_whatsapp`/`send_push` alike and recorded `suppressed` in `ordo_message_log`, not sent | ✅ `AdminCampaignFrequencyCapSuppressesSendTest` (real `send_email`; the other three channels' own cap check is unit-tested only, same reasoning as their own §1c rows — no live provider account to send through) |
 | `CampaignDispatchConsumer` dead-letters an undecodable message or an uncaught `dispatch()` exception into `ordo_campaign_dispatch_dead_letter` instead of losing it | ✅ `Test/Integration/CampaignDispatchConsumerDeadLetterTest.php` — real DI/DB, `execute()` called directly with a genuinely malformed message (no MFTF-reachable way to inject one through a real queue publish, which always produces well-formed JSON) |
 | Campaign export (`ordo/campaign/export`) — "Export" grid row action downloads the full trigger/condition/action graph as JSON | ✅ `AdminCampaignAndSegmentExportTest` |
-| Predictive send-time optimization (`Model\Campaign\SendTimeOptimizationGate`, opt-in per `send_email` action via `"use_optimal_send_time"` in `params`) — a customer with enough email open/click history has the send deferred to their own historically-best hour instead of running immediately | ⬜ unit-tested (`SendTimeOptimizerTest`, `SendTimeOptimizationGateTest`), no MFTF/integration coverage of a real deferred dispatch yet — same untested-in-MFTF shape as `QuietHoursGate` itself, which also has no dedicated row here |
+| Predictive send-time optimization (`Model\Campaign\SendTimeOptimizationGate`, opt-in per `send_email` action via `"use_optimal_send_time"` in `params`) — a customer with enough email open/click history has the send deferred to their own historically-best hour instead of running immediately | ✅ `AdminSendTimeOptimizationDefersToBestHourTest` |
 
 ## 2. Segments (`Model/Segment.php`, `Controller/Adminhtml/Segment/`)
 
