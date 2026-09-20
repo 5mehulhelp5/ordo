@@ -11,7 +11,7 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and twelve ⬜ (the Campaign export row,
+**Status: every row below is ✅ except one 🔴 (see §10) and eleven ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Approval rate-limit row and the Order Approvals grid
 in §6, the Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
@@ -240,7 +240,7 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | `Cron\RefreshRssContentBlocks` — the 30-minute job that keeps an `rss` block's cache warm                               | ✅ `AdminContentBlockRssTest`                                                                                                    |
 | Admin "Refresh now" AJAX action (`Controller/Adminhtml/ContentBlock/RefreshRss.php`)                                    | ✅ `AdminContentBlockRssTest`                                                                                                    |
 | A content block rendered directly on-site (not via a campaign action) — `Block/Frontend/ContentBlock/Render.php`, embedded via a real, static layout XML file targeting a specific CMS page's own `cms_page_view_id_{identifier}` handle (`Magento\Cms\Helper\Page`'s own mechanism - see `view/frontend/layout/cms_page_view_id_e2e-onsite-recommendations-page.xml` and `Render.php`'s own docblock for why this, not `{{widget}}` or the CMS page's "Layout Update XML" field, both tried and ruled out first) | ✅ `AdminContentBlockRecommendationsOnSiteTest` |
-| Mass-delete selected message log rows                                                                                  | ⬜ unit-tested (`Controller\Adminhtml\MessageLog\MassDeleteTest`), no MFTF yet |
+| Mass-delete selected message log rows                                                                                  | ✅ `AdminMessageLogMassDeleteTest` (see §8's `AdminReorderCycleMassDeleteTest` for the ambiguous-`entity_id` bug this grid's own collection shared and needed the same fix for) |
 | Message Log admin grid (`Controller/Adminhtml/MessageLog/Index.php`) lists a real `ordo_message_log` row                | ✅ `AdminMessageLogGridReflectsRealDataTest`                                                                                     |
 | Standalone Google Merchant Center shopping feed (`Model/ProductFeed/`, distinct from the `product_feed` content block) — admin refresh + public feed URL serves a real product | ✅ `AdminShoppingFeedRefreshAndServeTest`                                                       |
 

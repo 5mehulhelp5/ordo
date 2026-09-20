@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminMessageLogMassDeleteTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Message log"/>
+            <title value="The Message Log grid's mass-delete removes a real ordo_message_log row"/>
+            <description value="Closes SCENARIOS.md §10's last message-log gap. Same real-row-insert-then-delete shape as AdminMessageLogGridReflectsRealDataTest (MessageLogTestHelper inserts directly via SQL - ordo_message_log is only otherwise written by a real send_sms action or the delivery-status webhook, see that test's own description) - the grid's own row checkbox (located by this row's distinctive to_address) is selected, the mass-action 'Actions' dropdown's 'Delete' is applied and confirmed through Magento's real confirm modal, and the row being genuinely gone afterward is proof only a real mass-delete against this real row could have produced. Found and fixed a real bug while writing this: Model\ResourceModel\MessageLog\Grid\Collection LEFT JOINs customer_entity (its own entity_id column), so Magento\Ui\Component\MassAction\Filter's unqualified entity_id filter is rejected by MySQL as ambiguous - same fix (a $_map field alias) as AdminReorderCycleMassDeleteTest's own identical finding, applied here and to Campaign\Grid\Collection too."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\MessageLogTestHelper" method="insertMessageLog" stepKey="insertMessageLog">
+                <argument name="channel">sms</argument>
+                <argument name="toAddress">+15559876543</argument>
+                <argument name="status">delivered</argument>
+            </helper>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the grid - select this row (located by its distinctive to_address, not row
+             position, since other message log rows can exist in this same shared CI job's DB),
+             open the mass-action "Actions" dropdown, choose "Delete", and accept Magento's real
+             confirm modal. -->
+        <amOnPage url="admin/ordo/messagelog/index" stepKey="goToMessageLogGrid"/>
+        <waitForPageLoad stepKey="waitForMessageLogGrid"/>
+        <waitForElementVisible selector="//tbody/tr[td[*[contains(.,normalize-space('+15559876543'))]]]" stepKey="waitForMessageRow"/>
+        <click selector="//tr[td[*[contains(.,normalize-space('+15559876543'))]]]//input[@type='checkbox']" stepKey="clickMessageRowCheckbox"/>
+        <waitForElementVisible selector="button.action-select" stepKey="waitForActionsButton"/>
+        <click selector="button.action-select" stepKey="clickActionsButton"/>
+        <waitForElementVisible selector="//li[contains(., 'Delete')]" stepKey="waitForDeleteMenuItem"/>
+        <click selector="//li[contains(., 'Delete')]" stepKey="clickDeleteMenuItem"/>
+        <waitForElementVisible selector=".modal-popup.confirm .action-primary" stepKey="waitForConfirmModal"/>
+        <click selector=".modal-popup.confirm .action-primary" stepKey="clickConfirmDelete"/>
+        <waitForPageLoad stepKey="waitForMassActionRedirect"/>
+        <see selector=".message-success" userInput="have been deleted" stepKey="seeMassActionSuccessMessage"/>
+
+        <!-- Step 2: the real, database-observable proof only a genuine mass-delete against this
+             exact row could have produced. -->
+        <dontSeeElement selector="//tbody/tr[td[*[contains(.,normalize-space('+15559876543'))]]]" stepKey="dontSeeMessageRowAfterDelete"/>
+    </test>
+</tests>
