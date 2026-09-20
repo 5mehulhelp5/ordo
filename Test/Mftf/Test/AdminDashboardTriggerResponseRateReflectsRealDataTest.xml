@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminDashboardTriggerResponseRateReflectsRealDataTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign performance analytics"/>
+            <title value="A real cron-driven trigger send is logged, and a real subsequent order from the same customer marks it responded - the Dashboard's own trigger response-rate card reflects both"/>
+            <description value="Closes SCENARIOS.md #29's trigger response-rate row - the sibling of AdminCampaignFunnelReflectsRealSendAndConversionTest's own campaign-scoped equivalent, same real bug (RecordTriggerOutcome was on sales_order_place_after, fixed to sales_order_save_after - see that fix's own commit) that made this half of the dashboard's own 'Trigger performance' table permanently stuck at 'responded=0' for every real send, in production, until now. Reuses AdminSendCreditLimitAlertTest's own real setup (a low ordo_credit_limit customer attribute + a real over-limit order - SimpleProduct2's fixture price comfortably exceeds a $50 limit) to produce a real Cron\SendCreditLimitAlerts send and its own real TriggerOutcomeLogger::logSent() row, for free. DashboardViewModel::getTriggerStats() reads TriggerOutcomeLogger::getStats() live (no cache to flush, unlike this page's own simple counts) but aggregates across every customer this whole CI run's other tests have already sent a credit-limit alert to - so this asserts a before/after DELTA on the exact same 'Credit Limit Alert' row (the 3rd of the 5 fixed trigger rows, TriggerOutcomeLogger::TRIGGER_TYPES's own order), not an absolute value, the same idiom AdminDashboardReflectsRealDataTest's own docblock already established for identical reasons."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: baseline - the "Credit Limit Alert" row's own current sent/responded counts,
+             before this test's own real send/response exist. -->
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardBaseline"/>
+        <waitForPageLoad stepKey="waitForDashboardBaseline"/>
+        <waitForElementVisible selector=".ordo-trigger-outcome-table" stepKey="waitForTriggerTableBaseline"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(2)" stepKey="grabSentBaseline"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(3)" stepKey="grabRespondedBaseline"/>
+
+        <!-- Step 2: a real, low credit limit on the real customer - same real "over limit"
+             setup as AdminSendCreditLimitAlertTest.xml's own step 1. -->
+        <amOnPage url="{{AdminEditCustomerPage.url($$createCustomer.id$$)}}" stepKey="goToCustomerEditPage"/>
+        <waitForPageLoad stepKey="waitForCustomerEditPage"/>
+        <actionGroup ref="AdminOpenAccountInformationTabFromCustomerEditPageActionGroup" stepKey="openAccountInformationTab"/>
+        <waitForElementVisible selector="[name='customer[ordo_credit_limit]']" stepKey="waitForCreditLimitField"/>
+        <fillField selector="[name='customer[ordo_credit_limit]']" userInput="50" stepKey="fillCreditLimit"/>
+        <click selector="{{AdminCustomerMainActionsSection.saveButton}}" stepKey="saveCustomer"/>
+        <see selector="{{AdminCustomerMessagesSection.successMessage}}" userInput="You saved the customer" stepKey="seeCustomerSavedMessage"/>
+
+        <!-- Step 3: order #1, a real over-limit order through real storefront checkout. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageFirstOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageFirstOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartFirstOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartFirstOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageFirstOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+
+        <!-- Step 4: force SendCreditLimitAlerts to run now (real schedule 06:00 daily) - a real
+             alert send, and its own real TriggerOutcomeLogger::logSent('credit_limit_alert', ...)
+             row. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleSendCreditLimitAlertsJob">
+            <argument name="jobCode">ordo_automation_send_credit_limit_alerts</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runSendCreditLimitAlertsCron"/>
+
+        <!-- Step 5: sent increased by exactly 1, responded unchanged - nobody has ordered again
+             yet. -->
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfterSend"/>
+        <waitForPageLoad stepKey="waitForDashboardAfterSend"/>
+        <waitForElementVisible selector=".ordo-trigger-outcome-table" stepKey="waitForTriggerTableAfterSend"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(2)" stepKey="grabSentAfterSend"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(3)" stepKey="grabRespondedAfterSend"/>
+        <executeJS function="return parseInt('{$grabSentAfterSend}', 10) - parseInt('{$grabSentBaseline}', 10);" stepKey="computeSentDeltaAfterSend"/>
+        <assertEquals stepKey="assertSentIncreasedByOne">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">computeSentDeltaAfterSend</actualResult>
+        </assertEquals>
+        <assertEquals stepKey="assertRespondedUnchangedAfterSend">
+            <expectedResult type="variable">grabRespondedBaseline</expectedResult>
+            <actualResult type="variable">grabRespondedAfterSend</actualResult>
+        </assertEquals>
+
+        <!-- Step 6: order #2, a real SECOND order from the same customer - real
+             sales_order_save_after fires Observer\RecordTriggerOutcome, marking order #1's own
+             un-acted outcome row as responded. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageSecondOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageSecondOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartSecondOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartSecondOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageSecondOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSecondOrder"/>
+
+        <!-- Step 7: responded increased by exactly 1, sent unchanged - no cron ran again. -->
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfterResponse"/>
+        <waitForPageLoad stepKey="waitForDashboardAfterResponse"/>
+        <waitForElementVisible selector=".ordo-trigger-outcome-table" stepKey="waitForTriggerTableAfterResponse"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(2)" stepKey="grabSentAfterResponse"/>
+        <grabTextFrom selector=".ordo-trigger-outcome-table tbody tr:nth-child(3) td:nth-child(3)" stepKey="grabRespondedAfterResponse"/>
+        <assertEquals stepKey="assertSentStillUnchangedAfterResponse">
+            <expectedResult type="variable">grabSentAfterSend</expectedResult>
+            <actualResult type="variable">grabSentAfterResponse</actualResult>
+        </assertEquals>
+        <executeJS function="return parseInt('{$grabRespondedAfterResponse}', 10) - parseInt('{$grabRespondedAfterSend}', 10);" stepKey="computeRespondedDeltaAfterResponse"/>
+        <assertEquals stepKey="assertRespondedIncreasedByOne">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">computeRespondedDeltaAfterResponse</actualResult>
+        </assertEquals>
+    </test>
+</tests>
