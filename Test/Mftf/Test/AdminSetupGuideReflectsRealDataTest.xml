@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSetupGuideReflectsRealDataTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Setup Guide"/>
+            <title value="The Setup Guide's steps flip to Done from real config/data changes, and the Dashboard banner disappears only once every step is actually done"/>
+            <description value="Closes SCENARIOS.md #20's two gaps - Block\Adminhtml\Setup\SetupWizardViewModel.php's own docblock says each step's 'done' state is 'computed live from real data', not a persisted onboarding-progress flag, so this proves that live-ness two ways: (1) the 'Configure a messaging channel' step flips from Step 1 to Done purely from a real config:set turning SMS on with a real-looking Twilio SID, with no click-through of its own, and flips back once that config is unset; (2) the Dashboard's own setup_wizard_banner.phtml (isComplete() = every step done) only disappears once a real segment and a real campaign also exist AND the channel is configured, and reappears the moment any one of those three stops being true again - proving isComplete() genuinely ANDs all three live checks rather than being a one-time dismissible flag."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <!-- Baseline: both channels off, regardless of whatever an earlier test in the same
+                 run left configured - isChannelConfigured() only needs ONE of SMS/WhatsApp on
+                 with a non-empty credential, so both must be off for the "not done" assertions
+                 below to be meaningful. -->
+            <magentoCLI command="config:set ordo_automation/sms/enabled 0" stepKey="disableSmsBefore"/>
+            <magentoCLI command="config:set ordo_automation/whatsapp/enabled 0" stepKey="disableWhatsAppBefore"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/sms/enabled 0" stepKey="disableSmsAfter"/>
+            <magentoCLI command="config:set ordo_automation/whatsapp/enabled 0" stepKey="disableWhatsAppAfter"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: with the channel unconfigured, the Setup Guide's own first step shows
+             "Step 1" (not Done), and the Dashboard banner is visible. -->
+        <amOnPage url="admin/ordo/setup/index" stepKey="goToSetupGuideBefore"/>
+        <waitForPageLoad stepKey="waitForSetupGuideBefore"/>
+        <see selector=".ordo-setup-wizard-steps li:nth-child(1) .ordo-badge" userInput="Step 1" stepKey="seeChannelStepNotDone"/>
+        <dontSeeElement selector=".ordo-setup-wizard-steps li:nth-child(1)[class~='ordo-setup-wizard-step-done']" stepKey="dontSeeChannelStepDoneClass"/>
+
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardBefore"/>
+        <waitForPageLoad stepKey="waitForDashboardBefore"/>
+        <seeElement selector="[class~='ordo-setup-wizard-banner']" stepKey="seeBannerBeforeChannelConfigured"/>
+
+        <!-- Step 2: a real config:set turning SMS on with a real-looking Twilio SID - no UI
+             click-through of the wizard step itself, only the underlying config it reads. -->
+        <magentoCLI command="config:set ordo_automation/sms/enabled 1" stepKey="enableSms"/>
+        <magentoCLI command="config:set ordo_automation/sms/twilio_account_sid ACtestSetupGuideSid00000000000000" stepKey="setTwilioSid"/>
+
+        <amOnPage url="admin/ordo/setup/index" stepKey="goToSetupGuideAfterChannel"/>
+        <waitForPageLoad stepKey="waitForSetupGuideAfterChannel"/>
+        <seeElement selector=".ordo-setup-wizard-steps li:nth-child(1)[class~='ordo-setup-wizard-step-done']" stepKey="seeChannelStepDoneClass"/>
+        <see selector=".ordo-setup-wizard-steps li:nth-child(1) .ordo-badge" userInput="Done" stepKey="seeChannelStepDoneText"/>
+
+        <!-- Step 3: a real segment and a real campaign - the other two steps' own "done" checks
+             are plain collection counts (hasAnySegment()/hasAnyCampaign()), so genuinely creating
+             one of each is what should flip them, not a UI click on the wizard itself. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Setup Guide Test Segment" stepKey="fillSegmentName"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="500" stepKey="fillConditionParams"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentSaveClickable"/>
+        <click selector="#save" stepKey="clickSegmentSave"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+
+        <!-- Unlike Campaign's Save controller, Segment's Save redirects to the grid (not the
+             edit page) on a plain Save click - see Controller\Adminhtml\Segment\Save.php, the
+             'back' param is only set by "Save and Continue Edit" - so entity_id has to come from
+             the grid row's own edit link, same as AdminDeleteSegmentTest.xml. -->
+        <waitForPageLoad stepKey="waitForSegmentGridAfterSave"/>
+        <grabAttributeFrom selector="//tr[contains(., 'Setup Guide Test Segment')]//a[contains(@href, 'segment/edit')]" userInput="href" stepKey="grabSegmentEditHref"/>
+        <executeJS function="return '{$grabSegmentEditHref}'.match(/entity_id\/(\d+)/)[1];" stepKey="grabSegmentId"/>
+
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Setup Guide Test Campaign" stepKey="fillCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'setup_guide_test', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 4: all three real - the Setup Guide has no "Step N" badges left, and the
+             Dashboard banner is gone. -->
+        <amOnPage url="admin/ordo/setup/index" stepKey="goToSetupGuideAfterAll"/>
+        <waitForPageLoad stepKey="waitForSetupGuideAfterAll"/>
+        <dontSeeElement selector=".ordo-setup-wizard-steps [class~='ordo-badge-off']" stepKey="dontSeeAnyOffBadge"/>
+
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfterAll"/>
+        <waitForPageLoad stepKey="waitForDashboardAfterAll"/>
+        <dontSeeElement selector="[class~='ordo-setup-wizard-banner']" stepKey="dontSeeBannerOnceComplete"/>
+
+        <!-- Step 5: breaking just ONE of the three (the channel) again brings the banner right
+             back - isComplete() genuinely ANDs all three live checks each time it's read, not a
+             one-time "onboarding finished" flag that would stay true afterward. -->
+        <magentoCLI command="config:set ordo_automation/sms/enabled 0" stepKey="disableSmsAgain"/>
+
+        <amOnPage url="admin/ordo/dashboard/index" stepKey="goToDashboardAfterBreakingChannel"/>
+        <waitForPageLoad stepKey="waitForDashboardAfterBreakingChannel"/>
+        <seeElement selector="[class~='ordo-setup-wizard-banner']" stepKey="seeBannerReappearsAfterBreakingChannel"/>
+        <grabAttributeFrom selector="[class~='ordo-setup-wizard-banner'] a" userInput="href" stepKey="grabBannerHref"/>
+        <assertStringContainsString stepKey="assertBannerLinksToSetupGuide">
+            <expectedResult type="string">ordo/setup/index</expectedResult>
+            <actualResult type="string">{$grabBannerHref}</actualResult>
+        </assertStringContainsString>
+
+        <!-- Cleanup lives here, not in <after> - grabCampaignId/grabSegmentId are local
+             variables scoped to this test's own generated method, not visible from the
+             separately generated _after() method, same reasoning as every other test in this
+             suite that deletes a grab*'d entity (see e.g.
+             AdminCampaignDynamicContentSnippetActionTest's own identical comment). -->
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

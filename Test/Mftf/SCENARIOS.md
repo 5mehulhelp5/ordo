@@ -11,10 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except eight ⬜ (the Campaign export row,
+**Status: every row below is ✅ except six ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Segment export row in §2,
-the two Setup
-Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
+and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
@@ -339,8 +338,8 @@ module's.
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| Each step's "done" state reflects real data (channel credentials, at least one segment/campaign) not just a click | ⬜ unit-tested (`SetupWizardViewModelTest`), no MFTF yet                  |
-| Dashboard banner links to the Setup Guide and disappears once every step is done                                | ⬜ unit-tested (`SetupWizardViewModelTest::testIsCompleteOnlyWhenEveryStepIsDone`), no MFTF yet |
+| Each step's "done" state reflects real data (channel credentials, at least one segment/campaign) not just a click | ✅ `AdminSetupGuideReflectsRealDataTest` |
+| Dashboard banner links to the Setup Guide and disappears once every step is done                                | ✅ `AdminSetupGuideReflectsRealDataTest` |
 
 ## 21. Scheduled Campaign Calendar (`Block/Adminhtml/Campaign/ScheduleCalendar/CampaignScheduleCalendarViewModel.php`, `Controller/Adminhtml/Campaign/ScheduleCalendar.php`)
 
