@@ -7,6 +7,19 @@
     <event name="sales_order_place_after">
         <observer name="ordo_automation_hold_order_for_approval" instance="Ordo\Automation\Observer\HoldOrderForApproval"/>
         <observer name="ordo_automation_dispatch_order_placed_campaigns" instance="Ordo\Automation\Observer\DispatchOrderPlacedCampaigns"/>
+    </event>
+    <!-- RecordTriggerOutcome/RecordCampaignOutcome are on sales_order_save_after, NOT
+         sales_order_place_after like their sibling observers above - see each class's own
+         docblock for why: \Magento\Sales\Model\Order::place() (which sales_order_place_after
+         fires from) always runs BEFORE \Magento\Sales\Model\ResourceModel\Order::save()
+         persists the order, for every normal (non-reorder) checkout - a fresh order's own
+         entity_id is genuinely unpopulated at sales_order_place_after time, confirmed via
+         Magento\Quote\Model\QuoteManagement::submitQuote()'s own real code (entity_id is only
+         ever set early for a reorder, from the quote's own origOrderId). Both observers require
+         a real entity_id to record a conversion against, so sales_order_place_after silently
+         no-ops them for every real order, every time - a real, previously-undiscovered bug this
+         session's own AdminCampaignFunnelReflectsRealSendAndConversionTest caught. -->
+    <event name="sales_order_save_after">
         <observer name="ordo_automation_record_trigger_outcome" instance="Ordo\Automation\Observer\RecordTriggerOutcome"/>
         <observer name="ordo_automation_record_campaign_outcome" instance="Ordo\Automation\Observer\RecordCampaignOutcome"/>
     </event>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignFunnelReflectsRealSendAndConversionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign performance analytics"/>
+            <title value="A real campaign send is logged to ordo_campaign_outcome_log, and a real subsequent order from the same customer marks it converted - the campaign edit page's own Funnel widget reflects both"/>
+            <description value="Closes SCENARIOS.md #29's campaign-funnel row (the single biggest gap a 2026-09-20 re-audit found - a complete analytics subsystem with zero prior MFTF footprint). Model\Sms\MessageLogWriter::recordSent() already writes a real ordo_campaign_outcome_log 'sent' row for any campaign_id-attributed send - this test's own real order_placed dispatch's send_email action produces one for free, no seeding needed. Observer\RecordCampaignOutcome fires on EVERY sales_order_place_after, marking the most recent un-acted outcome row for that customer as converted - not necessarily the same order that triggered the original send, so a real SECOND order from the same customer (not the first one) is what actually closes the loop here, exactly matching real merchant behavior ('did this customer who was emailed a campaign message buy something afterward'). Block\Adminhtml\Campaign\FunnelViewModel/CampaignFunnelStats compose the real result from both ordo_message_log(+_event) and ordo_campaign_outcome_log at read time - confirmed via the real Funnel widget on the campaign edit page showing sent=2 (the campaign is still enabled and still matches order_placed, so the second order's own dispatch genuinely sends again too - not a bug, this is what any real, still-active campaign does for every order a customer places, not only their first), converted=1 (only order #1's own outcome row has a later order to be marked converted by; order #2's own outcome row has none yet), conversion_rate=50.0%, and a non-zero revenue figure (the second order's own real grand total, not asserted to the exact cent to avoid needing to compute tax/shipping - `dontSee '0.00'` on that exact cell is the same 'was real revenue attributed at all' idiom AdminRfmReportGridReflectsRealDataTest's own dontSeeZeroMonetaryInGrid already uses)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, action=send_email. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Funnel Test Campaign" stepKey="fillName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'Funnel test campaign message.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: order #1 - dispatch runs send_email inline, writing a real ordo_message_log
+             row AND a real ordo_campaign_outcome_log 'sent' row (MessageLogWriter::recordSent()'s
+             own free side effect for any campaign_id-attributed send). -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageFirstOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageFirstOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartFirstOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartFirstOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageFirstOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+        <wait time="2" stepKey="waitForFirstDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 3: order #2 - a genuinely SEPARATE, real order from the same customer.
+             Observer\RecordCampaignOutcome fires on this real sales_order_place_after and marks
+             order #1's own un-acted outcome row as converted by THIS order - proving "did this
+             customer buy something after being sent a campaign", not just "did the same order
+             both trigger the send and count as its own conversion". -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageSecondOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageSecondOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartSecondOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartSecondOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageSecondOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSecondOrder"/>
+        <wait time="2" stepKey="waitForSecondDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumerAgain"/>
+
+        <!-- Step 4: the real Funnel widget on the campaign edit page - sent/converted/
+             conversion-rate/revenue all reflect the real sends + real conversion above, not just
+             that the page renders without erroring. Two real sends, not one: order #2's own
+             order_placed dispatch ALSO runs send_email again (the campaign is still enabled and
+             still matches), the same as any real, still-active campaign would for every order a
+             customer places, not only their first - so sent=2 here is the genuinely correct
+             outcome, not a bug. Only order #1's own outcome row has a subsequent order to be
+             marked converted by (order #2's own outcome row has none yet, no order #3 exists) -
+             so converted=1 of 2, conversion_rate=50.0%. -->
+        <amOnPage url="admin/ordo/campaign/edit/entity_id/{$grabCampaignId}" stepKey="goToCampaignEditPage"/>
+        <waitForPageLoad stepKey="waitForCampaignEditPage"/>
+        <waitForElementVisible selector=".ordo-campaign-funnel table" stepKey="waitForFunnelTable"/>
+        <see selector=".ordo-campaign-funnel table tbody tr td:nth-child(1)" userInput="2" stepKey="seeSentCountIsTwo"/>
+        <see selector=".ordo-campaign-funnel table tbody tr td:nth-child(5)" userInput="1" stepKey="seeConvertedCountIsOne"/>
+        <see selector=".ordo-campaign-funnel table tbody tr td:nth-child(6)" userInput="50.0" stepKey="seeConversionRateIsFiftyPercent"/>
+        <dontSee selector=".ordo-campaign-funnel table tbody tr td:nth-child(7)" userInput="0.00" stepKey="dontSeeZeroRevenue"/>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
