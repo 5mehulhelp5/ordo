@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminImportValidatesUploadedFileTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="Campaign Import rejects a malformed JSON file and a real segment export posted as a campaign, but silently drops (not rejects) an unknown action type inside an otherwise-valid campaign export"/>
+            <description value="Closes SCENARIOS.md #26's remaining two rows - and corrects that section's own original wording along the way: CampaignImporter::saveActions()/SegmentImporter::saveConditions() do NOT fail closed on an unknown/unregistered type the way CampaignDispatcher does at dispatch time (confirmed by reading their own real source, not assumed from the module's general 'fails closed at dispatch time' posture) - they silently skip that one row and still create the entity successfully, the same fail-soft posture CampaignSaveProcessor's own docblock already documents for a tampered admin form POST. This test proves the real, corrected behavior for all three cases: UploadedJsonFileReader rejects genuinely malformed JSON outright ('That file is not valid JSON.'), CampaignImporter rejects a real segment export's own JSON posted to the campaign endpoint ('This file is not a campaign export...') - a real cross-import of AdminCampaignAndSegmentImportTest's own segment export shape, not a hand-authored one - and a real campaign export with its one action's type corrupted to an unknown value still imports successfully, just with zero actions in the result (AdminImportUploadTestHelper's own corruptFirstActionType() mutates a real export body's JSON directly, so this is the real importer's real behavior against real (if deliberately broken) input, not a re-implementation)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Case A: genuinely malformed JSON - rejected outright, no entity created. -->
+        <amOnPage url="admin/ordo/campaign/importform" stepKey="goToCampaignImportFormForMalformed"/>
+        <waitForPageLoad stepKey="waitForCampaignImportFormForMalformed"/>
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForMalformed"/>
+        <executeJS function="return window.FORM_KEY;" stepKey="grabFormKeyForMalformed"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="uploadImportFile" stepKey="uploadMalformedRedirect">
+            <argument name="importUrl">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/import</argument>
+            <argument name="jsonContent">{not valid json at all</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForMalformed}</argument>
+            <argument name="formKey">{$grabFormKeyForMalformed}</argument>
+        </helper>
+        <amOnPage url="{$uploadMalformedRedirect}" stepKey="goToMalformedRedirect"/>
+        <waitForPageLoad stepKey="waitForMalformedRedirect"/>
+        <see selector=".message-error" userInput="not valid JSON" stepKey="seeMalformedJsonError"/>
+
+        <!-- Case B: a real SEGMENT export posted to the CAMPAIGN import endpoint - rejected as
+             an export_type mismatch, not silently accepted as an empty campaign. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Import Mismatch Source Segment" stepKey="fillSegmentName"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="123" stepKey="fillConditionParams"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentSaveClickable"/>
+        <click selector="#save" stepKey="clickSegmentSave"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+        <waitForPageLoad stepKey="waitForSegmentGridAfterSave"/>
+        <grabAttributeFrom selector="//tr[contains(., 'Import Mismatch Source Segment')]//a[contains(@href, 'segment/edit')]" userInput="href" stepKey="grabSegmentEditHref"/>
+        <executeJS function="return '{$grabSegmentEditHref}'.match(/entity_id\/(\d+)/)[1];" stepKey="grabMismatchSegmentId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForMismatch"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchMismatchSegmentExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/segment/export/entity_id/{$grabMismatchSegmentId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForMismatch}</argument>
+        </helper>
+
+        <amOnPage url="admin/ordo/campaign/importform" stepKey="goToCampaignImportFormForMismatch"/>
+        <waitForPageLoad stepKey="waitForCampaignImportFormForMismatch"/>
+        <executeJS function="return window.FORM_KEY;" stepKey="grabFormKeyForMismatch"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="uploadImportFile" stepKey="uploadMismatchRedirect">
+            <argument name="importUrl">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/import</argument>
+            <argument name="jsonContent">{$fetchMismatchSegmentExportBody}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForMismatch}</argument>
+            <argument name="formKey">{$grabFormKeyForMismatch}</argument>
+        </helper>
+        <amOnPage url="{$uploadMismatchRedirect}" stepKey="goToMismatchRedirect"/>
+        <waitForPageLoad stepKey="waitForMismatchRedirect"/>
+        <see selector=".message-error" userInput="not a campaign export" stepKey="seeExportTypeMismatchError"/>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteMismatchSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabMismatchSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+
+        <!-- Case C: a real campaign export with its one action's type corrupted to an unknown
+             value - imports successfully (fail-SOFT, not fail-closed, at import time - see this
+             test's own annotation for why that's the real, corrected behavior), but the
+             unresolvable action is silently dropped, not partially/incorrectly imported. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Import Unknown Type Source Campaign" stepKey="fillCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'unknown_type_test_tag', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabUnknownTypeSourceCampaignId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForUnknownType"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchUnknownTypeSourceExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/export/entity_id/{$grabUnknownTypeSourceCampaignId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForUnknownType}</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="corruptFirstActionType" stepKey="corruptedExportBody">
+            <argument name="exportJson">{$fetchUnknownTypeSourceExportBody}</argument>
+            <argument name="unknownType">no_such_action_type</argument>
+        </helper>
+
+        <amOnPage url="admin/ordo/campaign/importform" stepKey="goToCampaignImportFormForUnknownType"/>
+        <waitForPageLoad stepKey="waitForCampaignImportFormForUnknownType"/>
+        <executeJS function="return window.FORM_KEY;" stepKey="grabFormKeyForUnknownType"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="uploadImportFile" stepKey="uploadUnknownTypeRedirect">
+            <argument name="importUrl">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/import</argument>
+            <argument name="jsonContent">{$corruptedExportBody}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForUnknownType}</argument>
+            <argument name="formKey">{$grabFormKeyForUnknownType}</argument>
+        </helper>
+        <amOnPage url="{$uploadUnknownTypeRedirect}" stepKey="goToUnknownTypeRedirect"/>
+        <waitForPageLoad stepKey="waitForUnknownTypeRedirect"/>
+        <see selector=".message-success" userInput="was imported." stepKey="seeUnknownTypeImportSucceeded"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabUnknownTypeImportedCampaignId"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchUnknownTypeImportedExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/export/entity_id/{$grabUnknownTypeImportedCampaignId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForUnknownType}</argument>
+        </helper>
+        <assertStringContainsString stepKey="assertImportedCampaignHasNoActions">
+            <expectedResult type="string">"actions": []</expectedResult>
+            <actualResult type="variable">fetchUnknownTypeImportedExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringNotContainsString stepKey="assertImportedCampaignDoesNotHaveUnknownType">
+            <expectedResult type="string">no_such_action_type</expectedResult>
+            <actualResult type="variable">fetchUnknownTypeImportedExportBody</actualResult>
+        </assertStringNotContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteUnknownTypeImportedCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabUnknownTypeImportedCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteUnknownTypeSourceCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabUnknownTypeSourceCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

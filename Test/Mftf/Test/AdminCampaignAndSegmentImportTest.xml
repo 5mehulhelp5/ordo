@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignAndSegmentImportTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A real exported campaign's JSON, re-uploaded via the admin Import form, creates a genuinely new campaign with the same trigger/action graph - and likewise for a segment's condition graph"/>
+            <description value="Closes SCENARIOS.md #26's two round-trip rows. Reuses AdminCampaignAndSegmentExportTest's own real campaign/segment (order_placed trigger + add_tag action; order_total_gte condition) and its own real Export download, then re-uploads that EXACT downloaded body to Controller\Adminhtml\{Campaign,Segment}\Import - a genuine round trip, not a hand-authored fixture that only approximates the real export shape. AdminImportUploadTestHelper drives this as a raw authenticated multipart POST (reusing the same admin-cookie technique AdminExportDownloadTestHelper already established for the read side) rather than through Selenium's own &lt;attachFile&gt;, since that action requires the uploaded file to already exist under dev/tests/acceptance/tests/_data/ - a path this module, a separate Composer package rather than part of core Magento's own monorepo, has no way to ship a fixture into; a JS-built hidden form (this suite's usual POST-without-a-real-form technique) can't populate a real file input element's FileList either. The proof that the graph round-tripped for real: re-exporting the NEWLY imported entity and asserting its own JSON contains the same trigger_event/type/params values the original did (CampaignImporter/SegmentImporter never carry entity ids in the payload, so the two export bodies are expected to match on content, not be byte-identical)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the real source campaign - trigger=order_placed, action=add_tag with a
+             distinctive tag - and its own real Export download. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Import Source Campaign" stepKey="fillCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'import_test_distinctive_tag', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSourceCampaignId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForCampaignExport"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchCampaignExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/export/entity_id/{$grabSourceCampaignId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForCampaignExport}</argument>
+        </helper>
+
+        <!-- Step 2: re-upload that exact export body to the real Import controller, then have
+             the real Selenium browser navigate to its own real post-import redirect - so the
+             browser's own current URL/DOM reflect the real outcome, not a side-channel curl
+             response it never saw. -->
+        <amOnPage url="admin/ordo/campaign/importform" stepKey="goToCampaignImportForm"/>
+        <waitForPageLoad stepKey="waitForCampaignImportForm"/>
+        <executeJS function="return window.FORM_KEY;" stepKey="grabFormKeyForCampaignImport"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="uploadImportFile" stepKey="uploadCampaignImportRedirect">
+            <argument name="importUrl">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/import</argument>
+            <argument name="jsonContent">{$fetchCampaignExportBody}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForCampaignExport}</argument>
+            <argument name="formKey">{$grabFormKeyForCampaignImport}</argument>
+        </helper>
+        <amOnPage url="{$uploadCampaignImportRedirect}" stepKey="goToCampaignImportRedirect"/>
+        <waitForPageLoad stepKey="waitForCampaignImportRedirect"/>
+        <see selector=".message-success" userInput="was imported." stepKey="seeCampaignImportSuccessMessage"/>
+
+        <!-- Step 3: the real proof - re-export the NEWLY imported campaign and confirm its own
+             graph matches the original's, not just that "some" campaign got created. The
+             importer assigns a fresh entity_id, found the same way AdminCampaignAndSegmentExportTest
+             finds a just-saved one. -->
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabImportedCampaignId"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchImportedCampaignExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/campaign/export/entity_id/{$grabImportedCampaignId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForCampaignExport}</argument>
+        </helper>
+        <assertStringContainsString stepKey="assertImportedCampaignHasName">
+            <expectedResult type="string">"name": "Import Source Campaign"</expectedResult>
+            <actualResult type="variable">fetchImportedCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertImportedCampaignHasTrigger">
+            <expectedResult type="string">"trigger_event": "order_placed"</expectedResult>
+            <actualResult type="variable">fetchImportedCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertImportedCampaignHasActionType">
+            <expectedResult type="string">"type": "add_tag"</expectedResult>
+            <actualResult type="variable">fetchImportedCampaignExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertImportedCampaignHasActionParams">
+            <expectedResult type="string">import_test_distinctive_tag</expectedResult>
+            <actualResult type="variable">fetchImportedCampaignExportBody</actualResult>
+        </assertStringContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteImportedCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabImportedCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSourceCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabSourceCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+
+        <!-- Step 4: same round trip for a segment - order_total_gte condition. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Import Source Segment" stepKey="fillSegmentName"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="order_total_gte" stepKey="selectConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][amount]']" userInput="888" stepKey="fillConditionParams"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentSaveClickable"/>
+        <click selector="#save" stepKey="clickSegmentSave"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+
+        <!-- Segment's Save redirects to the grid on a plain Save click, not the edit page - same
+             reasoning as AdminCampaignAndSegmentExportTest's own identical comment. -->
+        <waitForPageLoad stepKey="waitForSegmentGridAfterSave"/>
+        <grabAttributeFrom selector="//tr[contains(., 'Import Source Segment')]//a[contains(@href, 'segment/edit')]" userInput="href" stepKey="grabSegmentEditHref"/>
+        <executeJS function="return '{$grabSegmentEditHref}'.match(/entity_id\/(\d+)/)[1];" stepKey="grabSourceSegmentId"/>
+
+        <grabCookie userInput="admin" stepKey="grabAdminCookieForSegmentExport"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchSegmentExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/segment/export/entity_id/{$grabSourceSegmentId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForSegmentExport}</argument>
+        </helper>
+
+        <amOnPage url="admin/ordo/segment/importform" stepKey="goToSegmentImportForm"/>
+        <waitForPageLoad stepKey="waitForSegmentImportForm"/>
+        <executeJS function="return window.FORM_KEY;" stepKey="grabFormKeyForSegmentImport"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminImportUploadTestHelper" method="uploadImportFile" stepKey="uploadSegmentImportRedirect">
+            <argument name="importUrl">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/segment/import</argument>
+            <argument name="jsonContent">{$fetchSegmentExportBody}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForSegmentExport}</argument>
+            <argument name="formKey">{$grabFormKeyForSegmentImport}</argument>
+        </helper>
+        <amOnPage url="{$uploadSegmentImportRedirect}" stepKey="goToSegmentImportRedirect"/>
+        <waitForPageLoad stepKey="waitForSegmentImportRedirect"/>
+        <see selector=".message-success" userInput="was imported." stepKey="seeSegmentImportSuccessMessage"/>
+
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabImportedSegmentId"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\AdminExportDownloadTestHelper" method="fetchExportBody" stepKey="fetchImportedSegmentExportBody">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}admin/ordo/segment/export/entity_id/{$grabImportedSegmentId}</argument>
+            <argument name="adminCookieValue">{$grabAdminCookieForSegmentExport}</argument>
+        </helper>
+        <assertStringContainsString stepKey="assertImportedSegmentHasName">
+            <expectedResult type="string">"name": "Import Source Segment"</expectedResult>
+            <actualResult type="variable">fetchImportedSegmentExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertImportedSegmentHasConditionType">
+            <expectedResult type="string">"type": "order_total_gte"</expectedResult>
+            <actualResult type="variable">fetchImportedSegmentExportBody</actualResult>
+        </assertStringContainsString>
+        <assertStringContainsString stepKey="assertImportedSegmentHasConditionParams">
+            <expectedResult type="string">888</expectedResult>
+            <actualResult type="variable">fetchImportedSegmentExportBody</actualResult>
+        </assertStringContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteImportedSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabImportedSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSourceSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabSourceSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

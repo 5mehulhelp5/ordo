@@ -413,10 +413,10 @@ shape `AdminCampaignAndSegmentExportTest`'s own downloaded JSON already produces
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| A real exported campaign JSON file, re-uploaded via the admin "Import" form, creates a genuinely new campaign with the same trigger/condition/action graph | ⬜ not covered — no MFTF yet |
-| A real exported segment JSON file, re-uploaded, creates a genuinely new segment with the same (including nested-group) condition graph | ⬜ not covered — no MFTF yet |
-| An `export_type` mismatch (a segment file posted to Campaign Import, or vice versa) or a malformed/unparsable JSON file is rejected with an admin error message, no entity created | ⬜ not covered — no MFTF yet |
-| An unknown/unregistered condition or action type inside the imported JSON is rejected (fails closed, same "never silently over-include" posture as the rest of this module), not partially imported | ⬜ not covered — no MFTF yet |
+| A real exported campaign JSON file, re-uploaded via the admin "Import" form, creates a genuinely new campaign with the same trigger/condition/action graph | ✅ `AdminCampaignAndSegmentImportTest` |
+| A real exported segment JSON file, re-uploaded, creates a genuinely new segment with the same (including nested-group) condition graph | ✅ `AdminCampaignAndSegmentImportTest` |
+| An `export_type` mismatch (a segment file posted to Campaign Import, or vice versa) or a malformed/unparsable JSON file is rejected with an admin error message, no entity created | ✅ `AdminImportValidatesUploadedFileTest` |
+| **Corrected** (was previously assumed to fail closed like `CampaignDispatcher`'s own runtime posture — actual code checked, not guessed): an unknown/unregistered condition or action type inside an otherwise-valid imported JSON is dropped fail-*soft*, not rejected — `CampaignImporter::saveActions()`/`SegmentImporter::saveConditions()` silently skip that one row and still create the entity successfully, the same posture `CampaignSaveProcessor` already documents for a tampered admin form POST. This is a deliberately different posture from dispatch-time (reject one bad row at save/import time vs. refuse to run anything at all at dispatch time), not a bug. | ✅ `AdminImportValidatesUploadedFileTest` |
 
 ## 27. Web push subscription lifecycle (`Controller/Track/{RegisterPushSubscription,UnregisterPushSubscription,PushServiceWorker}.php`, `Model/Push/PushSubscriptionManager.php`, `Model/Push/PushEndpointValidator.php`)
 
