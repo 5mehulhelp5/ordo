@@ -11,9 +11,8 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and ten ⬜ (the Campaign export row,
-the predictive send-time optimization row in §1d, the Order Approvals grid
-in §6, the Segment export row in §2, the WhatsApp Template Body Text
+**Status: every row below is ✅ except one 🔴 (see §10) and nine ⬜ (the Campaign export row,
+the predictive send-time optimization row in §1d, the Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
 the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
@@ -184,7 +183,7 @@ through. `Controller/Offer/*` (self-extend,
 | Order under spend limit — never held at all (negative case)                                                                          | ✅ `AdminOrderUnderSpendLimitNotHeldTest`               |
 | Customer with no spend limit / no approval admin email configured — never held                                                       | ✅ `AdminOrderNeverHeldWithoutSpendLimitConfiguredTest` |
 | `Approve`/`Reject` rate-limited past `ApprovalRateLimiter::MAX_ATTEMPTS` for a given token+IP within the window — redirects home with an error instead of looking up the token | ✅ `AdminApprovalRateLimiterTest` |
-| Order Approvals admin grid (`ordo/orderapproval/index`) — Approve/Reject action links for a still-pending row                        | ⬜ unit-tested (`OrderApprovalActionsTest`, `IndexTest`), no MFTF yet |
+| Order Approvals admin grid (`ordo/orderapproval/index`) — Approve/Reject action links for a still-pending row                        | ✅ `AdminOrderApprovalsGridTest` |
 
 ## 7. Tracking & popups (`view/frontend/web/js/tracker.js`, `Controller/Track/`)
 

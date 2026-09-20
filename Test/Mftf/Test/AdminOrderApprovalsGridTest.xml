@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminOrderApprovalsGridTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Order approval"/>
+            <title value="The Order Approvals admin grid renders a real, working Approve link for a still-pending row"/>
+            <description value="Closes SCENARIOS.md §6's Order Approvals grid gap - the in-backend fallback for when the original decision email is lost (see Controller\Adminhtml\OrderApproval\Index's own docblock). Ui\Component\Listing\Column\OrderApprovalActions delegates to the exact same OrderApprovalManagementInterface::getDecisionLinksById() a headless client or the email itself would use, so the real proof isn't just that an Approve link renders for a real pending row - it's that the grid's OWN rendered href, extracted directly from the page (not the email), genuinely approves the order when followed, exactly like AdminApproveOrderViaEmailTest's emailed link does. The row is located by the real token embedded in its own action links' href - unique enough to find this exact row regardless of other order_approval rows in this same shared CI job's grid, without needing a customer-identifying column this grid doesn't have (see its own listing columns: entity_id/order_id/admin_email/status, no email/name)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign3"/>
+        </annotations>
+        <before>
+            <createData entity="OrdoApprovalCustomer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: a real held order, exactly like AdminApproveOrderViaEmailTest. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- Step 2: the real token this exact pending approval's own decision links carry -
+             read from the real email only to know what to look for in the grid, not to click
+             through it (that would just re-run AdminApproveOrderViaEmailTest's own proof). -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="grabLinkFromLatestEmail" stepKey="grabEmailedApproveUrl">
+            <argument name="linkText">Approve</argument>
+            <argument name="toAddress">approver@example.com</argument>
+        </helper>
+
+        <!-- Step 3: the Order Approvals admin grid - this exact row's own Approve link must be
+             present, identified by the same real token, and grabbed directly from the grid's own
+             rendered markup (not the email) so following it proves the GRID's own wiring, not
+             just that the email's link works (already proven elsewhere). -->
+        <amOnPage url="admin/ordo/orderapproval/index" stepKey="goToOrderApprovalsGrid"/>
+        <waitForPageLoad stepKey="waitForOrderApprovalsGrid"/>
+        <!-- The actions column's two actions (Approve/Reject) render collapsed behind a
+             "Select" dropdown toggle (Magento_Ui/js/grid/columns/actions' own isMultiple()
+             template, the exact same collapsed-dropdown shape as the mass-action "Actions"
+             button used elsewhere in this suite) - the <a> exists in the DOM but isn't visible
+             until that row's own toggle is clicked. Found via a real run: waiting for the link
+             visible directly timed out at 60s with no such error message, confirmed by dumping
+             the actions cell's own outerHTML. -->
+        <waitForElementVisible selector="//tr[.//a[contains(@href, '{$grabEmailedApproveUrl}')]]//button[contains(@class, 'action-select')]" stepKey="waitForActionsToggleInGrid"/>
+        <click selector="//tr[.//a[contains(@href, '{$grabEmailedApproveUrl}')]]//button[contains(@class, 'action-select')]" stepKey="clickActionsToggleInGrid"/>
+        <waitForElementVisible selector="//a[contains(@href, '{$grabEmailedApproveUrl}')]" stepKey="waitForApproveLinkInGrid"/>
+        <grabAttributeFrom selector="//a[contains(@href, '{$grabEmailedApproveUrl}')]" userInput="href" stepKey="grabGridApproveUrl"/>
+
+        <!-- Step 4: follow the GRID's own link - the real, merchant-visible proof only a
+             genuinely correct getDecisionLinksById() call, rendered into a real working href by
+             this grid's own column, could have produced. -->
+        <amOnUrl url="{$grabGridApproveUrl}" stepKey="followGridApproveLink"/>
+        <waitForPageLoad stepKey="waitForRedirect"/>
+        <see selector=".message-success" userInput="has been approved" stepKey="seeApprovalSuccessMessage"/>
+
+        <!-- Same reasoning as AdminApproveOrderViaEmailTest.xml's identical closing step. -->
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainCampaignDispatchQueue"/>
+    </test>
+</tests>
