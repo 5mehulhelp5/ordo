@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminPurchasedCategoryConditionTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A campaign's purchased_category condition matches a customer's real order history for a category, including subcategories"/>
+            <description value="Closes SCENARIOS.md §1b's purchased_category gap. Model/Campaign/Condition/PurchasedCategory.php delegates to PurchasedProductResolver::hasPurchasedInCategory(), which resolves the category's own subtree via catalog_category_entity's materialized path (see that method's own docblock) then joins sales_order/sales_order_item live - same 'the triggering order itself already counts' timing as PurchasedSku (see AdminPurchasedSkuConditionTest), no cron involved. purchased_category has no dedicated Flow-editor field (Block/Adminhtml/Campaign/Edit/Flow.php's getFieldsConfig() doesn't list it, same gap as clv_at_least/purchased_sku), so its 'category_id' param is set via the universal params_json fallback."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="_defaultCategory" stepKey="createCategory"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <createData entity="AssignProductToCategory" stepKey="assignProductToCategory">
+                <requiredEntity createDataKey="createCategory"/>
+                <requiredEntity createDataKey="createProduct"/>
+            </createData>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <deleteData createDataKey="createCategory" stepKey="deleteCategory"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, condition=purchased_category via the
+             params_json fallback (see this test's own description), pointed at the real category
+             the fixture product was just assigned to above. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Purchased Category Send Email Campaign" stepKey="fillName"/>
+
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'condition', type: 'purchased_category', fields: {params_json: '{&quot;category_id&quot;:&quot;$createCategory.id$&quot;}'}},
+            {kind: 'action', type: 'send_email', fields: {template: 'ordo_campaign_generic', message: 'Purchased category condition fired.', delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: a REAL order for the category-assigned product - already committed to
+             sales_order_item by the time order_placed dispatches. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <!-- A brief settle wait before draining — defensive against a message-visibility race
+             under CI load, same reasoning/fix as AdminCampaignMultipleConditionsAndTest.xml's
+             identical step. -->
+        <wait time="2" stepKey="waitForDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 3: the real, merchant-visible output only a genuine category-purchase-history
+             read (including the real subtree resolution) could have produced. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="seeTextInLatestEmail" stepKey="seePurchasedCategoryConditionCopyInEmail">
+            <argument name="expectedText">Purchased category condition fired.</argument>
+            <argument name="toAddress">$createCustomer.email$</argument>
+        </helper>
+
+        <!-- Cleanup: this campaign's order_placed + purchased_category(this fixture's own,
+             freshly-created category id) condition can only ever match an order for a product in
+             this exact category, which no other test in this suite uses - a stray leftover
+             campaign here is harmless. Still deleted for grid hygiene, consistent with this
+             suite's own convention. -->
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

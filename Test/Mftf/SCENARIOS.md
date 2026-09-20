@@ -11,7 +11,7 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and twenty-three ⬜ (the frequency-cap
+**Status: every row below is ✅ except one 🔴 (see §10) and twenty ⬜ (the frequency-cap
 structural case, the Campaign export row, the predictive send-time optimization row, and the
 dispatch dead-letter row in §1d, the
 `RetryFailedCampaignActions` row in §11, the Approval rate-limit row and the Order Approvals grid
@@ -72,9 +72,9 @@ cases separately from the type-by-type ones.
 | `in_segment`                          | `{segment_id}`                                                    | ✅ `AdminCampaignInSegmentConditionTest`                                                               |
 | `loyalty_tier_at_least`               | `{tier}` (bronze/silver/gold, no dedicated field yet — via Params JSON) | ✅ `AdminLoyaltyTierAtLeastConditionTest`                                                        |
 | `nps_score_at_least`                  | `{threshold}` (same dedicated "threshold" field as `score_at_least`)    | ✅ `AdminCampaignNpsSurveyActionTest` (customer_id only — no visitor_id path)                     |
-| `purchased_sku`                       | `{sku}` (dedicated field, autocompleted)                          | ⬜ unit-tested (`PurchasedSkuTest`, `PurchasedProductResolverTest`), no MFTF yet                       |
-| `purchased_category`                  | `{category_id}` (dedicated field, incl. subcategories)             | ⬜ unit-tested (`PurchasedCategoryTest`, `PurchasedProductResolverTest`), no MFTF yet                  |
-| `event_occurred`                      | `{event_type, event_key?, within_days}` (dedicated fields, cart_add/wishlist_add) | ⬜ unit-tested (`EventOccurredTest`, `EventOccurredResolverTest`), no MFTF yet — also new: `Observer\TrackCartAdd`/`TrackWishlistAdd` themselves have no MFTF coverage of the real storefront add-to-cart/wishlist flow |
+| `purchased_sku`                       | `{sku}` (dedicated autocomplete field in the segment form; the campaign Flow editor has no dedicated field for it, see AdminPurchasedSkuConditionTest) | ✅ `AdminPurchasedSkuConditionTest`                       |
+| `purchased_category`                  | `{category_id}` (dedicated field in the segment form, incl. subcategories; no dedicated Flow-editor field, same as purchased_sku) | ✅ `AdminPurchasedCategoryConditionTest`                  |
+| `event_occurred`                      | `{event_type, event_key?, within_days}` (dedicated fields in both the segment form and the campaign Flow editor, cart_add/wishlist_add) | ✅ `AdminEventOccurredConditionTest` (also covers `Observer\TrackCartAdd`'s real storefront add-to-cart flow; `TrackWishlistAdd` not separately covered - same `EventOccurredResolver` path, different producer) |
 
 ### 1c. Actions (`Model\Campaign\ActionPool`)
 
