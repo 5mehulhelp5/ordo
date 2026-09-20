@@ -133,7 +133,7 @@ cases separately from the type-by-type ones.
 | Segment Overlap page (`ordo/segment/overlap`) — pick two segments, see size/intersection/unique counts                             | ✅ `AdminSegmentOverlapPageTest` |
 | Segment export (`ordo/segment/export`) — "Export" grid row action downloads the condition graph (including nested groups) as JSON  | ✅ `AdminCampaignAndSegmentExportTest` |
 | Segment import (`ordo/segment/import`) — see §26 | ⬜ see §26 |
-| Live "Estimated audience size" AJAX preview while editing a segment's conditions (`Controller/Adminhtml/Segment/AudienceSize.php`), and `Cron\RecalculateSegmentAudienceSizes` refreshing the grid's own cached column | ⬜ not covered — no MFTF yet |
+| Live "Estimated audience size" AJAX preview while editing a segment's conditions (`Controller/Adminhtml/Segment/AudienceSize.php`), and `Cron\RecalculateSegmentAudienceSizes` refreshing the grid's own cached column | ✅ `AdminSegmentAudienceSizeReflectsRealDataTest` |
 
 ## 3. RFM (`Model/Rfm/`, `Cron/RecomputeRfmScores.php`, `ordo/rfm/index`)
 
@@ -269,7 +269,7 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | `RecomputeClvScores`         | Refreshes `ordo_customer_clv_score` (CLV projections), feeds only the Dashboard's "Average projected CLV" stat — `clv_at_least` reads live, never this table | ✅ `AdminRecomputeClvScoresReflectsInDashboardTest`                                                                 |
 | `PruneCronRunLog`            | Deletes `ordo_cron_run_log` rows past the 30-day retention window | ✅ `AdminPruneCronRunLogTest` |
 | `DispatchScheduledCampaignTriggers` | Fires a due `scheduled_at`/`recurring_schedule` campaign trigger for real (`ScheduledTriggerScanner::scan()`) — only the read-only calendar *preview* is covered (`AdminScheduledCampaignCalendarTest`), nothing confirms a scheduled trigger genuinely dispatches its campaign once due | ⬜ not covered — no MFTF yet |
-| `RecalculateSegmentAudienceSizes` | Refreshes `ordo_segment.estimated_audience_size` — see §2's own `AudienceSize` row, same underlying gap | ⬜ see §2 |
+| `RecalculateSegmentAudienceSizes` | Refreshes `ordo_segment.estimated_audience_size` — see §2's own `AudienceSize` row, same underlying gap | ✅ see §2 (`AdminSegmentAudienceSizeReflectsRealDataTest`) |
 | `RetryFailedPushSends`       | Re-attempts a single `ordo_push_send_retry` row directly via `Model\Push\PushSubscriptionSender` (not `ActionPool`, unlike every other retry cron here — a push retry is one subscription's send, not a whole campaign action), deletes on success, drops if the subscription itself is gone, dead-letters after 5 attempts | ⬜ unit-tested indirectly via `PushSendRetryQueueTest`/`PushSubscriptionSenderTest`, no dedicated cron test yet — likely `Test/Integration`, same "no real Web Push service" reasoning as `send_push`'s own §1c row |
 
 All four crons above only fire once a day (or, for `SendSalesRepDigest`, once a week) at a fixed

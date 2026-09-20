@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSegmentAudienceSizeReflectsRealDataTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Segmentation"/>
+            <title value="The segment edit page's live 'Estimated Audience Size' preview and Cron\RecalculateSegmentAudienceSizes' own grid column both reflect a real, exact customer count"/>
+            <description value="Closes SCENARIOS.md #2/#11's AudienceSize/RecalculateSegmentAudienceSizes row. Two real customers are tagged 'vip_audience_test' (via this module's own REST API, CustomerTagTestHelper - the same deterministic, side-channel tagging technique AdminCampaignNotInSegmentConditionTest already established) out of three created, so an exact, non-trivial count (2, not 0 or 'all') proves a real SegmentMemberResolver query ran, not a stub or a lucky default. Controller\Adminhtml\Segment\AudienceSize's own live AJAX panel (clicked via its real 'Refresh' button, not just page-loaded) is checked first, then Cron\RecalculateSegmentAudienceSizes (forced to run now via CronScheduleHelper, the same technique AdminRfmMassResetCachedScoreTest already established for a different daily-scheduled cron) is checked against the segment grid's own 'Estimated audience size' column - two independent code paths (Model\Segment\SegmentMemberResolver read live vs. Model\Segment\SegmentAudienceSizeRecalculator writing ordo_segment.estimated_audience_size), both expected to agree on the same real number."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer1"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer2"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer3"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer1" stepKey="deleteCustomer1"/>
+            <deleteData createDataKey="createCustomer2" stepKey="deleteCustomer2"/>
+            <deleteData createDataKey="createCustomer3" stepKey="deleteCustomer3"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: tag exactly two of the three real customers - a non-trivial, exact expected
+             count (2), not "all" or "none", so a coincidental default couldn't pass this test. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CustomerTagTestHelper" method="addTagViaApi" stepKey="tagCustomer1">
+            <argument name="restBaseUrl">{{_ENV.MAGENTO_BASE_URL}}rest</argument>
+            <argument name="customerId">$createCustomer1.id$</argument>
+            <argument name="tag">vip_audience_test</argument>
+            <argument name="adminUsername">{{_ENV.MAGENTO_ADMIN_USERNAME}}</argument>
+            <argument name="adminPassword">{{_ENV.MAGENTO_ADMIN_PASSWORD}}</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CustomerTagTestHelper" method="addTagViaApi" stepKey="tagCustomer2">
+            <argument name="restBaseUrl">{{_ENV.MAGENTO_BASE_URL}}rest</argument>
+            <argument name="customerId">$createCustomer2.id$</argument>
+            <argument name="tag">vip_audience_test</argument>
+            <argument name="adminUsername">{{_ENV.MAGENTO_ADMIN_USERNAME}}</argument>
+            <argument name="adminPassword">{{_ENV.MAGENTO_ADMIN_PASSWORD}}</argument>
+        </helper>
+
+        <!-- Step 2: the segment - one condition, type=tag, params={"tag": "vip_audience_test"}. -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentNameField"/>
+        <fillField selector="[name='name']" userInput="Audience Size Test Segment" stepKey="fillSegmentName"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addSegmentConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForSegmentConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="tag" stepKey="selectSegmentConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][tag]']" userInput="vip_audience_test" stepKey="fillSegmentConditionParams"/>
+
+        <click selector="//button[contains(., 'Save &amp; Continue Edit')]" stepKey="clickSaveAndContinueSegment"/>
+        <waitForPageLoad stepKey="waitForSegmentSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSegmentId"/>
+
+        <!-- Step 3: the real, live AJAX preview - reflects the two real tagged customers,
+             not zero and not three. -->
+        <waitForElementVisible selector="[data-audience-size-refresh]" stepKey="waitForRefreshButton"/>
+        <click selector="[data-audience-size-refresh]" stepKey="clickRefreshAudienceSize"/>
+        <waitForText selector="[data-audience-size-value]" userInput="2 customer(s)" stepKey="seeLiveAudienceSizeIsTwo"/>
+
+        <!-- Step 4: the cron-computed column reflects the same real number. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleRecalculateAudienceSizesJob">
+            <argument name="jobCode">ordo_automation_recalculate_segment_audience_sizes</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runRecalculateAudienceSizesCron"/>
+
+        <amOnPage url="admin/ordo/segment/" stepKey="goToSegmentGrid"/>
+        <waitForPageLoad stepKey="waitForSegmentGrid"/>
+        <waitForElementVisible selector="//tr[contains(., 'Audience Size Test Segment')]" stepKey="waitForSegmentGridRow"/>
+        <!-- A UI Components (KnockoutJS) grid row has no stable per-column data attribute to
+             target directly - joining each cell's own text with a delimiter and checking for
+             "|2|" (rather than just "contains 2") rules out a false match against this
+             segment's own entity_id, which also contains the digit "2" as a substring. -->
+        <executeJS function="var rows = document.querySelectorAll('.data-grid tbody tr'); for (var i = 0; i &lt; rows.length; i++) { if (rows[i].textContent.indexOf('Audience Size Test Segment') !== -1) { var cells = rows[i].querySelectorAll('td'); return '|' + Array.from(cells).map(function(c){return c.textContent.trim();}).join('|') + '|'; } } return '';" stepKey="grabGridRowCellsJoined"/>
+        <assertStringContainsString stepKey="seeGridAudienceSizeIsTwo">
+            <expectedResult type="string">|2|</expectedResult>
+            <actualResult type="variable">grabGridRowCellsJoined</actualResult>
+        </assertStringContainsString>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSegment">
+            <argument name="url" value="admin/ordo/segment/delete/entity_id/{$grabSegmentId}"/>
+            <argument name="successMessage" value="The segment has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
