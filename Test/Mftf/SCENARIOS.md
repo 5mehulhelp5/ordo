@@ -11,9 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except fifteen ⬜ (the Campaign export row,
+**Status: every row below is ✅ except eleven ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Segment export row in §2,
-the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
+the three Admin Action Log rows in §19, the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
@@ -322,10 +322,10 @@ module's.
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| `generate($storeId)` scopes the product collection/price/currency/base-URL/config to the given store            | ⬜ unit-tested (`GoogleMerchantFeedGeneratorTest`), no MFTF/integration yet |
-| `Cron\RefreshProductFeed`/admin "Refresh Now" loop every store, one cached row + run-log entry per store         | ⬜ unit-tested (`RefreshProductFeedTest`, `RefreshNowTest`), no MFTF yet    |
-| Public feed controller serves the current request's own store's cached XML, 404s when disabled/uncached         | ⬜ unit-tested (`Controller\ProductFeed\IndexTest`), no MFTF yet           |
-| Product Feed Health admin grid (`ordo/productfeed/index`) renders run-log rows                                  | ⬜ unit-tested (`Controller\Adminhtml\ProductFeed\IndexTest`), no MFTF yet |
+| `generate($storeId)` scopes the product collection/price/currency/base-URL/config to the given store            | ✅ `GoogleMerchantFeedGeneratorTest` — correctly unit-only, this sandbox/CI is single-store so an MFTF test can't exercise real multi-store scoping any more meaningfully than the unit test already does |
+| `Cron\RefreshProductFeed`/admin "Refresh Now" loop every store, one cached row + run-log entry per store         | ✅ `AdminShoppingFeedRefreshAndServeTest` (admin-triggered, same `FeedGeneratorPool` path the cron uses) / `AdminProductFeedHealthGridTest` (the run-log entry) |
+| Public feed controller serves the current request's own store's cached XML, 404s when disabled/uncached         | ✅ `AdminShoppingFeedRefreshAndServeTest` (serves real cached XML; the 404-when-disabled half stays unit-only - Selenium/MFTF has no way to read a raw HTTP status code, only rendered page content) |
+| Product Feed Health admin grid (`ordo/productfeed/index`) renders run-log rows                                  | ✅ `AdminProductFeedHealthGridTest` |
 
 ## 19. Admin action audit log (`Model/AdminActionLog/Recorder.php`, `Plugin/Campaign/CampaignSaveProcessorAuditPlugin.php`, `Plugin/Segment/SegmentSaveProcessorAuditPlugin.php`)
 

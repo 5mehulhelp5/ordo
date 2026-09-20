@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminProductFeedHealthGridTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Dynamic content blocks"/>
+            <title value="The Product Feed Health admin grid renders a real run-log row after a real refresh"/>
+            <description value="Closes SCENARIOS.md §18's Product Feed Health grid gap - Controller\Adminhtml\ProductFeed\Index.php ('did the shopping feed actually generate successfully for each store, and when' is no longer invisible without a raw DB query, see that controller's own docblock) had no MFTF coverage. Reuses AdminShoppingFeedRefreshAndServeTest's own real admin 'Refresh Now' action (Controller\Adminhtml\ProductFeed\RefreshNow.php) to produce a real ordo_product_feed_run_log row, then confirms the health grid actually renders it - store name, a real product count, and a real 'Success' status, not just that the refresh itself didn't error (already proven by that sibling test)."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set ordo_automation/shopping_feed/enabled 1" stepKey="enableShoppingFeed"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/shopping_feed/enabled 0" stepKey="disableShoppingFeed"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the real, on-demand admin refresh - same real action
+             AdminShoppingFeedRefreshAndServeTest already proves serves a real product afterward;
+             here the point is the run-log row it also writes. -->
+        <amOnPage url="admin/ordo/productfeed/refreshnow" stepKey="clickRefreshNow"/>
+        <waitForPageLoad stepKey="waitForRefresh"/>
+        <see selector=".message-success" userInput="Product feeds refreshed for" stepKey="seeRefreshSuccessMessage"/>
+
+        <!-- Step 2: the Product Feed Health grid - the real, merchant-visible row only a
+             genuine successful refresh could have produced. -->
+        <amOnPage url="admin/ordo/productfeed/index" stepKey="goToProductFeedHealthGrid"/>
+        <waitForPageLoad stepKey="waitForProductFeedHealthGrid"/>
+        <waitForText selector="table.data-grid" userInput="Success" stepKey="seeSuccessStatusInGrid"/>
+        <dontSee selector="table.data-grid" userInput="Error" stepKey="dontSeeErrorStatusInGrid"/>
+    </test>
+</tests>
