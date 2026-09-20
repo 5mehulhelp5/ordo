@@ -11,7 +11,7 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and fourteen ⬜ (the Campaign export row,
+**Status: every row below is ✅ except one 🔴 (see §10) and thirteen ⬜ (the Campaign export row,
 the predictive send-time optimization row in §1d, the Approval rate-limit row and the Order Approvals grid
 in §6, the Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
@@ -136,7 +136,7 @@ cases separately from the type-by-type ones.
 | `Cron\RecomputeRfmScores` populates `ordo_customer_rfm_score`                                | ✅ `AdminRecencyPercentileConditionTest` (populate half) / `AdminRfmReportGridReflectsRealDataTest` (grid reflects it) |
 | RFM Score column shows correct quintile digits (e.g. "555" for best-on-all-three)            | ✅ `AdminRfmReportGridReflectsRealDataTest`                                                                            |
 | Percentile-based campaign condition (§1b) reads the precomputed table, not a live scan       | ✅ `AdminRecencyPercentileConditionTest`                                                                               |
-| Mass action ("Reset Cached Score") clears `ordo_customer_rfm_score` for the selected customers | ⬜ unit-tested (`Controller\Adminhtml\Rfm\MassDeleteTest`, `RfmCalculatorTest::testResetScoresForCustomers*`), no MFTF yet |
+| Mass action ("Reset Cached Score") clears `ordo_customer_rfm_score` for the selected customers | ✅ `AdminRfmMassResetCachedScoreTest` — found and fixed a real bug while writing this: the action fataled unconditionally in the real admin UI (`Collection`'s deliberately-null `resourceModel`, correct for its own read-only listing, broke `Magento\Ui\Component\MassAction\Filter::getCollection()`'s `getResource()->getIdFieldName()` call; fixed via a minimal `CustomerIdResource`, see `etc/di.xml`) |
 
 ## 4. Lead scoring (`Model/ScoreRule.php`, `Controller/Adminhtml/ScoreRule/`)
 

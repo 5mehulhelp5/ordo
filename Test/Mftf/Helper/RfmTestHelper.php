@@ -42,4 +42,41 @@ class RfmTestHelper extends Helper
         );
         $statement->execute(['customer_id' => self::POISON_CUSTOMER_ID]);
     }
+
+    /**
+     * Confirms Controller\Adminhtml\Rfm\MassDelete's "Reset Cached Score" mass action actually
+     * deleted a real customer's ordo_customer_rfm_score row (RfmCalculator::
+     * resetScoresForCustomers()) - the real, database-observable proof this mass action does
+     * something at all, since the grid itself has no stored entity of its own to re-check
+     * against (see MassDelete's own docblock).
+     *
+     * @throws \RuntimeException if a matching row still exists
+     */
+    public function assertNoRfmScoreForCustomer(
+        int $customerId,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM ordo_customer_rfm_score WHERE customer_id = :customer_id'
+        );
+        $statement->execute(['customer_id' => $customerId]);
+        $count = (int) $statement->fetchColumn();
+
+        if ($count > 0) {
+            throw new \RuntimeException(sprintf(
+                'Unexpected ordo_customer_rfm_score row still found for customer_id=%d.',
+                $customerId
+            ));
+        }
+    }
 }

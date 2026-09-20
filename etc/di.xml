@@ -186,13 +186,21 @@
     </type>
 
     <!--
-        The RFM report grid has no entity table of its own — it reports over customer_entity,
-        with no Ordo resource model, so identifierName is given explicitly rather than being
-        derived from a resource model's getIdFieldName().
+        The RFM report grid has no entity table of its own — it reports over customer_entity, so
+        identifierName is given explicitly rather than being derived from a resource model's
+        getIdFieldName(). resourceModel is still wired to a minimal, read-only CustomerIdResource
+        (not a made-up table — customer_entity/entity_id, matching mainTable/identifierName
+        exactly) purely so Magento\Ui\Component\MassAction\Filter::getCollection() (used by the
+        "Reset Cached Score" mass action, Controller\Adminhtml\Rfm\MassDelete) has a real
+        getResource()->getIdFieldName() to call — SearchResult::getResource() falls back to a
+        bare ResourceConnection (no getIdFieldName() at all) whenever resourceModel is left null,
+        which fatals the very first time an admin actually uses that mass action. See
+        CustomerIdResource's own docblock.
     -->
     <type name="Ordo\Automation\Model\ResourceModel\Rfm\Grid\Collection">
         <arguments>
             <argument name="mainTable" xsi:type="string">customer_entity</argument>
+            <argument name="resourceModel" xsi:type="string">Ordo\Automation\Model\ResourceModel\Rfm\Grid\CustomerIdResource</argument>
             <argument name="identifierName" xsi:type="string">entity_id</argument>
         </arguments>
     </type>
