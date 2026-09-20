@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminWhatsAppTemplateBodyPreviewTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="WhatsApp templates"/>
+            <title value="The WhatsApp Template edit page's Body Text preview panel live-counts characters and substitutes {{N}} placeholders"/>
+            <description value="Closes SCENARIOS.md §15's Body Text preview gap - whatsapp-template-body-preview.js's own charCount()/renderPreview()/update() are already unit-tested (BodyPreviewTest, JS whatsapp-template-body-preview.test.js), but nothing before this proved the real, delegated 'input' listener actually reaches a real &lt;textarea name='body_text'&gt; rendered by the real Magento_Ui form component, or that the real DOM panel (data-body-preview-count/data-body-preview-text, from view/adminhtml/templates/whatsapptemplate/bodypreview.phtml) actually updates in response. A real, exact-length body ('Hi {{1}}, your order {{2}} shipped', 34 characters) is typed via a real fillField (which fires real per-character input events, unlike a value set programmatically) - the counter must read '34 / 1024 characters' (BodyPreview::BODY_MAX_LENGTH) and the preview panel must show both {{N}} placeholders substituted with their own distinct sample-value text, proof the real regex substitution ran against this real input, not a stale/default render."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <amOnPage url="admin/ordo/whatsapptemplate/new" stepKey="goToNewTemplatePage"/>
+        <waitForPageLoad stepKey="waitForNewTemplatePage"/>
+        <waitForElementVisible selector="[name='body_text']" stepKey="waitForBodyTextField"/>
+        <waitForElementVisible selector=".ordo-whatsapp-body-preview" stepKey="waitForPreviewPanel"/>
+
+        <!-- The real, delegated 'input' listener - fillField fires real per-character input
+             events (unlike setting .val() programmatically), so the panel's own live update
+             actually runs against this exact real input. -->
+        <fillField selector="[name='body_text']" userInput="Hi {{1}}, your order {{2}} shipped" stepKey="fillBodyText"/>
+
+        <!-- The real, merchant-visible counter only a genuine charCount() call against this
+             exact 34-character input could have produced. -->
+        <see selector="[data-body-preview-count]" userInput="34 / 1024 characters" stepKey="seeCharacterCount"/>
+        <!-- Attribute-selector form, not ".ordo-whatsapp-body-preview-count-over" - a bare class
+             selector routes dontSeeElement through Selenium's native "class name" locator
+             strategy, which some driver/Selenium combinations reject outright with
+             MalformedLocatorException even for a syntactically valid class name (same pitfall
+             already documented/fixed in AdminCreateSegmentWithNestedGroupConditionTest.xml). -->
+        <dontSeeElement selector="[class~='ordo-whatsapp-body-preview-count-over']" stepKey="dontSeeOverLimitClassUnderLimit"/>
+
+        <!-- The real, merchant-visible preview only a genuine renderPreview() regex
+             substitution against this exact real input could have produced - both {{1}} and
+             {{2}} replaced with their own distinct sample values. -->
+        <see selector="[data-body-preview-text]" userInput="Hi [Sample value 1], your order [Sample value 2] shipped" stepKey="seeRenderedPreview"/>
+    </test>
+</tests>

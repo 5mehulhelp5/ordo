@@ -11,9 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and nine ⬜ (the Campaign export row,
-the predictive send-time optimization row in §1d, the Segment export row in §2, the WhatsApp Template Body Text
-preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
+**Status: every row below is ✅ except nineteen ⬜ (the Campaign export row,
+the predictive send-time optimization row in §1d, the Segment export row in §2,
+the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
 the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
 Guide rows in §20, and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
 MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
@@ -303,7 +303,7 @@ module's.
 | `WhatsAppSignatureValidator` — real HMAC-SHA256 signature verification                                             | ✅ `WhatsAppSignatureValidatorTest` (real crypto, not a hand-faked signature) |
 | `Controller\WhatsApp\Webhook` — GET verification handshake, POST signature rejection, message/template status-update correlation | ✅ `Test/Unit/Controller/WhatsApp/WebhookTest.php` |
 | An actual template submission/approval/send against a live Meta/WhatsApp Business Account                          | See ROADMAP.md's own note — out of MFTF's scope, same reasoning as `send_sms`'s equivalent gap |
-| Body Text field's character-limit validation, live counter, and `{{N}}`-substituted preview panel                  | ⬜ unit-tested (`BodyPreviewTest`, JS `whatsapp-template-body-preview.test.js`), no MFTF yet |
+| Body Text field's character-limit validation, live counter, and `{{N}}`-substituted preview panel                  | ✅ `AdminWhatsAppTemplateBodyPreviewTest` |
 
 ## 16. Template Test Send (`Controller/Adminhtml/TemplateTestSend/`)
 
