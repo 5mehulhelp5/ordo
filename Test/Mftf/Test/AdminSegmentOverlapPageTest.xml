@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSegmentOverlapPageTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Saved segments"/>
+            <title value="The Segment Overlap page computes real size/intersection/unique counts for two real segments"/>
+            <description value="Closes SCENARIOS.md §2's Segment Overlap gap. Controller\Adminhtml\Segment\OverlapCompute runs SegmentMemberResolver::getMatchingCustomerIds() per segment and intersects the results - there's no admin-reachable way to tag a customer directly (tags are only ever set by a real trigger/action chain, same reasoning AdminCampaignCustomerRegisteredTriggerTest's own storefront-registration approach establishes), so two small customer_registered campaigns build the real overlap: Campaign 'Shared' (add_tag overlap_shared) is enabled alone for the first real registration, then Campaign 'B' (add_tag overlap_b) is also enabled for the second - both campaigns fire unconditionally on customer_registered, so the second customer genuinely ends up with BOTH tags while the first has only one. Segment A (tag=overlap_shared) then really matches both customers; Segment B (tag=overlap_b) really matches only the second - size_a=2, size_b=1, intersection=1, unique_a=1, unique_b=0 is the one, real combination only a genuine two-segment overlap computation against this exact real membership could have produced."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="segment"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: Campaign "Shared" - customer_registered, no condition, add_tag=overlap_shared.
+             Enabled alone for the first registration below. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewSharedCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewSharedCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSharedNameField"/>
+        <fillField selector="[name='name']" userInput="Overlap Shared Tag Campaign" stepKey="fillSharedName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForSharedFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'customer_registered'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'overlap_shared', delay_minutes: '0'}}
+        ]);" stepKey="buildSharedFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSharedCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplySharedFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSharedSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSharedSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabSharedCampaignId"/>
+
+        <!-- Step 2: first real registration - only the "Shared" campaign is enabled yet, so this
+             customer gets overlap_shared only. -->
+        <actionGroup ref="SignUpNewUserFromStorefrontActionGroup" stepKey="registerCustomerOne">
+            <argument name="Customer" value="CustomerEntityOne"/>
+        </actionGroup>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainQueueAfterCustomerOne"/>
+
+        <!-- Step 3: Campaign "B" - customer_registered, no condition, add_tag=overlap_b. Both
+             campaigns are enabled from here on. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewBCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewBCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForBNameField"/>
+        <fillField selector="[name='name']" userInput="Overlap B Tag Campaign" stepKey="fillBName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForBFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'customer_registered'},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'overlap_b', delay_minutes: '0'}}
+        ]);" stepKey="buildBFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableBCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyBFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForBSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeBSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabBCampaignId"/>
+
+        <!-- Step 4: second real registration - BOTH campaigns are now enabled, so this customer
+             genuinely ends up with both overlap_shared and overlap_b. Customer one's own
+             registration left them logged in on the storefront, which hides the "Create an
+             Account" link SignUpNewUserFromStorefrontActionGroup needs - log out first. -->
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutCustomerOne"/>
+        <actionGroup ref="SignUpNewUserFromStorefrontActionGroup" stepKey="registerCustomerTwo">
+            <argument name="Customer" value="OrdoOverlapCustomerTwo"/>
+        </actionGroup>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainQueueAfterCustomerTwo"/>
+
+        <!-- Step 5: disable both campaigns immediately - they're unconditional on
+             customer_registered, so leaving them enabled would tag every later test's own
+             registrations too, same leftover-campaign-pollution reasoning
+             AdminMonetaryTotalAtLeastConditionTest.xml's own cleanup comment describes. -->
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteSharedCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabSharedCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteBCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabBCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+
+        <!-- Step 6: Segment A (tag=overlap_shared) and Segment B (tag=overlap_b). -->
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentAPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentAPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentANameField"/>
+        <fillField selector="[name='name']" userInput="Overlap Segment A" stepKey="fillSegmentAName"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSegmentA"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addSegmentAConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForSegmentAConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="tag" stepKey="selectSegmentAConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][tag]']" userInput="overlap_shared" stepKey="fillSegmentATag"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentASaveClickable"/>
+        <click selector="#save" stepKey="clickSaveSegmentA"/>
+        <waitForPageLoad stepKey="waitForSegmentASave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentASuccessMessage"/>
+
+        <amOnPage url="admin/ordo/segment/new" stepKey="goToNewSegmentBPage"/>
+        <waitForPageLoad stepKey="waitForNewSegmentBPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForSegmentBNameField"/>
+        <fillField selector="[name='name']" userInput="Overlap Segment B" stepKey="fillSegmentBName"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableSegmentB"/>
+        <click selector="//*[contains(text(), 'Add Condition')]" stepKey="addSegmentBConditionRow"/>
+        <waitForElementVisible selector="[name='conditions[conditions][0][type]']" stepKey="waitForSegmentBConditionRow"/>
+        <selectOption selector="[name='conditions[conditions][0][type]']" userInput="tag" stepKey="selectSegmentBConditionType"/>
+        <fillField selector="[name='conditions[conditions][0][tag]']" userInput="overlap_b" stepKey="fillSegmentBTag"/>
+        <waitForElementClickable selector="#save" stepKey="waitForSegmentBSaveClickable"/>
+        <click selector="#save" stepKey="clickSaveSegmentB"/>
+        <waitForPageLoad stepKey="waitForSegmentBSave"/>
+        <see selector=".message-success" userInput="The segment has been saved." stepKey="seeSegmentBSuccessMessage"/>
+
+        <!-- Step 7: the Overlap page itself - pick both real segments, click Compare, read the
+             real computed counts back from the DOM. -->
+        <amOnPage url="admin/ordo/segment/overlap" stepKey="goToOverlapPage"/>
+        <waitForPageLoad stepKey="waitForOverlapPage"/>
+        <waitForElementVisible selector="[data-overlap-segment='a']" stepKey="waitForSegmentASelect"/>
+        <selectOption selector="[data-overlap-segment='a']" userInput="Overlap Segment A" stepKey="selectOverlapSegmentA"/>
+        <selectOption selector="[data-overlap-segment='b']" userInput="Overlap Segment B" stepKey="selectOverlapSegmentB"/>
+        <click selector="[data-overlap-compute]" stepKey="clickCompare"/>
+        <waitForElementVisible selector="[data-overlap-result]" stepKey="waitForOverlapResult"/>
+
+        <!-- Step 8: the real, merchant-visible counts only a genuine two-segment overlap
+             computation against this exact real membership could have produced. -->
+        <see selector="[data-overlap-size-a]" userInput="2" stepKey="seeSizeA"/>
+        <see selector="[data-overlap-size-b]" userInput="1" stepKey="seeSizeB"/>
+        <see selector="[data-overlap-intersection]" userInput="1" stepKey="seeIntersection"/>
+        <see selector="[data-overlap-unique-a]" userInput="1" stepKey="seeUniqueA"/>
+        <see selector="[data-overlap-unique-b]" userInput="0" stepKey="seeUniqueB"/>
+    </test>
+</tests>
