@@ -11,9 +11,8 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and nineteen ⬜ (the Campaign export row,
-the predictive send-time optimization row, and the
-dispatch dead-letter row in §1d, the
+**Status: every row below is ✅ except one 🔴 (see §10) and eighteen ⬜ (the Campaign export row,
+the predictive send-time optimization row in §1d, the
 `RetryFailedCampaignActions` row in §11, the Approval rate-limit row and the Order Approvals grid
 in §6, the Segment Overlap page and Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
@@ -111,7 +110,7 @@ cases separately from the type-by-type ones.
 | Campaign deleted — grid no longer lists it, dispatch no longer matches its old triggers                       | ✅ `AdminDeleteCampaignStopsDispatchTest`                   |
 | Unknown/removed condition or action type on a campaign (fails closed, logs, doesn't crash the whole dispatch) | ✅ `AdminCampaignUnknownActionTypeFailsClosedTest`          |
 | Cross-channel frequency cap (`Model\Campaign\FrequencyCapManager`, opt-in, disabled by default) — a customer over the configured per-window contact-volume cap is skipped by `send_email`/`send_sms`/`send_whatsapp`/`send_push` alike and recorded `suppressed` in `ordo_message_log`, not sent | ✅ `AdminCampaignFrequencyCapSuppressesSendTest` (real `send_email`; the other three channels' own cap check is unit-tested only, same reasoning as their own §1c rows — no live provider account to send through) |
-| `CampaignDispatchConsumer` dead-letters an undecodable message or an uncaught `dispatch()` exception into `ordo_campaign_dispatch_dead_letter` instead of losing it | ⬜ unit-tested (`CampaignDispatchConsumerTest`), no MFTF/integration coverage of a real queue consumer yet |
+| `CampaignDispatchConsumer` dead-letters an undecodable message or an uncaught `dispatch()` exception into `ordo_campaign_dispatch_dead_letter` instead of losing it | ✅ `Test/Integration/CampaignDispatchConsumerDeadLetterTest.php` — real DI/DB, `execute()` called directly with a genuinely malformed message (no MFTF-reachable way to inject one through a real queue publish, which always produces well-formed JSON) |
 | Campaign export (`ordo/campaign/export`) — "Export" grid row action downloads the full trigger/condition/action graph as JSON | ⬜ unit-tested (`Controller\Adminhtml\Campaign\ExportTest`), no MFTF yet |
 | Predictive send-time optimization (`Model\Campaign\SendTimeOptimizationGate`, opt-in per `send_email` action via `"use_optimal_send_time"` in `params`) — a customer with enough email open/click history has the send deferred to their own historically-best hour instead of running immediately | ⬜ unit-tested (`SendTimeOptimizerTest`, `SendTimeOptimizationGateTest`), no MFTF/integration coverage of a real deferred dispatch yet — same untested-in-MFTF shape as `QuietHoursGate` itself, which also has no dedicated row here |
 
