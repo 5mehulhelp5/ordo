@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminWhatsAppInboundMessageConversationGridTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Two-way SMS/WhatsApp conversations"/>
+            <title value="A real, signed WhatsApp inbound message webhook is parsed and delegated to InboundMessageProcessor, and the Conversations admin grid renders it, filterable by Customer"/>
+            <description value="Closes SCENARIOS.md #23's two remaining gaps. Controller\WhatsApp\Webhook's own docblock explains why this needs a raw, custom-signed HTTP POST MFTF's browser-driven actions can't produce - WhatsAppWebhookTestHelper::postSignedInboundMessage() builds the real Meta Cloud API 'messages' payload shape and signs it with a real HMAC-SHA256 'X-Hub-Signature-256' header, exactly what Meta's own webhook delivery does (same trust-boundary-first pattern the #22 webhook tests already prove for the inbound/outbound Ordo-native equivalent). Customer resolution (Model\Conversation\InboundMessageProcessor::resolveCustomerId()) matches the inbound 'from' address against a PRIOR ordo_message_log.to_address for a real customer - seeded directly via the already-existing MessageLogTestHelper::insertMessageLog() (this suite's own established stand-in for a real send_whatsapp, which needs a live Meta Business account this environment doesn't have, see ROADMAP.md), so the resolved customer_id in the real ordo_conversation_message row this webhook produces is genuine, not guessed. The Conversations grid is then driven for real: the row appears, and filtering its Customer column narrows to just this customer's row and away again for an unrelated name."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+            <magentoCLI command="config:set ordo_automation/whatsapp/app_secret whatsapp_test_app_secret" stepKey="setWhatsAppAppSecret"/>
+
+            <!-- A prior real "send" to this customer's own WhatsApp number, the same
+                 already-established stand-in for a real send_whatsapp this suite's own
+                 AdminCampaignFrequencyCapSuppressesSendTest already uses - so resolveCustomerId()
+                 has a genuine to_address -> customer_id mapping to match the inbound "from"
+                 address against. -->
+            <helper class="\Ordo\Automation\Test\Mftf\Helper\MessageLogTestHelper" method="insertMessageLog" stepKey="insertPriorWhatsAppSend">
+                <argument name="channel">whatsapp</argument>
+                <argument name="toAddress">15551239999</argument>
+                <argument name="status">sent</argument>
+                <argument name="customerId">$createCustomer.id$</argument>
+            </helper>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/whatsapp/app_secret ''" stepKey="clearWhatsAppAppSecret"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the real, signed webhook POST - the same "from" address the prior send
+             above went to, so this customer resolves for real. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\WhatsAppWebhookTestHelper" method="postSignedInboundMessage" stepKey="postInboundWebhook">
+            <argument name="appSecret">whatsapp_test_app_secret</argument>
+            <argument name="fromAddress">15551239999</argument>
+            <argument name="body">Conversation grid test inbound message</argument>
+            <argument name="baseUrl">{{_ENV.MAGENTO_BASE_URL}}</argument>
+        </helper>
+        <assertEquals stepKey="assertWebhookAccepted">
+            <expectedResult type="int">200</expectedResult>
+            <actualResult type="variable">postInboundWebhook</actualResult>
+        </assertEquals>
+
+        <!-- Step 2: the Conversations grid - the real row this webhook alone could have
+             produced (channel, body, and the customer resolved from the seeded prior send). -->
+        <amOnPage url="admin/ordo/conversationmessage/index" stepKey="goToConversationsGrid"/>
+        <waitForPageLoad stepKey="waitForConversationsGrid"/>
+        <see selector="table.data-grid" userInput="Conversation grid test inbound message" stepKey="seeMessageBodyInGrid"/>
+        <see selector="table.data-grid" userInput="whatsapp" stepKey="seeChannelInGrid"/>
+
+        <!-- Step 3: the Customer filter genuinely narrows - to this real customer's own name,
+             and away again for an unrelated one. -->
+        <click selector="//button[@data-action='grid-filter-expand']" stepKey="openFilters"/>
+        <waitForElementVisible selector="//input[@name='customer_name']" stepKey="waitForCustomerFilterField"/>
+        <fillField selector="//input[@name='customer_name']" userInput="$createCustomer.firstname$" stepKey="fillCustomerFilter"/>
+        <click selector="//button[@data-action='grid-filter-apply']" stepKey="applyCustomerFilter"/>
+        <waitForPageLoad stepKey="waitForFilteredGrid"/>
+        <see selector="table.data-grid" userInput="Conversation grid test inbound message" stepKey="seeMessageAfterMatchingFilter"/>
+
+        <click selector="//button[@data-action='grid-filter-expand']" stepKey="reopenFilters"/>
+        <waitForElementVisible selector="//input[@name='customer_name']" stepKey="waitForCustomerFilterFieldAgain"/>
+        <fillField selector="//input[@name='customer_name']" userInput="Nonexistent Customer Name Xyz" stepKey="fillNonMatchingCustomerFilter"/>
+        <click selector="//button[@data-action='grid-filter-apply']" stepKey="applyNonMatchingCustomerFilter"/>
+        <waitForPageLoad stepKey="waitForNonMatchingFilteredGrid"/>
+        <dontSee selector="table.data-grid" userInput="Conversation grid test inbound message" stepKey="dontSeeMessageAfterNonMatchingFilter"/>
+    </test>
+</tests>

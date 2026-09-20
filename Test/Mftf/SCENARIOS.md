@@ -11,10 +11,10 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except six ⬜ (the Campaign export row, the predictive
-send-time optimization row in §1d, the Segment export row in §2, the §23 inbound WhatsApp
-`messages` row and its Conversations grid row, and the §24 `PriceWatchSubscriptionManager::register()`
-idempotency row — all unit-tested but no MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
+**Status: every row below is ✅ except four ⬜ (the Campaign export row, the predictive
+send-time optimization row in §1d, the Segment export row in §2, and the §24
+`PriceWatchSubscriptionManager::register()` idempotency row — all unit-tested but no
+MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -365,11 +365,11 @@ module's.
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
 | `Controller\Sms\Reply` — X-Twilio-Signature rejection, valid signature delegates to `InboundMessageProcessor`, missing `From` returns invalid_payload | 🔶 unit-tested (`ReplyTest`) + manually live-verified 2026-09-17 (real Twilio-algorithm HMAC-SHA1 signature computed and posted against a live instance; forged signature correctly got a real 403), no automated MFTF yet |
-| `Controller\WhatsApp\Webhook` — inbound `messages` array entries are parsed and delegated to `InboundMessageProcessor` alongside the existing `statuses` handling | ⬜ unit-tested (`WebhookTest`), no MFTF yet |
+| `Controller\WhatsApp\Webhook` — inbound `messages` array entries are parsed and delegated to `InboundMessageProcessor` alongside the existing `statuses` handling | ✅ `AdminWhatsAppInboundMessageConversationGridTest` |
 | `InboundMessageProcessor` — a STOP/UNSUBSCRIBE/CANCEL/END/QUIT reply (any case) revokes consent through `ConsentManager::setConsent()` for the resolved customer and channel — the compliance-critical path | 🔶 unit-tested (`InboundMessageProcessorTest`, one case per keyword and per channel) + manually live-verified 2026-09-17 for the SMS/STOP case (real signed POST against a live instance; `ordo_customer_consent`/`ordo_customer_consent_log` rows confirmed written with `source=stop_keyword`), no automated MFTF yet |
 | `InboundMessageProcessor` — a STOP-keyword reply from an unresolvable phone number does NOT call `ConsentManager` but logs an error for manual follow-up | 🔶 unit-tested (`InboundMessageProcessorTest`) + manually live-verified 2026-09-17 (real request from an unseeded phone number; confirmed no consent row was written and the documented error was actually logged), no automated MFTF yet |
 | `InboundMessageProcessor` — every inbound reply (STOP-keyword or not) is stored in `ordo_conversation_message` regardless of outcome | 🔶 unit-tested (`InboundMessageProcessorTest`) + manually live-verified 2026-09-17 (both the resolved and the unresolvable-number replies above were confirmed persisted), no automated MFTF yet |
-| "Conversations" admin grid (`ordo/conversationmessage/index`) renders `ordo_conversation_message` rows filterable by Customer | ⬜ not covered — no MFTF yet, real webhook delivery needed to seed data, same reasoning as `send_sms`'s own equivalent gap |
+| "Conversations" admin grid (`ordo/conversationmessage/index`) renders `ordo_conversation_message` rows filterable by Customer | ✅ `AdminWhatsAppInboundMessageConversationGridTest` |
 
 ## 24. Price-drop & back-in-stock alerts (`Model/PriceWatch/`, `Controller/Track/RegisterPriceWatch.php`, `Cron/ScanPriceDropAlerts.php`, `Cron/ScanBackInStockAlerts.php`)
 

@@ -38,6 +38,17 @@
         </argument>
     </dataSource>
 
+    <!-- Every column below already declares its own <filter> type, but a bare <columns> section
+         has no toggle to ever open them - see Campaign grid's own listingToolbar comment (the
+         ROADMAP.md "No column filtering on any grid" finding): without an explicit
+         <listingToolbar>, this module's grids render just the raw table, with no visible
+         filter/search/paging panel at all. Unlike the Campaign grid (deliberately scoped to just
+         a massaction, to avoid an un-asked-for UI change), this listing's own "Customer" column
+         is documented (SCENARIOS.md's own #23 Conversations-grid row) as filterable, so the
+         panel that actually makes that true belongs here. -->
+    <listingToolbar name="listing_top">
+        <filters name="listing_filters"/>
+    </listingToolbar>
     <columns name="ordo_conversationmessage_columns">
         <column name="entity_id">
             <settings>

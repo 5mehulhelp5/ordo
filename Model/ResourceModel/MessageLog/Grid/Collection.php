@@ -32,9 +32,15 @@ class Collection extends SearchResult
      * the "Delete" mass action (Controller\Adminhtml\MessageLog\MassDelete) hits this the same
      * way via Magento\Ui\Component\MassAction\Filter::getCollection().
      *
+     * "customer_name" (see addFieldToFilter() below) has the identical problem for a different
+     * reason - it's a computed SELECT-list alias (CONCAT(...) below), not a real column, and
+     * $_map itself doesn't work for it (see that method's own docblock for why).
+     *
      * @var array<string, array<string, string>>
      */
     protected $_map = ['fields' => ['entity_id' => 'main_table.entity_id']];
+
+    private const string CUSTOMER_NAME_EXPR = "CONCAT(customer.firstname, ' ', customer.lastname)";
 
     public function __construct(
         EntityFactoryInterface $entityFactory,
@@ -67,9 +73,33 @@ class Collection extends SearchResult
             ['customer' => $this->resourceConnection->getTableName('customer_entity')],
             'customer.entity_id = main_table.customer_id',
             [
-                'customer_name' => new Zend_Db_Expr("CONCAT(customer.firstname, ' ', customer.lastname)"),
+                'customer_name' => new Zend_Db_Expr(self::CUSTOMER_NAME_EXPR),
                 'customer_email' => 'customer.email',
             ]
         );
+    }
+
+    /**
+     * "customer_name" is a computed SELECT-list alias (see _initSelect() above), not a real
+     * column - MySQL rejects a WHERE clause referencing a SELECT alias directly ("Unknown
+     * column 'customer_name' in 'where clause'", error 1054), confirmed for real via
+     * Model\ResourceModel\ConversationMessage\Grid\Collection's own identical join/alias shape
+     * (see that class's own docblock). $_map (used above for entity_id) doesn't work here
+     * either - it quotes its mapped value as if it were a plain identifier, which mangles a
+     * function-call expression like CONCAT(...) into more invalid SQL, confirmed via a real
+     * second failed attempt. prepareSqlCondition() against the raw expression directly is the
+     * correct tool for a genuinely computed column.
+     */
+    public function addFieldToFilter($field, $condition = null)
+    {
+        if ($field === 'customer_name') {
+            $this->getSelect()->where(
+                $this->getConnection()->prepareSqlCondition(self::CUSTOMER_NAME_EXPR, $condition)
+            );
+
+            return $this;
+        }
+
+        return parent::addFieldToFilter($field, $condition);
     }
 }
