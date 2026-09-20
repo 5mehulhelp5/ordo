@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminSendWebhookSkipsThenRetriesTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="A send_webhook action skips entirely while webhooks are disabled, then genuinely fails and retries once enabled against a broken URL, and succeeds once fixed"/>
+            <description value="Closes SCENARIOS.md #22's two send_webhook gaps (disabled/no-config skip, and enqueue-and-retry-on-failure) in one real campaign, two real orders. Both orders point the store's own Outbound URL at a deliberately unreachable address (http://127.0.0.1:1/ - an unbound port, so the connection is refused immediately, not just slow) - the only variable between them is the module's own webhook/enabled toggle. Order 1 (disabled): SendWebhook::execute() returns before ever attempting the POST, so a broken URL that WOULD otherwise fail never gets the chance to - proven by no ordo_message_send_retry row appearing at all. Order 2 (enabled): the same broken URL now genuinely fails the real outbound POST, SendRetrier exhausts, and MessageSendRetryQueue::enqueue() writes a real retry row - proven by fixing the Outbound URL to point at THIS store's own /ordo/webhook/receive (config Outbound Secret and Inbound Secret set to the same value, so the self-signed call validates on arrival - the same self-loopback trick SCENARIOS.md's own #22 notes were manually verified with on 2026-09-17), backdating the retry, running Cron\RetryFailedMessageSends for real, and confirming the row is gone afterward - CampaignActionCorruptorHelper::assertNoMessageSendRetryForActionType()'s own docblock explains why 'gone' is unambiguous proof of success here, not a dead letter."/>
+            <severity value="CRITICAL"/>
+            <group value="ordo_automation"/>
+            <group value="campaign3"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+
+            <!-- Baseline: webhooks off, whatever an earlier test/run left configured. -->
+            <magentoCLI command="config:set ordo_automation/webhook/enabled 0" stepKey="disableWebhookBefore"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/webhook/enabled 0" stepKey="disableWebhookAfter"/>
+            <magentoCLI command="config:set ordo_automation/webhook/outbound_url ''" stepKey="clearOutboundUrlAfter"/>
+            <magentoCLI command="config:set ordo_automation/webhook/outbound_secret ''" stepKey="clearOutboundSecretAfter"/>
+            <magentoCLI command="config:set ordo_automation/webhook/inbound_secret ''" stepKey="clearInboundSecretAfter"/>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the campaign - trigger=order_placed, action=send_webhook - and a broken
+             Outbound URL + both secrets set (webhooks still disabled at this point). -->
+        <magentoCLI command="config:set ordo_automation/webhook/outbound_url http://127.0.0.1:1/unreachable" stepKey="setBrokenOutboundUrl"/>
+        <magentoCLI command="config:set ordo_automation/webhook/outbound_secret webhook_test_shared_secret" stepKey="setOutboundSecret"/>
+        <magentoCLI command="config:set ordo_automation/webhook/inbound_secret webhook_test_shared_secret" stepKey="setInboundSecret"/>
+
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Send Webhook Skip Then Retry Campaign" stepKey="fillName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'send_webhook', fields: {delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: order #1, webhooks still DISABLED - the broken URL never gets a chance to
+             fail, because SendWebhook::execute() returns before attempting anything. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageFirstOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageFirstOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartFirstOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartFirstOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageFirstOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeFirstOrder"/>
+        <wait time="2" stepKey="waitForFirstDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumerAfterFirstOrder"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CampaignActionCorruptorHelper" method="assertNoMessageSendRetryForActionType" stepKey="assertNoRetryRowWhileDisabled">
+            <argument name="actionType">send_webhook</argument>
+        </helper>
+
+        <!-- Step 3: enable webhooks - the SAME broken URL now genuinely fails order #2's real
+             dispatch, and SendWebhook's own catch enqueues a real retry row. -->
+        <magentoCLI command="config:set ordo_automation/webhook/enabled 1" stepKey="enableWebhook"/>
+
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageSecondOrder"/>
+        <waitForPageLoad stepKey="waitForProductPageSecondOrder"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartSecondOrder">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartSecondOrder"/>
+        <waitForPageLoad stepKey="waitForCartPageSecondOrder"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeSecondOrder"/>
+        <wait time="2" stepKey="waitForSecondDispatchMessageVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumerAfterSecondOrder"/>
+
+        <!-- Step 4: fix the Outbound URL to this store's own real /ordo/webhook/receive - the
+             Outbound and Inbound secrets are already the same value, so the self-signed call
+             validates on arrival - then force the retry due now and run it for real. -->
+        <magentoCLI command="config:set ordo_automation/webhook/outbound_url {{_ENV.MAGENTO_BASE_URL}}ordo/webhook/receive" stepKey="fixOutboundUrl"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="backdateMostRecentMessageSendRetry" stepKey="backdateRetry">
+            <argument name="actionType">send_webhook</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CronScheduleHelper" method="scheduleJobNow" stepKey="scheduleRetryFailedMessageSendsJob">
+            <argument name="jobCode">ordo_automation_retry_failed_message_sends</argument>
+        </helper>
+        <magentoCLI command="cron:run --group=default" stepKey="runRetryFailedMessageSendsCron"/>
+
+        <!-- Step 5: gone = a genuinely successful retry (see the helper's own docblock). -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\CampaignActionCorruptorHelper" method="assertNoMessageSendRetryForActionType" stepKey="assertRetryRowGoneAfterFix">
+            <argument name="actionType">send_webhook</argument>
+        </helper>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

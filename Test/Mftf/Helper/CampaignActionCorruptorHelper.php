@@ -110,4 +110,43 @@ class CampaignActionCorruptorHelper extends Helper
         );
         $statement->execute(['params' => $paramsJson, 'action_type' => $actionType]);
     }
+
+    /**
+     * send_webhook has no Message Log / MailHog equivalent for a merchant to visibly confirm a
+     * send succeeded (SendWebhook's own docblock: this is a system-to-system call, not a
+     * customer-facing message) - "no row left in ordo_message_send_retry for this action type"
+     * is the real, DB-verifiable proof both that a dispatch which SHOULD have skipped entirely
+     * (webhooks disabled) never even attempted a send in the first place, and that a genuinely
+     * failed send's later retry actually succeeded (Cron\RetryFailedMessageSends only ever
+     * deletes a row on success - see its own docblock - it never deletes a dead-lettered one, so
+     * "gone" is unambiguous either way this is called).
+     *
+     * @throws \RuntimeException if a row still exists
+     */
+    public function assertNoMessageSendRetryForActionType(
+        string $actionType,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare('SELECT COUNT(*) FROM ordo_message_send_retry WHERE action_type = :action_type');
+        $statement->execute(['action_type' => $actionType]);
+        $count = (int) $statement->fetchColumn();
+
+        if ($count > 0) {
+            throw new \RuntimeException(sprintf(
+                'Unexpected ordo_message_send_retry row(s) still found for action_type "%s" (count=%d).',
+                $actionType,
+                $count
+            ));
+        }
+    }
 }

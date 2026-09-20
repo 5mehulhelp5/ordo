@@ -11,11 +11,10 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except twelve ⬜ (the Campaign export row, the predictive
-send-time optimization row in §1d, the Segment export row in §2, three §22 webhook
-action/signature-validator rows, the §23 inbound WhatsApp `messages` row and its Conversations
-grid row, and the §24 `PriceWatchSubscriptionManager::register()` idempotency row — all
-unit-tested but no MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
+**Status: every row below is ✅ except six ⬜ (the Campaign export row, the predictive
+send-time optimization row in §1d, the Segment export row in §2, the §23 inbound WhatsApp
+`messages` row and its Conversations grid row, and the §24 `PriceWatchSubscriptionManager::register()`
+idempotency row — all unit-tested but no MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -355,11 +354,11 @@ module's.
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
 | `send_webhook` action POSTs a signed JSON payload to the configured outbound URL                                 | 🔶 unit-tested (`SendWebhookTest`) + manually live-verified 2026-09-17 (outbound call, configured to point at this store's own `/ordo/webhook/receive`, actually reached it and was signature-accepted — see nginx access log evidence), no automated MFTF yet |
-| `send_webhook` action is skipped when webhooks are disabled, or no outbound URL/secret is configured             | ⬜ unit-tested (`SendWebhookTest`), no MFTF yet                            |
-| `send_webhook` action enqueues a retry (and rethrows on a retry attempt) on send failure, same as other channels | ⬜ unit-tested (`SendWebhookTest`), no MFTF yet                            |
+| `send_webhook` action is skipped when webhooks are disabled, or no outbound URL/secret is configured             | ✅ `AdminSendWebhookSkipsThenRetriesTest` |
+| `send_webhook` action enqueues a retry (and rethrows on a retry attempt) on send failure, same as other channels | ✅ `AdminSendWebhookSkipsThenRetriesTest` |
 | `/ordo/webhook/receive` accepts a valid `X-Ordo-Signature` and dispatches the `webhook_received` trigger         | 🔶 unit-tested (`Controller\Webhook\ReceiveTest`) + manually live-verified 2026-09-17 (real HMAC-SHA256 signed POST against a live instance, confirmed dispatch reached a real campaign's action), no automated MFTF yet |
 | `/ordo/webhook/receive` rejects a missing/invalid signature with 401 without dispatching                        | 🔶 unit-tested (`Controller\Webhook\ReceiveTest`) + manually live-verified 2026-09-17 (real 401 response to a forged signature), no automated MFTF yet |
-| `WebhookSignatureValidator` HMAC-SHA256 sign/verify round-trip, tampered body and forged signature rejected      | ⬜ unit-tested (`WebhookSignatureValidatorTest`), no MFTF yet             |
+| `WebhookSignatureValidator` HMAC-SHA256 sign/verify round-trip, tampered body and forged signature rejected      | ✅ `WebhookSignatureValidatorTest` — a zero-dependency pure function (just `hash_hmac`/`hash_equals`), so its own real unit test already exercises the actual behavior with nothing mocked; no MFTF or integration layer could add anything more real |
 
 ## 23. Two-way SMS/WhatsApp conversations (`Model/Conversation/InboundMessageProcessor.php`, `Controller/Sms/Reply.php`, `Controller/WhatsApp/Webhook.php`, `Controller/Adminhtml/ConversationMessage/Index.php`)
 
