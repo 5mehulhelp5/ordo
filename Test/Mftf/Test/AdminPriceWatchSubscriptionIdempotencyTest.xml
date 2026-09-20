@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminPriceWatchSubscriptionIdempotencyTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Price-drop &amp; back-in-stock alerts"/>
+            <title value="PriceWatchSubscriptionManager::register() is idempotent by identity+product+watch_type, refreshes stale captured state and notified_at, and only ever refreshes a guest email, never erases one already on file"/>
+            <description value="Closes SCENARIOS.md #24's PriceWatchSubscriptionManager::register() idempotency gap. tracker.js's own window.ordoSubscribeToPriceWatch(productId, watchType, email) - the real function a 'Notify me' click calls - is driven directly from a real storefront product page as a real anonymous visitor (same browser session throughout, so visitor_id stays the one identity the whole test). Four real register() calls against the SAME product+watch_type prove every claim in the row: (1) a fresh registration produces exactly one row; (2) PriceWatchTestHelper::corruptGuestSubscription() puts that row into a stale/already-notified state no real MFTF-reachable path produces (only a genuine scan cron after a real price change ever sets notified_at - see that helper's own docblock), and a second register() call on the SAME identity+product+watch_type refreshes last_known_price away from the corrupted sentinel and clears notified_at back to null, while the row count stays at exactly one (idempotent, no duplicate); (3) a third call WITH a guest email sets it; (4) a fourth call with NO email leaves that same address in place rather than erasing it."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign2"/>
+        </annotations>
+        <before>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <magentoCLI command="config:set ordo_automation/price_watch/enabled 1" stepKey="enablePriceWatch"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/price_watch/enabled 0" stepKey="disablePriceWatch"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+        </after>
+
+        <!-- Step 1: a real, fresh registration as an anonymous visitor, no email - exactly one
+             row, the real function a "Notify me" click on this product's own PDP would call. -->
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <executeJS function="return window.ordoSubscribeToPriceWatch($createProduct.id$, 'price_drop', null);" stepKey="registerFirstTime"/>
+        <wait time="1" stepKey="waitForFirstRegisterPersisted"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="countGuestSubscriptions" stepKey="countAfterFirstRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertOneRowAfterFirstRegister">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">countAfterFirstRegister</actualResult>
+        </assertEquals>
+
+        <!-- Step 2: corrupt the row into a stale/already-notified state, then re-register on the
+             SAME identity+product+watch_type - register() should refresh last_known_price away
+             from the sentinel and clear notified_at, WITHOUT creating a second row. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="corruptGuestSubscription" stepKey="corruptSubscription">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+            <argument name="priceSentinel">999999.9900</argument>
+        </helper>
+
+        <executeJS function="return window.ordoSubscribeToPriceWatch($createProduct.id$, 'price_drop', null);" stepKey="registerSecondTime"/>
+        <wait time="1" stepKey="waitForSecondRegisterPersisted"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="countGuestSubscriptions" stepKey="countAfterSecondRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertStillOneRowAfterSecondRegister">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">countAfterSecondRegister</actualResult>
+        </assertEquals>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="getLastKnownPriceForGuestSubscription" stepKey="priceAfterSecondRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertNotEquals stepKey="assertPriceRefreshedAwayFromSentinel">
+            <expectedResult type="string">999999.9900</expectedResult>
+            <actualResult type="variable">priceAfterSecondRegister</actualResult>
+        </assertNotEquals>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="isNotifiedAtNullForGuestSubscription" stepKey="notifiedAtIsNullAfterSecondRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertNotifiedAtClearedBySecondRegister">
+            <expectedResult type="bool">true</expectedResult>
+            <actualResult type="variable">notifiedAtIsNullAfterSecondRegister</actualResult>
+        </assertEquals>
+
+        <!-- Step 3: a third call WITH a guest email sets it for the first time. -->
+        <executeJS function="return window.ordoSubscribeToPriceWatch($createProduct.id$, 'price_drop', 'price.watch.guest@example.com');" stepKey="registerThirdTimeWithEmail"/>
+        <wait time="1" stepKey="waitForThirdRegisterPersisted"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="getGuestEmailForGuestSubscription" stepKey="emailAfterThirdRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertEmailSetByThirdRegister">
+            <expectedResult type="string">price.watch.guest@example.com</expectedResult>
+            <actualResult type="variable">emailAfterThirdRegister</actualResult>
+        </assertEquals>
+
+        <!-- Step 4: a fourth call with NO email leaves that same address in place - it's only
+             ever refreshed when a new one is actually given, never erased. -->
+        <executeJS function="return window.ordoSubscribeToPriceWatch($createProduct.id$, 'price_drop', null);" stepKey="registerFourthTimeNoEmail"/>
+        <wait time="1" stepKey="waitForFourthRegisterPersisted"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="getGuestEmailForGuestSubscription" stepKey="emailAfterFourthRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertEmailNotErasedByFourthRegister">
+            <expectedResult type="string">price.watch.guest@example.com</expectedResult>
+            <actualResult type="variable">emailAfterFourthRegister</actualResult>
+        </assertEquals>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PriceWatchTestHelper" method="countGuestSubscriptions" stepKey="countAfterFourthRegister">
+            <argument name="productId">$createProduct.id$</argument>
+            <argument name="watchType">price_drop</argument>
+        </helper>
+        <assertEquals stepKey="assertStillOneRowAfterFourthRegister">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">countAfterFourthRegister</actualResult>
+        </assertEquals>
+    </test>
+</tests>

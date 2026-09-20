@@ -11,10 +11,9 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except four ⬜ (the Campaign export row, the predictive
-send-time optimization row in §1d, the Segment export row in §2, and the §24
-`PriceWatchSubscriptionManager::register()` idempotency row — all unit-tested but no
-MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
+**Status: every row below is ✅ except three ⬜ (the Campaign export row,
+the predictive send-time optimization row in §1d, and the Segment export row in §2 — all
+unit-tested but no MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -376,7 +375,7 @@ module's.
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
 | `/ordo/track/registerpricewatch` registers a customer/visitor watch, validates `product_id`/`watch_type`, rejects an unknown product, rejects a malformed guest `email` | 🔶 unit-tested (`RegisterPriceWatchTest`) + manually live-verified 2026-09-17 (real POST against a live instance, row confirmed in `ordo_price_watch_subscription`), no automated MFTF yet |
-| `PriceWatchSubscriptionManager::register()` is idempotent by identity + product + watch_type, refreshes the captured price/stock and clears `notified_at` on re-registration, captures/refreshes `guest_email` without ever erasing one already on file | ⬜ unit-tested (`PriceWatchSubscriptionManagerTest`), no MFTF yet |
+| `PriceWatchSubscriptionManager::register()` is idempotent by identity + product + watch_type, refreshes the captured price/stock and clears `notified_at` on re-registration, captures/refreshes `guest_email` without ever erasing one already on file | ✅ `AdminPriceWatchSubscriptionIdempotencyTest` |
 | `ScanPriceDropAlerts`/`ScanBackInStockAlerts` dispatch their trigger only on a real price decrease / false→true stock transition for a known customer, notify a guest with a captured `guest_email` directly instead (`GuestPriceWatchNotifier`), otherwise just refresh the row, and roll back the claim on a failed dispatch/send either way | 🔶 unit-tested (`ScanPriceDropAlertsTest`, `ScanBackInStockAlertsTest`) + manually live-verified 2026-09-17 (real price drop on a live instance detected by the real cron, claimed via `notified_at`, dispatched a real campaign whose `send_email` action actually delivered mail — confirmed in MailHog), guest-email path not yet manually re-verified since being added, no automated MFTF yet |
 
 ## 25. Predictive send-time optimization (`Model/Campaign/SendTimeOptimizer.php`, `Model/Campaign/SendTimeOptimizationGate.php`, `Model/Campaign/Action/SendEmail.php`)
