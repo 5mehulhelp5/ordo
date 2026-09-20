@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminCampaignFunnelRendersOneRowPerVariantTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign performance analytics"/>
+            <title value="A split-tested campaign's Funnel widget renders one row per variant, not one aggregate row, once real sends exist for each"/>
+            <description value="Closes SCENARIOS.md #29's remaining row, which explicitly depended on §28's own split coverage existing first (AdminCampaignSplitActionAttributesVariantsTest, closed first) - reuses that same real campaign/customer-picking setup (SplitVariantTestHelper replicates SplitVariantSelector's own crc32 algorithm to find, among several pre-created customers, one that lands in variant 'a' and one that lands in variant 'b', since MFTF has no conditional/branching action to pick this at authoring time). Block\Adminhtml\Campaign\FunnelViewModel::hasVariants() drives whether funnel.phtml renders a per-row 'Variant' column at all - CampaignFunnelStats::getForCampaign() unions variant keys from ordo_message_log (sent/delivered/opened/clicked) and ordo_campaign_outcome_log (converted/revenue) with no ORDER BY, so this asserts each variant's own row content by XPath keyed on that row's own Variant cell value rather than assuming a fixed row position - proving each variant's real sent count (1 each) is kept separate, not aggregated into one combined row, which is the actual bug this row exists to catch (a naive read-time query grouping only by campaign_id, not campaign_id+variant, would still show a table but with one row totalling both sends)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer1"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer2"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer3"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer4"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer5"/>
+            <createData entity="Simple_US_Customer" stepKey="createCustomer6"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer1" stepKey="deleteCustomer1"/>
+            <deleteData createDataKey="createCustomer2" stepKey="deleteCustomer2"/>
+            <deleteData createDataKey="createCustomer3" stepKey="deleteCustomer3"/>
+            <deleteData createDataKey="createCustomer4" stepKey="deleteCustomer4"/>
+            <deleteData createDataKey="createCustomer5" stepKey="deleteCustomer5"/>
+            <deleteData createDataKey="createCustomer6" stepKey="deleteCustomer6"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- Step 1: the same split campaign shape as AdminCampaignSplitActionAttributesVariantsTest
+             - two 50/50 variants, each its own send_email. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForNameField"/>
+        <fillField selector="[name='name']" userInput="Funnel Variant Rows Test Campaign" stepKey="fillName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'order_placed'},
+            {kind: 'action', type: 'split', fields: {variants: JSON.stringify([
+                {key: 'a', weight: 50, actions: [{type: 'send_email', params: {template: 'ordo_campaign_generic', message: 'Variant A funnel test message.'}}]},
+                {key: 'b', weight: 50, actions: [{type: 'send_email', params: {template: 'ordo_campaign_generic', message: 'Variant B funnel test message.'}}]}
+            ]), delay_minutes: '0'}}
+        ]);" stepKey="buildFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyFlowAndSave"/>
+        <waitForPageLoad stepKey="waitForSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabCampaignId"/>
+
+        <!-- Step 2: of the six real pre-created customers, find one landing in variant 'a' and
+             one landing in variant 'b' for THIS real campaign - computed, not guessed. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\SplitVariantTestHelper" method="pickEmailForVariant" stepKey="pickEmailForVariantA">
+            <argument name="variantKey">a</argument>
+            <argument name="campaignIdAndCandidates">{$grabCampaignId};$$createCustomer1.id$$=$$createCustomer1.email$$;$$createCustomer2.id$$=$$createCustomer2.email$$;$$createCustomer3.id$$=$$createCustomer3.email$$;$$createCustomer4.id$$=$$createCustomer4.email$$;$$createCustomer5.id$$=$$createCustomer5.email$$;$$createCustomer6.id$$=$$createCustomer6.email$$</argument>
+        </helper>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\SplitVariantTestHelper" method="pickEmailForVariant" stepKey="pickEmailForVariantB">
+            <argument name="variantKey">b</argument>
+            <argument name="campaignIdAndCandidates">{$grabCampaignId};$$createCustomer1.id$$=$$createCustomer1.email$$;$$createCustomer2.id$$=$$createCustomer2.email$$;$$createCustomer3.id$$=$$createCustomer3.email$$;$$createCustomer4.id$$=$$createCustomer4.email$$;$$createCustomer5.id$$=$$createCustomer5.email$$;$$createCustomer6.id$$=$$createCustomer6.email$$</argument>
+        </helper>
+
+        <!-- Step 3: one real order per variant, so each has its own real sent count. -->
+        <actionGroup ref="LoginToStorefrontWithEmailAndPassword" stepKey="loginAsVariantACustomer">
+            <argument name="email" value="{$pickEmailForVariantA}"/>
+            <argument name="password" value="pwdTest123!"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageVariantA"/>
+        <waitForPageLoad stepKey="waitForProductPageVariantA"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartVariantA">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartVariantA"/>
+        <waitForPageLoad stepKey="waitForCartPageVariantA"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeOrderVariantA"/>
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutVariantACustomer"/>
+
+        <actionGroup ref="LoginToStorefrontWithEmailAndPassword" stepKey="loginAsVariantBCustomer">
+            <argument name="email" value="{$pickEmailForVariantB}"/>
+            <argument name="password" value="pwdTest123!"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPageVariantB"/>
+        <waitForPageLoad stepKey="waitForProductPageVariantB"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCartVariantB">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCartVariantB"/>
+        <waitForPageLoad stepKey="waitForCartPageVariantB"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeOrderVariantB"/>
+        <actionGroup ref="StorefrontCustomerLogoutActionGroup" stepKey="logoutVariantBCustomer"/>
+
+        <wait time="2" stepKey="waitForDispatchMessagesVisible"/>
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="runCampaignDispatchConsumer"/>
+
+        <!-- Step 4: the real proof - two SEPARATE rows, not one aggregate row: a naive query
+             grouping only by campaign_id (not campaign_id+variant) would still render a table,
+             just with one row totalling both variants' sends - the exact bug this row exists to
+             catch. Each variant's own row is found by its own Variant cell value (column order
+             has no guaranteed ORDER BY - see CampaignFunnelStats::getForCampaign()'s own
+             docblock), not by a fixed row position. -->
+        <amOnPage url="admin/ordo/campaign/edit/entity_id/{$grabCampaignId}" stepKey="goToCampaignEditPage"/>
+        <waitForPageLoad stepKey="waitForCampaignEditPage"/>
+        <waitForElementVisible selector=".ordo-campaign-funnel table" stepKey="waitForFunnelTable"/>
+        <executeJS function="return document.querySelectorAll('.ordo-campaign-funnel table tbody tr').length;" stepKey="grabFunnelRowCount"/>
+        <assertEquals stepKey="assertTwoFunnelRowsNotOneAggregate">
+            <expectedResult type="int">2</expectedResult>
+            <actualResult type="variable">grabFunnelRowCount</actualResult>
+        </assertEquals>
+        <see selector="//div[contains(@class,'ordo-campaign-funnel')]//tbody/tr[td[1][normalize-space()='a']]/td[2]" userInput="1" stepKey="seeVariantASentCountIsOne"/>
+        <see selector="//div[contains(@class,'ordo-campaign-funnel')]//tbody/tr[td[1][normalize-space()='b']]/td[2]" userInput="1" stepKey="seeVariantBSentCountIsOne"/>
+
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>
