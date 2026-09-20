@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminScheduledCampaignCalendarTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Campaign engine"/>
+            <title value="The Scheduled Campaign Calendar plots a scheduled_at trigger on its own day, expands a recurring_schedule trigger across every matching day, and month navigation moves by exactly one month"/>
+            <description value="Closes SCENARIOS.md #21's three gaps - Block\Adminhtml\Campaign\ScheduleCalendar\CampaignScheduleCalendarViewModel.php has no MFTF coverage of its own. A real scheduled_at campaign, set to today's own day-of-month one calendar month ahead (so this test is never itself sitting near a month boundary, whatever real date it runs on), is confirmed plotted under the exact in-month day cell matching that date, marked 'upcoming'. A real recurring_schedule campaign with cron_expression '0 8 * * 0' (every Sunday - matchesCronExpressionDate()'s own 'w' semantics, 0=Sunday) is confirmed to appear at least 4 times across that same visible month, proving expansion across every matching day rather than just the first. Month navigation is proven both ways: 'Next month' from the default (current month) view lands on next month's own label, and 'Previous month' from there returns to the original."/>
+            <severity value="MINOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign3"/>
+        </annotations>
+        <before>
+            <actionGroup ref="AdminLoginActionGroup" stepKey="loginAsAdmin"/>
+        </before>
+        <after>
+            <actionGroup ref="AdminLogoutActionGroup" stepKey="logoutAsAdmin"/>
+        </after>
+
+        <!-- generateDate has to run here, not in <before> - like every grab*'d id elsewhere in
+             this suite, its result is a local variable scoped to this test's own generated
+             method, not visible from the separately generated _before() method (same reasoning
+             as AdminSetupGuideReflectsRealDataTest's cleanup-placement comment, just hitting a
+             "before" hook instead of an "after" one).
+
+             Anchored to "next month" (today's own day-of-month, one calendar month ahead) so
+             this test is never itself near a month boundary on whatever real date it runs - the
+             scheduled_at date and the "next month" view it should appear under are always
+             unambiguously the same calendar month. PHP's strtotime() famously does NOT chain
+             "first day of next month" with a further "+N days" in one string (the "first day
+             of"/"last day of" relative parts apply last, after every other relative part,
+             regardless of where they appear in the string - confirmed empirically: it silently
+             collapsed back to exactly the 1st every time), so this doesn't attempt that; each
+             generateDate call below independently re-derives "next month" from "now", which
+             PHP's relative date parser handles correctly on its own. -->
+        <generateDate date="next month" format="Y-m-d H:i:s" timezone="UTC" stepKey="generateScheduledAtValue"/>
+        <generateDate date="next month" format="j" timezone="UTC" stepKey="generateScheduledAtDayNumber"/>
+        <generateDate date="next month" format="Y-m" timezone="UTC" stepKey="generateNextMonthParam"/>
+        <generateDate date="next month" format="F Y" timezone="UTC" stepKey="generateNextMonthLabel"/>
+        <generateDate date="now" format="F Y" timezone="UTC" stepKey="generateCurrentMonthLabel"/>
+
+        <!-- Step 1: a real, enabled scheduled_at campaign - addEnabledCampaignFilter() in the
+             ViewModel's own loadEntriesByDate() only reads enabled campaigns, so the "enabled"
+             toggle click here isn't just realism, it's required for this to plot at all. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewScheduledCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewScheduledCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForScheduledCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Schedule Calendar Test Scheduled Campaign" stepKey="fillScheduledCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForScheduledFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'scheduled_at', fields: {scheduled_at: '{$generateScheduledAtValue}'}},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'schedule_calendar_test', delay_minutes: '0'}}
+        ]);" stepKey="buildScheduledFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableScheduledCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyScheduledCampaign"/>
+        <waitForPageLoad stepKey="waitForScheduledCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeScheduledCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabScheduledCampaignId"/>
+
+        <!-- Step 2: a real, enabled recurring_schedule campaign, every Sunday. -->
+        <amOnPage url="admin/ordo/campaign/new" stepKey="goToNewRecurringCampaignPage"/>
+        <waitForPageLoad stepKey="waitForNewRecurringCampaignPage"/>
+        <waitForElementVisible selector="[name='name']" stepKey="waitForRecurringCampaignNameField"/>
+        <fillField selector="[name='name']" userInput="Schedule Calendar Test Recurring Campaign" stepKey="fillRecurringCampaignName"/>
+        <waitForElementVisible selector="#ordo-campaign-flow" stepKey="waitForRecurringFlowCanvas"/>
+        <executeJS function="window.ordoFlowTestHook.buildChain([
+            {kind: 'trigger', type: 'recurring_schedule', fields: {cron_expression: '0 8 * * 0'}},
+            {kind: 'action', type: 'add_tag', fields: {tag: 'schedule_calendar_test', delay_minutes: '0'}}
+        ]);" stepKey="buildRecurringFlowGraph"/>
+        <executeJS function="document.evaluate(&quot;//input[@name='enabled']/following-sibling::label&quot;, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();" stepKey="enableRecurringCampaign"/>
+        <executeJS function="document.querySelector(&quot;[data-flow-action='apply']&quot;).click();" stepKey="clickApplyRecurringCampaign"/>
+        <waitForPageLoad stepKey="waitForRecurringCampaignSave"/>
+        <see selector=".message-success" userInput="The campaign has been saved." stepKey="seeRecurringCampaignSuccessMessage"/>
+        <grabFromCurrentUrl regex="/entity_id\/(\d+)/" stepKey="grabRecurringCampaignId"/>
+
+        <!-- Step 3: the calendar, navigated straight to next month via its own "month" GET
+             param - both real campaigns' triggers land there. -->
+        <amOnPage url="admin/ordo/campaign/schedulecalendar?month={$generateNextMonthParam}" stepKey="goToScheduleCalendarNextMonth"/>
+        <waitForPageLoad stepKey="waitForScheduleCalendarNextMonth"/>
+        <see selector="h3" userInput="{$generateNextMonthLabel}" stepKey="seeNextMonthLabelOnDirectNav"/>
+
+        <!-- scheduled_at: plotted under the exact in-month day cell for that date, marked
+             "upcoming" (it's a full calendar month ahead - always in the future relative to
+             whatever real "now" this test runs at). -->
+        <seeElement selector="//div[contains(@class, 'ordo-schedule-calendar-day-in-month')][.//span[normalize-space(text())='{$generateScheduledAtDayNumber}']]//a[normalize-space(text())='Schedule Calendar Test Scheduled Campaign']" stepKey="seeScheduledCampaignOnItsOwnDay"/>
+        <seeElement selector="//div[contains(@class, 'ordo-schedule-calendar-day-in-month')][.//span[normalize-space(text())='{$generateScheduledAtDayNumber}']]//li[contains(@class, 'ordo-schedule-calendar-entry-upcoming')][.//a[normalize-space(text())='Schedule Calendar Test Scheduled Campaign']]" stepKey="seeScheduledCampaignMarkedUpcoming"/>
+
+        <!-- recurring_schedule: every Sunday in the visible month - at least 4 in any month,
+             proving expansion across every matching day, not just the first. -->
+        <executeJS function="return document.querySelectorAll(&quot;a[title='Schedule Calendar Test Recurring Campaign']&quot;).length;" stepKey="countRecurringEntries"/>
+        <assertGreaterThanOrEqual stepKey="assertAtLeastFourRecurringEntries">
+            <expectedResult type="int">4</expectedResult>
+            <actualResult type="variable">countRecurringEntries</actualResult>
+        </assertGreaterThanOrEqual>
+
+        <!-- Step 4: month navigation - "Next month" from the default (current month) view
+             lands on next month's own label, and "Previous month" from there returns to the
+             original, proving it steps by exactly one month each way. -->
+        <amOnPage url="admin/ordo/campaign/schedulecalendar" stepKey="goToScheduleCalendarDefault"/>
+        <waitForPageLoad stepKey="waitForScheduleCalendarDefault"/>
+        <see selector="h3" userInput="{$generateCurrentMonthLabel}" stepKey="seeCurrentMonthLabelByDefault"/>
+        <click selector="//a[contains(text(), 'Next month')]" stepKey="clickNextMonth"/>
+        <waitForPageLoad stepKey="waitForAfterClickNextMonth"/>
+        <see selector="h3" userInput="{$generateNextMonthLabel}" stepKey="seeNextMonthLabelAfterClick"/>
+        <click selector="//a[contains(text(), 'Previous month')]" stepKey="clickPreviousMonth"/>
+        <waitForPageLoad stepKey="waitForAfterClickPreviousMonth"/>
+        <see selector="h3" userInput="{$generateCurrentMonthLabel}" stepKey="seeCurrentMonthLabelAfterClickBack"/>
+
+        <!-- Cleanup lives here, not in <after> - grab*'d ids are local variables scoped to this
+             test's own generated method (see AdminSetupGuideReflectsRealDataTest's identical
+             comment). -->
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteScheduledCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabScheduledCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+        <actionGroup ref="AdminDeleteOrdoEntityByFormPostActionGroup" stepKey="deleteRecurringCampaign">
+            <argument name="url" value="admin/ordo/campaign/delete/entity_id/{$grabRecurringCampaignId}"/>
+            <argument name="successMessage" value="The campaign has been deleted."/>
+        </actionGroup>
+    </test>
+</tests>

@@ -11,10 +11,11 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except six ⬜ (the Campaign export row,
-the predictive send-time optimization row in §1d, the Segment export row in §2,
-and the three Scheduled Campaign Calendar rows in §21 — all unit-tested but no
-MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
+**Status: every row below is ✅ except twelve ⬜ (the Campaign export row, the predictive
+send-time optimization row in §1d, the Segment export row in §2, three §22 webhook
+action/signature-validator rows, the §23 inbound WhatsApp `messages` row and its Conversations
+grid row, and the §24 `PriceWatchSubscriptionManager::register()` idempotency row — all
+unit-tested but no MFTF/integration coverage yet).** Re-audit this against `etc/di.xml`/
 `Controller/Adminhtml/*`/`etc/events.xml` periodically rather than trusting it at face value — add a row (⬜)
 for anything newly added before considering it done.
 
@@ -345,9 +346,9 @@ module's.
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| A `scheduled_at` trigger is plotted on its own day, marked "past" or "upcoming" relative to now                  | ⬜ unit-tested (`CampaignScheduleCalendarViewModelTest`), no MFTF yet     |
-| A `recurring_schedule` trigger is expanded across every matching day in the visible month                        | ⬜ unit-tested (`CampaignScheduleCalendarViewModelTest`), no MFTF yet     |
-| Month navigation (prev/next) reads/writes the `month` GET param and steps by exactly one month                  | ⬜ unit-tested (`CampaignScheduleCalendarViewModelTest`), no MFTF yet     |
+| A `scheduled_at` trigger is plotted on its own day, marked "past" or "upcoming" relative to now                  | ✅ `AdminScheduledCampaignCalendarTest` |
+| A `recurring_schedule` trigger is expanded across every matching day in the visible month                        | ✅ `AdminScheduledCampaignCalendarTest` |
+| Month navigation (prev/next) reads/writes the `month` GET param and steps by exactly one month                  | ✅ `AdminScheduledCampaignCalendarTest` |
 
 ## 22. Webhook action/trigger (`Model/Campaign/Action/SendWebhook.php`, `Controller/Webhook/Receive.php`, `Model/Webhook/WebhookSignatureValidator.php`)
 
