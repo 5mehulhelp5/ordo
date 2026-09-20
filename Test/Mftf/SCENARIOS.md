@@ -431,10 +431,10 @@ layer.
 
 | Scenario                                                                                                       | Status                                                                    |
 |------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| `/ordo/track/registerpushsubscription` registers a real anonymous visitor subscription (`endpoint`/`p256dh`/`auth`), rejects a missing field, rejects when push is disabled, rejects a non-public/non-HTTPS `endpoint` (the SSRF guard — `PushEndpointValidator`) | ⬜ not covered — no MFTF yet |
+| `/ordo/track/registerpushsubscription` registers a real anonymous visitor subscription (`endpoint`/`p256dh`/`auth`), rejects a missing field, rejects when push is disabled, rejects a non-public/non-HTTPS `endpoint` (the SSRF guard — `PushEndpointValidator`) | ✅ `AdminPushSubscriptionLifecycleTest` |
 | A logged-in registration requires a same-origin Origin/Referer (no page-rendered `form_key` on this bare `fetch()` call — see the controller's own docblock for why this differs from the anonymous case) | ⬜ not covered — no MFTF yet |
-| `/ordo/track/unregisterpushsubscription` removes a subscription by `endpoint`                                    | ⬜ not covered — no MFTF yet |
-| `/ordo/track/pushserviceworker` serves `push-sw.js` with a real `Service-Worker-Allowed: /` response header (widens the service worker's own default same-directory scope to the whole origin) | ⬜ not covered — no MFTF yet |
+| `/ordo/track/unregisterpushsubscription` removes a subscription by `endpoint`                                    | ✅ `AdminPushSubscriptionLifecycleTest` |
+| `/ordo/track/pushserviceworker` serves `push-sw.js` with a real `Service-Worker-Allowed: /` response header (widens the service worker's own default same-directory scope to the whole origin) | ✅ `AdminPushSubscriptionLifecycleTest` |
 
 ## 28. Campaign split action / A-B testing (`Model/CampaignDispatcher.php::runSplit()`, `Model/Campaign/SplitVariantSelector.php`)
 

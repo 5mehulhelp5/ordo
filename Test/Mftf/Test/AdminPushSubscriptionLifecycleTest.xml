@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminPushSubscriptionLifecycleTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Web push subscription lifecycle"/>
+            <title value="An anonymous visitor's push subscription registration is rejected when disabled, rejected for a missing field, rejected for a non-public/non-HTTPS endpoint (the SSRF guard), accepted when genuinely valid, and removable - and the service worker is served with the real Service-Worker-Allowed header"/>
+            <description value="Closes SCENARIOS.md #27's registration/unregistration/service-worker rows. A real anonymous storefront page load first (tracker.js's own real page-view tracking sets the real ordo_visitor_id cookie every one of these calls needs an identity to attach to - Model\Track\VisitorIdentityResolver::hasNoIdentity() rejects a call with no cookie and no session, so this can't be skipped). Every registration attempt is fired as a real fetch() from within that same real browser session (the exact call tracker.js's own registerPushSubscription() makes), not reimplemented server-side - PushEndpointValidator only requires a resolvable, public HTTPS host, not that it's an actual push service (see that class's own docblock), so a real public HTTPS URL exercises the real endpoint/validator/persistence path end to end without needing a live push service. PushSubscriptionTestHelper reads ordo_push_subscription directly by endpoint_hash (Codeception/Selenium exposes rendered content, not a fetch() call's own resolved JSON, back to a test)."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="dashboard"/>
+        </annotations>
+        <before>
+            <magentoCLI command="config:set ordo_automation/push/enabled 0" stepKey="disablePushBefore"/>
+        </before>
+        <after>
+            <magentoCLI command="config:set ordo_automation/push/enabled 0" stepKey="disablePushAfter"/>
+        </after>
+
+        <!-- A real anonymous page load - sets the real ordo_visitor_id cookie every case below
+             needs. -->
+        <amOnPage url="/" stepKey="goToStorefrontHomepage"/>
+        <waitForPageLoad stepKey="waitForStorefrontHomepage"/>
+
+        <!-- Case A: push disabled - rejected regardless of an otherwise-fully-valid payload. -->
+        <executeJS function="fetch('/ordo/track/registerpushsubscription', {method: 'POST', credentials: 'same-origin', body: new URLSearchParams({endpoint: 'https://example.com/ordo-lifecycle-test-disabled', p256dh: 'fake-p256dh-key-value', auth: 'fake-auth-key-value'})});" stepKey="attemptRegisterWhileDisabled"/>
+        <wait time="1" stepKey="waitForDisabledAttemptPersisted"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterDisabledAttempt">
+            <argument name="endpoint">https://example.com/ordo-lifecycle-test-disabled</argument>
+        </helper>
+        <assertEquals stepKey="assertNoRowWhileDisabled">
+            <expectedResult type="int">0</expectedResult>
+            <actualResult type="variable">countAfterDisabledAttempt</actualResult>
+        </assertEquals>
+
+        <magentoCLI command="config:set ordo_automation/push/enabled 1" stepKey="enablePush"/>
+
+        <!-- Case B: a missing required field ("auth" omitted) - rejected. -->
+        <executeJS function="fetch('/ordo/track/registerpushsubscription', {method: 'POST', credentials: 'same-origin', body: new URLSearchParams({endpoint: 'https://example.com/ordo-lifecycle-test-missing-field', p256dh: 'fake-p256dh-key-value'})});" stepKey="attemptRegisterMissingField"/>
+        <wait time="1" stepKey="waitForMissingFieldAttemptPersisted"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterMissingFieldAttempt">
+            <argument name="endpoint">https://example.com/ordo-lifecycle-test-missing-field</argument>
+        </helper>
+        <assertEquals stepKey="assertNoRowForMissingField">
+            <expectedResult type="int">0</expectedResult>
+            <actualResult type="variable">countAfterMissingFieldAttempt</actualResult>
+        </assertEquals>
+
+        <!-- Case C: a non-HTTPS, non-public endpoint - PushEndpointValidator's own SSRF guard
+             rejects it (the classic 169.254.169.254 cloud-metadata target, over plain http). -->
+        <executeJS function="fetch('/ordo/track/registerpushsubscription', {method: 'POST', credentials: 'same-origin', body: new URLSearchParams({endpoint: 'http://169.254.169.254/latest/meta-data/', p256dh: 'fake-p256dh-key-value', auth: 'fake-auth-key-value'})});" stepKey="attemptRegisterSsrfEndpoint"/>
+        <wait time="1" stepKey="waitForSsrfAttemptPersisted"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterSsrfAttempt">
+            <argument name="endpoint">http://169.254.169.254/latest/meta-data/</argument>
+        </helper>
+        <assertEquals stepKey="assertNoRowForSsrfEndpoint">
+            <expectedResult type="int">0</expectedResult>
+            <actualResult type="variable">countAfterSsrfAttempt</actualResult>
+        </assertEquals>
+
+        <!-- Case D: enabled, real public HTTPS endpoint, all fields present - accepted, a real
+             row created (anonymous - customer_id empty). Unlike cases A/B/C, this is the only
+             one that reaches PushEndpointValidator::isAllowed()'s live DNS lookup for a real
+             hostname (A/B fail before that check; C's endpoint is already an IP literal, which
+             skips DNS resolution) - that's real outbound network latency a flat 1-second wait
+             doesn't reliably cover, confirmed by reproducing this exact call as a synchronous
+             XHR (which blocks until the response actually arrives) and seeing a real {"ok":true}
+             with the row already committed. -->
+        <executeJS function="fetch('/ordo/track/registerpushsubscription', {method: 'POST', credentials: 'same-origin', body: new URLSearchParams({endpoint: 'https://example.com/ordo-lifecycle-test-valid', p256dh: 'fake-p256dh-key-value', auth: 'fake-auth-key-value'})});" stepKey="registerValidSubscription"/>
+        <wait time="5" stepKey="waitForValidRegisterPersisted"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterValidRegister">
+            <argument name="endpoint">https://example.com/ordo-lifecycle-test-valid</argument>
+        </helper>
+        <assertEquals stepKey="assertRowCreatedForValidRegister">
+            <expectedResult type="int">1</expectedResult>
+            <actualResult type="variable">countAfterValidRegister</actualResult>
+        </assertEquals>
+
+        <!-- Case E: unregister removes it. Same async-fetch-plus-fixed-wait shape as case D
+             above - a plain wait of 1 second was observed to be too short here too, even though
+             this controller does no network/DNS work of its own (confirmed via
+             Controller\Track\UnregisterPushSubscription's own source), so this is real request-
+             handling latency in this environment rather than anything endpoint-specific. -->
+        <executeJS function="fetch('/ordo/track/unregisterpushsubscription', {method: 'POST', credentials: 'same-origin', body: new URLSearchParams({endpoint: 'https://example.com/ordo-lifecycle-test-valid'})});" stepKey="unregisterSubscription"/>
+        <wait time="5" stepKey="waitForUnregisterPersisted"/>
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\PushSubscriptionTestHelper" method="countSubscriptionsForEndpoint" stepKey="countAfterUnregister">
+            <argument name="endpoint">https://example.com/ordo-lifecycle-test-valid</argument>
+        </helper>
+        <assertEquals stepKey="assertRowGoneAfterUnregister">
+            <expectedResult type="int">0</expectedResult>
+            <actualResult type="variable">countAfterUnregister</actualResult>
+        </assertEquals>
+
+        <!-- Service worker: served with the real Service-Worker-Allowed header widening its
+             default same-directory scope to the whole origin. -->
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\RawHttpTestHelper" method="getResponseHeader" stepKey="grabServiceWorkerAllowedHeader">
+            <argument name="url">{{_ENV.MAGENTO_BASE_URL}}ordo/track/pushserviceworker</argument>
+            <argument name="headerName">Service-Worker-Allowed</argument>
+        </helper>
+        <assertEquals stepKey="assertServiceWorkerAllowedIsRoot">
+            <expectedResult type="string">/</expectedResult>
+            <actualResult type="variable">grabServiceWorkerAllowedHeader</actualResult>
+        </assertEquals>
+    </test>
+</tests>
