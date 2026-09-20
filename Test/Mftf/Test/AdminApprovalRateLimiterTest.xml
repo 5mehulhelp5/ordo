@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="urn:magento:mftf:Test/etc/testSchema.xsd">
+    <test name="AdminApprovalRateLimiterTest">
+        <annotations>
+            <features value="Ordo Automation"/>
+            <stories value="Order approval"/>
+            <title value="Repeated attempts against the same approval token+IP are rate-limited instead of looking up the token forever"/>
+            <description value="Closes SCENARIOS.md §6's Approval rate-limit gap. ApprovalRateLimiter::isAllowed() (keyed by token+IP, MAX_ATTEMPTS=10 per 900-second window) is enforced BEFORE the token is even looked up (OrderApprovalManagement::approveByToken() calls enforceRateLimit() first) - so it counts every attempt regardless of outcome, including an already-used token's own 'invalid or already-used' response (see AdminApproveOrderViaEmailTest, whose own second follow-the-same-link step is attempt #2 toward this exact same counter). A real order/approval email/token round trip is set up exactly like that test, then the same link is followed 9 MORE times (bringing the real count from 2 to 11) - the 11th attempt is the first to see the count already at MAX_ATTEMPTS, so ApprovalRateLimiter blocks it and the controller redirects home with 'Too many attempts' instead of ever reaching the (already-used, but now irrelevant) token lookup."/>
+            <severity value="MAJOR"/>
+            <group value="ordo_automation"/>
+            <group value="campaign3"/>
+        </annotations>
+        <before>
+            <createData entity="OrdoApprovalCustomer" stepKey="createCustomer"/>
+            <createData entity="SimpleProduct2" stepKey="createProduct"/>
+        </before>
+        <after>
+            <deleteData createDataKey="createCustomer" stepKey="deleteCustomer"/>
+            <deleteData createDataKey="createProduct" stepKey="deleteProduct"/>
+        </after>
+
+        <!-- Step 1: a real held order and a real approve link, exactly like
+             AdminApproveOrderViaEmailTest. -->
+        <actionGroup ref="LoginToStorefrontActionGroup" stepKey="loginAsCustomer">
+            <argument name="Customer" value="$$createCustomer$$"/>
+        </actionGroup>
+        <amOnPage url="$createProduct.custom_attributes[url_key]$.html" stepKey="goToProductPage"/>
+        <waitForPageLoad stepKey="waitForProductPage"/>
+        <actionGroup ref="AddToCartFromStorefrontProductPageActionGroup" stepKey="addProductToCart">
+            <argument name="productName" value="$createProduct.name$"/>
+        </actionGroup>
+        <amOnPage url="checkout/cart" stepKey="goToCart"/>
+        <waitForPageLoad stepKey="waitForCartPage"/>
+        <actionGroup ref="PlaceOrderWithLoggedUserActionGroup" stepKey="placeRealOrder"/>
+
+        <helper class="\Ordo\Automation\Test\Mftf\Helper\MailHogHelper" method="grabLinkFromLatestEmail" stepKey="grabApproveUrl">
+            <argument name="linkText">Approve</argument>
+            <argument name="toAddress">approver@example.com</argument>
+        </helper>
+
+        <!-- Step 2: attempt #1 - the token is real and still pending, so this genuinely
+             approves the order (and counts as the first rate-limit attempt). -->
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt1"/>
+        <waitForPageLoad stepKey="waitForAttempt1Redirect"/>
+        <see selector=".message-success" userInput="has been approved" stepKey="seeApprovalSuccessMessage"/>
+
+        <!-- Step 3: attempts #2 through #10 - the token is already used now, so each of these
+             gets the "already used" response (AdminApproveOrderViaEmailTest's own second follow
+             is this same attempt #2) - but the rate limiter still counts every one of them,
+             regardless of that outcome, since enforceRateLimit() runs before the token lookup. -->
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt2"/>
+        <waitForPageLoad stepKey="waitForAttempt2Redirect"/>
+        <see selector=".message-error" userInput="already been used or is invalid" stepKey="seeAlreadyUsedAttempt2"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt3"/>
+        <waitForPageLoad stepKey="waitForAttempt3Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt4"/>
+        <waitForPageLoad stepKey="waitForAttempt4Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt5"/>
+        <waitForPageLoad stepKey="waitForAttempt5Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt6"/>
+        <waitForPageLoad stepKey="waitForAttempt6Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt7"/>
+        <waitForPageLoad stepKey="waitForAttempt7Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt8"/>
+        <waitForPageLoad stepKey="waitForAttempt8Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt9"/>
+        <waitForPageLoad stepKey="waitForAttempt9Redirect"/>
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt10"/>
+        <waitForPageLoad stepKey="waitForAttempt10Redirect"/>
+        <see selector=".message-error" userInput="already been used or is invalid" stepKey="seeAlreadyUsedAttempt10"/>
+
+        <!-- Step 4: attempt #11 - the count is now genuinely at MAX_ATTEMPTS (10), so this one
+             is blocked by the rate limiter itself, before the (still-irrelevant) token lookup
+             ever runs - the real, merchant-visible proof only a genuine rate-limit hit could
+             have produced. -->
+        <amOnUrl url="{$grabApproveUrl}" stepKey="followApproveLinkAttempt11"/>
+        <waitForPageLoad stepKey="waitForAttempt11Redirect"/>
+        <see selector=".message-error" userInput="Too many attempts" stepKey="seeRateLimitedMessage"/>
+
+        <!-- Same reasoning as AdminApproveOrderViaEmailTest.xml's identical closing step: this
+             test's real order publishes an order_placed dispatch message it never needed to
+             drain for its own assertions, which would otherwise leak into a LATER test's queue
+             drain and replay against whatever campaigns exist by then. -->
+        <magentoCLI command="queue:consumers:start ordo.automation.campaign.dispatch --max-messages=50" stepKey="drainCampaignDispatchQueue"/>
+    </test>
+</tests>
