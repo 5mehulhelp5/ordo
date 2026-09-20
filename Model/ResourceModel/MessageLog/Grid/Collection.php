@@ -89,10 +89,14 @@ class Collection extends SearchResult
      * function-call expression like CONCAT(...) into more invalid SQL, confirmed via a real
      * second failed attempt. prepareSqlCondition() against the raw expression directly is the
      * correct tool for a genuinely computed column.
+     *
+     * @param string|array<int|string, mixed> $field
+     * @param string|array<string, mixed>|null $condition
+     * @return $this
      */
     public function addFieldToFilter($field, $condition = null)
     {
-        if ($field === 'customer_name') {
+        if ($field === 'customer_name' && $condition !== null) {
             $this->getSelect()->where(
                 $this->getConnection()->prepareSqlCondition(self::CUSTOMER_NAME_EXPR, $condition)
             );

@@ -72,10 +72,14 @@ class Collection extends SearchResult
      * the correct tool for a genuinely computed column. Model\ResourceModel\MessageLog\Grid\
      * Collection has the identical join/alias shape and the identical latent bug, fixed the same
      * way in that class.
+     *
+     * @param string|array<int|string, mixed> $field
+     * @param string|array<string, mixed>|null $condition
+     * @return $this
      */
     public function addFieldToFilter($field, $condition = null)
     {
-        if ($field === 'customer_name') {
+        if ($field === 'customer_name' && $condition !== null) {
             $this->getSelect()->where(
                 $this->getConnection()->prepareSqlCondition(self::CUSTOMER_NAME_EXPR, $condition)
             );
