@@ -84,4 +84,60 @@ class CronScheduleHelper extends Helper
         );
         $statement->execute(['campaign_id' => $campaignId]);
     }
+
+    /**
+     * Same idea as backdateMostRecentScheduledAction() above, for
+     * Cron\RetryFailedCampaignActions' own ordo_campaign_action_retry table: ActionRetryQueue::
+     * enqueue() writes next_retry_at as a real NOW() + backoff-minutes (5 minutes on the first
+     * attempt, see ActionRetryQueue::BASE_DELAY_MINUTES), which Collection::addDueFilter() checks
+     * literally - forcing the cron job to run via scheduleJobNow() alone finds nothing due
+     * without also backdating this row's own data.
+     */
+    public function backdateMostRecentActionRetry(
+        string $campaignId,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'UPDATE ordo_campaign_action_retry SET next_retry_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) '
+            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id DESC LIMIT 1'
+        );
+        $statement->execute(['campaign_id' => $campaignId]);
+    }
+
+    /**
+     * Same idea as backdateMostRecentActionRetry() above, for Cron\RetryFailedMessageSends' own
+     * ordo_message_send_retry table - which has no campaign_id column at all (see
+     * CampaignActionCorruptorHelper::setMostRecentMessageSendRetryParams()'s own docblock), so
+     * this targets the most recent row for the given action_type instead.
+     */
+    public function backdateMostRecentMessageSendRetry(
+        string $actionType,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'UPDATE ordo_message_send_retry SET next_retry_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) '
+            . 'WHERE action_type = :action_type ORDER BY entity_id DESC LIMIT 1'
+        );
+        $statement->execute(['action_type' => $actionType]);
+    }
 }

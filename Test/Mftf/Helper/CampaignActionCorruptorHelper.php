@@ -48,4 +48,66 @@ class CampaignActionCorruptorHelper extends Helper
         );
         $statement->execute(['type' => $bogusType, 'campaign_id' => $campaignId]);
     }
+
+    /**
+     * Rewrites a just-created campaign's first action row's own params - same
+     * ORDER BY entity_id ASC targeting/reasoning as corruptFirstActionType() above. Unlike that
+     * method (which simulates a whole action type disappearing, a path CampaignDispatcher's own
+     * runOneAction() logs-and-skips rather than throws - see AdminCampaignUnknownActionTypeFailsClosedTest),
+     * this simulates a genuinely-throwing failure inside a real, still-registered action's own
+     * execute() - e.g. an oversized value tripping a real column-length DB error - the shape
+     * Cron\RunScheduledCampaignActions' own try/catch and Model\Campaign\ActionRetryQueue exist
+     * for (see AdminRetryFailedCampaignActionsTest).
+     */
+    public function setFirstActionParams(
+        string $campaignId,
+        string $paramsJson,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'UPDATE ordo_campaign_action SET params = :params '
+            . 'WHERE campaign_id = :campaign_id ORDER BY entity_id ASC LIMIT 1'
+        );
+        $statement->execute(['params' => $paramsJson, 'campaign_id' => $campaignId]);
+    }
+
+    /**
+     * Same "fix the stored params between two forced cron runs" idea as setFirstActionParams()
+     * above, for ordo_message_send_retry instead of ordo_campaign_action - that table has no
+     * campaign_id column at all (a single retry row is a self-contained action_type+context+
+     * params snapshot, re-run standalone by Cron\RetryFailedMessageSends, see that table's own
+     * db_schema.xml comment), so this targets the most recent row for the given action_type
+     * instead (see AdminRetryFailedMessageSendsTest).
+     */
+    public function setMostRecentMessageSendRetryParams(
+        string $actionType,
+        string $paramsJson,
+        string $dbHost = '127.0.0.1',
+        string $dbName = 'magento',
+        string $dbUser = 'root',
+        string $dbPassword = ''
+    ): void {
+        $pdo = new \PDO(
+            "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+            $dbUser,
+            $dbPassword,
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+        );
+
+        $statement = $pdo->prepare(
+            'UPDATE ordo_message_send_retry SET params = :params '
+            . 'WHERE action_type = :action_type ORDER BY entity_id DESC LIMIT 1'
+        );
+        $statement->execute(['params' => $paramsJson, 'action_type' => $actionType]);
+    }
 }

@@ -11,9 +11,8 @@ jobs — not guessed from memory. Each scenario is marked:
 
 Cross-reference: `ROADMAP.md`'s "Test coverage" section for the standing priority list this feeds.
 
-**Status: every row below is ✅ except one 🔴 (see §10) and eighteen ⬜ (the Campaign export row,
-the predictive send-time optimization row in §1d, the
-`RetryFailedCampaignActions` row in §11, the Approval rate-limit row and the Order Approvals grid
+**Status: every row below is ✅ except one 🔴 (see §10) and sixteen ⬜ (the Campaign export row,
+the predictive send-time optimization row in §1d, the Approval rate-limit row and the Order Approvals grid
 in §6, the Segment Overlap page and Segment export row in §2, the WhatsApp Template Body Text
 preview panel in §15, the two Template Test Send rows in §16, the two Cron Run Log rows in §17,
 the four Product feed rows in §18, the three Admin Action Log rows in §19, the two Setup
@@ -255,8 +254,8 @@ than retrofitted into an existing section, since neither fits §1-§9's shape.
 | `TagInactiveCustomers`       | Tags customers inactive past the configured window           | ✅ `AdminTagInactiveCustomersAndWinBackEmailTest` (same test — the two crons are tightly coupled, see its own description) |
 | `SendAbandonedCartReminders` | Also the source of the `cart_abandoned` trigger (§1a)        | ✅ `AdminSendAbandonedCartReminderAndTriggerTest`                                                                          |
 | `SendBrowseAbandonmentReminders` | Also the source of the `browse_abandoned` trigger (§1a) — no reminder email of its own, dispatch-only | ✅ `AdminBrowseAbandonmentReminderAndTriggerTest` |
-| `RetryFailedCampaignActions` | Re-attempts an `ordo_campaign_action_retry` row with backoff, deletes it on success, dead-letters it after 5 attempts | ⬜ unit-tested (`RetryFailedCampaignActionsTest`, `ActionRetryQueueTest`), no MFTF yet |
-| `RetryFailedMessageSends`    | Re-attempts an `ordo_message_send_retry` row (exhausted send_email/send_sms/send_whatsapp) with backoff, deletes it on success, dead-letters it after 5 attempts | ⬜ unit-tested (`RetryFailedMessageSendsTest`, `MessageSendRetryQueueTest`), no MFTF yet - same shape as `RetryFailedCampaignActions` above |
+| `RetryFailedCampaignActions` | Re-attempts an `ordo_campaign_action_retry` row with backoff, deletes it on success, dead-letters it after 5 attempts | ✅ `AdminRetryFailedCampaignActionsTest` |
+| `RetryFailedMessageSends`    | Re-attempts an `ordo_message_send_retry` row (exhausted send_email/send_sms/send_whatsapp) with backoff, deletes it on success, dead-letters it after 5 attempts | ✅ `AdminRetryFailedMessageSendsTest` |
 | `RecomputeClvScores`         | Refreshes `ordo_customer_clv_score` (CLV projections), feeds only the Dashboard's "Average projected CLV" stat — `clv_at_least` reads live, never this table | ✅ `AdminRecomputeClvScoresReflectsInDashboardTest`                                                                 |
 | `PruneCronRunLog`            | Deletes `ordo_cron_run_log` rows past the 30-day retention window | ⬜ unit-tested (`PruneCronRunLogTest`), no MFTF yet — same reasoning as the other `Prune*` crons: no browser-observable effect beyond the grid no longer showing pruned rows |
 
