@@ -7,6 +7,21 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Cross-channel fallback for cart abandonment (ROADMAP.md candidate)** — new
+  `Cron\SendAbandonedCartFallbackReminders` (off by default,
+  `ordo_automation/abandoned_cart/fallback_enabled`). The fixed abandoned-cart reminder email
+  (`Cron\SendAbandonedCartReminders`) is now logged to `ordo_message_log` with a real Message-ID,
+  the same open-tracking correlation `Model\Campaign\Action\SendEmail` already uses, for any
+  registered customer's reminder — the resulting `message_log_id` is stored on the reminder's own
+  log row (`ordo_abandoned_cart_reminder_log`, two new columns). Once a configurable delay has
+  passed (`fallback_delay_hours`, default 24) with no real "opened" event
+  (`ordo_message_log_event`), the fallback cron sends via the real `send_sms`/`send_whatsapp`
+  campaign actions directly (a merchant picks one channel, `fallback_channel`) — consent,
+  frequency-cap, and quiet-hours gating all apply exactly as a real campaign send would. A guest
+  quote's reminder is never logged with a `message_log_id` in the first place (no customer record
+  to resolve a phone number from), so fallback only ever applies to registered customers, the same
+  limitation the fixed reminder's own campaign dispatch already has.
+
 - **Auto-pick a winner for A/B-split campaign variants (ROADMAP.md candidate)** — new
   `Model\Campaign\SplitWinnerCalculator` and `Cron\AutoPickCampaignSplitWinner` (off by default,
   `ordo_automation/ab_test/auto_winner_enabled`). The manual, weighted `split` campaign action
