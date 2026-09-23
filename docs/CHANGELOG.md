@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **MFTF: scheduled campaign trigger real-fire (`AdminScheduledCampaignTriggerRealFireTest`)** — closes
+  SCENARIOS.md §11's last cron gap. `AdminScheduledCampaignCalendarTest` only ever covered the read-only calendar
+  preview; nothing confirmed `Cron\DispatchScheduledCampaignTriggers`/`Model\Campaign\ScheduledTriggerScanner`
+  actually dispatch a due `scheduled_at` trigger's campaign. Since a scheduled trigger's own dispatch context
+  carries no customer/visitor id, `generate_coupon` is used as the one real, non-customer-scoped, externally
+  observable action (same "Manage Coupon Codes" grid idiom `AdminCampaignScenarioEndToEndTest` already
+  established) — the cron is then forced a second time with no config change to prove `scheduled_at` fires at
+  most once ever, not twice.
 - **MFTF: Reorder Cycle manual admin actions (`AdminReorderCycleManualActionsTest`)** — closes SCENARIOS.md §8's
   three remaining gaps: "Recalculate Now" (`Controller\Adminhtml\ReorderCycle\RecalculateNow`, a synchronous
   re-run), "Send Reminder Now" (a real email outside the cron's own schedule), and "Build Cart" (populates a real
