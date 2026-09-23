@@ -47,22 +47,30 @@ class CampaignSendSmsActionTest extends TestCase
             }
             $this->customerId = null;
         }
+    }
 
-        // Restore — sms/enabled has no <config_data> default, so it's unset/false unless a test
-        // turns it on; leaving it flipped on would leak into every other test run afterward.
-        self::$objectManager->get(\Magento\Framework\App\MutableScopeConfig::class)
-            ->setValue('ordo_automation/sms/enabled', 0, \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    /**
+     * Real magento-integration-test-lite MutableScopeConfig override, done correctly this time:
+     * two real CI runs (diagnostic instrumented) proved $objectManager->get(MutableScopeConfig::
+     * class)->setValue(...) does NOT affect what Helper\Config's own injected ScopeConfigInterface
+     * sees in this install - they resolve to two genuinely different object instances
+     * (Magento\Framework\App\MutableScopeConfig vs. Magento\Framework\App\Config), exactly the
+     * pitfall the skill's own docs warn about. The only way that's proven to actually work is
+     * constructing the SAME MutableScopeConfig instance and passing it explicitly as Helper\
+     * Config's own scopeConfig constructor argument.
+     */
+    private function createConfigWithSmsEnabled(): \Ordo\Automation\Helper\Config
+    {
+        $scopeConfig = self::$objectManager->create(\Magento\Framework\App\MutableScopeConfig::class);
+        $scopeConfig->setValue('ordo_automation/sms/enabled', 1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+        return self::$objectManager->create(\Ordo\Automation\Helper\Config::class, [
+            'scopeConfig' => $scopeConfig,
+        ]);
     }
 
     public function testExecuteSendsSmsToTheRealCustomersConfiguredPhone(): void
     {
-        // See magento-testing:magento-integration-test-lite — MutableScopeConfig is the real,
-        // controlled config source this lite integration-test pattern uses instead of mocking
-        // ScopeConfigInterface, so Config::isSmsEnabled() (real DI, reads real scope config)
-        // sees this the same way it would see an admin actually enabling the feature.
-        self::$objectManager->get(\Magento\Framework\App\MutableScopeConfig::class)
-            ->setValue('ordo_automation/sms/enabled', 1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-
         $customerRepository = self::$objectManager->get(\Magento\Customer\Api\CustomerRepositoryInterface::class);
         $customerFactory = self::$objectManager->get(\Magento\Customer\Api\Data\CustomerInterfaceFactory::class);
         $storeManager = self::$objectManager->get(\Magento\Store\Model\StoreManagerInterface::class);
@@ -83,11 +91,21 @@ class CampaignSendSmsActionTest extends TestCase
         $saved->setCustomAttribute(AddCustomerSmsPhoneAttribute::ATTRIBUTE_CODE, '+15551234567');
         $customerRepository->save($saved);
 
+        // CustomerRepository caches the entity it just saved in Magento\Customer\Model\
+        // CustomerRegistry, keyed by id - a later getById() for the same id in this same process
+        // (SendSms::execute()'s own call below) returns that cached instance instead of
+        // re-reading the database, which is fine when it's the same object reflecting the save
+        // above, but removing it here forces a genuinely fresh DB read regardless - confirmed
+        // via a real CI run that this was needed for the custom attribute to actually show up.
+        self::$objectManager->get(\Magento\Customer\Model\CustomerRegistry::class)
+            ->remove($this->customerId);
+
         $recordingSender = self::$objectManager->create(RecordingTwilioSmsSender::class);
 
         /** @var SendSms $action */
         $action = self::$objectManager->create(SendSms::class, [
             'smsSender' => $recordingSender,
+            'config' => $this->createConfigWithSmsEnabled(),
         ]);
 
         $context = ['customer_id' => $this->customerId];
