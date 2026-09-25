@@ -7,6 +7,28 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Responsive breakpoints for the GDPR search field, campaign calendar table, and campaign schedule
+  calendar** (round-2 admin UI/UX audit, ROADMAP.md) — `dashboard.css`'s `.ordo-input` had a fixed 320px
+  `min-width` that overflowed a narrow admin viewport instead of ever shrinking; `campaign_calendar.css`'s
+  table had no fallback below tablet width (now scrolls horizontally instead of squeezing);
+  `campaign_schedule_calendar.css`'s 7-column month grid didn't shrink its per-day min-height/padding or
+  let its nav/legend rows wrap. `flow.css` already had the module's only breakpoint; `segment-form.css`,
+  `campaign-form.css`, `whatsapp-template-form.css`, `free-gift-offer-form.css` are noted on ROADMAP.md as
+  lower-priority (they already lean on `flex-wrap` throughout).
+
+- **CSV/XML export on the Admin Action Log, Cron Run Log, Order Approval, and Product Feed Run Log grids**
+  (round-2 admin UI/UX audit, ROADMAP.md) — these four listings had no `exportButton` at all, unlike every
+  other grid's bespoke export controller; added the standard `Magento_Ui` `exportButton` to each
+  `ui_component` listing (no new controller code needed, this is a built-in `mui/export/*` component).
+
+### Fixed
+
+- **GDPR "Erase all data" now uses Magento's own confirm modal instead of a native `confirm()`** —
+  `view/adminhtml/templates/gdpr/index.phtml`'s erase form relied on `onsubmit="return confirm(...)"`, the
+  only screen in the module doing so (every other destructive action, e.g. Segment's `DeleteButton`, uses
+  Magento's `mage/backend/confirm` modal via `data-mage-init`). Switched to the same `data-mage-init`
+  `confirm` widget pattern, submitting the form by id on confirmation.
+
 - **Real-time lead routing rules (ROADMAP.md candidate)** — automatic, rule-based, round-robin assignment of
   a qualifying lead to a sales rep at the moment they qualify (real storefront registration, or crossing the
   lead-score threshold), distinct from the existing `ordo_sales_rep_email` attribute + weekly
