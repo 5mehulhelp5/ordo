@@ -7,6 +7,26 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Referral/advocacy program** (ROADMAP.md candidate) — a customer gets a shareable 8-character referral
+  code (`Model\ReferralManager::getOrCreateCode()`, `Controller\Referral\MyCode`); a new customer who
+  registers after visiting `ordo/referral/track?ref=CODE` (code stashed on session, redeemed at
+  `customer_register_success` by `Observer\RedeemReferralCode`) is recorded as referred
+  (`ordo_referral`, `pending`). The referral converts - and a new `referral_converted` campaign trigger
+  publishes targeting the REFERRER - the first time the referred customer places an order
+  (`Observer\DispatchReferralConvertedCampaigns`, `Model\Referral\FirstOrderChecker`). No new action type:
+  a store wires `generate_coupon`/`add_points`/`send_email` onto the trigger via the existing campaign
+  builder, same as every other trigger-only feature in this module.
+
+- **Email template version history and restore** (ROADMAP.md candidate) — Magento's own email template
+  editor (Marketing > Email Templates) has no version history: saving overwrites the row in place, with no
+  way back if an edit breaks a template `send_email` relies on. New `Plugin\Email\SnapshotEmailTemplateVersion`
+  snapshots a template's subject/text/styles into `ordo_email_template_version` every time it's saved
+  (plugged onto `Magento\Email\Model\ResourceModel\Template::save()` directly, so it fires regardless of
+  which admin controller saved it), plus a read-only admin grid with a "Restore" mass action that copies a
+  past snapshot back onto the live template - restoring itself creates a fresh snapshot, so it's never a
+  dead end. Config-gated (default off): Stores > Configuration > Ordo Automation > Email Template Version
+  History.
+
 - **`review_request_due` campaign trigger** (ROADMAP.md candidate) — new `Cron\ScanReviewRequestDue` finds a
   registered customer's completed order (`sales_order.status = 'complete'`) once
   `ordo_automation/review_request/delay_days` has passed since it was placed, and dispatches the trigger once

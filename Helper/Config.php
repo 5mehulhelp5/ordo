@@ -33,6 +33,7 @@ class Config
 
     private const string XML_PATH_REVIEW_REQUEST_ENABLED = 'ordo_automation/review_request/enabled';
     private const string XML_PATH_REVIEW_REQUEST_DELAY_DAYS = 'ordo_automation/review_request/delay_days';
+    private const string XML_PATH_REFERRAL_ENABLED = 'ordo_automation/referral/enabled';
 
     private const string XML_PATH_OFFER_ENABLED = 'ordo_automation/offer/enabled';
     private const string XML_PATH_OFFER_LEAD_DAYS = 'ordo_automation/offer/lead_days';
@@ -110,6 +111,9 @@ class Config
     private const string XML_PATH_META_CATALOG_FEED_ENABLED = 'ordo_automation/meta_catalog_feed/enabled';
     private const string XML_PATH_META_CATALOG_FEED_DEFAULT_BRAND
         = 'ordo_automation/meta_catalog_feed/default_brand';
+
+    private const string XML_PATH_EMAIL_TEMPLATE_VERSIONING_ENABLED
+        = 'ordo_automation/email_template_versioning/enabled';
 
     private const string XML_PATH_EMAIL_SENDGRID_WEBHOOK_VERIFICATION_KEY
         = 'ordo_automation/email/sendgrid_webhook_verification_key';
@@ -350,6 +354,11 @@ class Config
     public function getReviewRequestDelayDays(?int $storeId = null): int
     {
         return $this->intConfig(self::XML_PATH_REVIEW_REQUEST_DELAY_DAYS, 14, $storeId);
+    }
+
+    public function isReferralEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(self::XML_PATH_REFERRAL_ENABLED, ScopeInterface::SCOPE_STORE, $storeId);
     }
 
     public function isOfferReminderEnabled(?int $storeId = null): bool
@@ -736,6 +745,15 @@ class Config
     {
         return $this->scopeConfig->isSetFlag(
             self::XML_PATH_META_CATALOG_FEED_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
+    }
+
+    public function isEmailTemplateVersioningEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_EMAIL_TEMPLATE_VERSIONING_ENABLED,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );
