@@ -27,12 +27,14 @@ class AddTag implements ActionInterface
             return;
         }
 
-        foreach ($tags as $tag) {
-            $tag = trim((string) $tag);
-            if ($tag !== '') {
-                $this->customerTagManager->addTag($customerId, $tag);
-            }
+        $tags = array_map(static fn (mixed $tag): string => trim((string) $tag), $tags);
+        $tags = array_values(array_filter($tags, static fn (string $tag): bool => $tag !== ''));
+
+        if ($tags === []) {
+            return;
         }
+
+        $this->customerTagManager->addTags($customerId, $tags);
     }
 
     public function getParamFields(): array
